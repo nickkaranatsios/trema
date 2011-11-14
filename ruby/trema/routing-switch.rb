@@ -65,7 +65,7 @@ class RoutingSwitch < Controller
 
   def process_link_status message
     @model_ds.process_link_status message
-    path_update message
+    update_path message
   end
   
 

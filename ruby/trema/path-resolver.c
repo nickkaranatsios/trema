@@ -103,6 +103,7 @@ path_resolve( VALUE self, VALUE in_dpid, VALUE in_port, VALUE out_dpid_id, VALUE
 }
 
 
+#ifdef TEST
 static VALUE
 update_path( VALUE self, VALUE from_dpid, VALUE to_dpid, VALUE from_portno, VALUE to_portno, VALUE status ) {
   topology_link_status *link_status = xmalloc( sizeof( topology_link_status ) );
@@ -114,6 +115,15 @@ update_path( VALUE self, VALUE from_dpid, VALUE to_dpid, VALUE from_portno, VALU
   link_status->status = ( uint8_t ) NUM2UINT( status );
   update_topology( handle, link_status );
   xfree( link_status );
+  return self;
+}
+#endif
+
+static VALUE
+update_path( VALUE self, VALUE message ) {
+  topology_link_status *_topology_link_status;
+  Data_Get_Struct( message, topology_link_status, _topology_link_status );
+  update_topology( handle, _topology_link_status );
   return self;
 }
 
@@ -132,7 +142,7 @@ Init_path_resolver() {
 
   rb_define_method( mPathResolver, "init_path_resolver", init_path_resolver, 0 );
   rb_define_method( mPathResolver, "path_resolve", path_resolve, 4 );
-  rb_define_method( mPathResolver, "update_path", update_path, 5 );
+  rb_define_method( mPathResolver, "update_path", update_path, 1 );
   rb_require( "trema/path-resolver" );
 }
 

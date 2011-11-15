@@ -95,7 +95,6 @@ Init_trema() {
   Init_controller();
   Init_path_resolver();
   Init_topology();
-
   Init_features_reply();
   Init_features_request();
   Init_set_config();

@@ -29,6 +29,7 @@
 
 extern VALUE cTopology;
 
+
 void Init_topology( void );
 
 

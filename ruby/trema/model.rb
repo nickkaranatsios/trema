@@ -1,15 +1,74 @@
+#
+# Author: Nick Karanatsios <nickkaranatsios@gmail.com>
+#
+# Copyright (C) 2008-2011 NEC Corporation
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License, version 2, as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+
 $LOAD_PATH << "./src/examples/learning_switch/"
 
 
 require "fdb"
 
+
 module Trema
   module Model
+    class Options
+      def self.parse args
+        new.parse!( args )
+      end
+
+
+      def initialize
+        @options = default_options
+      end
+
+
+      def parse!( args )
+        args.extend( ::OptionParser::Arguable )
+      end
+
+
+      def []( key )
+        @options[ key ]
+      end
+
+
+      def []=( value )
+        @options[ key ] = value
+      end
+
+
+      def options
+        @options
+      end
+      
+
+      def merge other
+        @options.merge other.options
+      end
+    end
+
+
     class PortDS
       TD_PORT_EXTERNAL = 1
       TD_LINK_UP = 1
       TD_PORT_UP = 1
       attr_accessor :port_no, :external_link, :switch_to_switch_link, :switch_to_switch_reverse_link
+
 
       def initialize port_no
         @port_no = port_no
@@ -49,6 +108,7 @@ module Trema
         @port_no == obj
       end
 
+
       # non_edge port
       def forwarding_port?
         @external_link == false and ( @switch_to_switch_link  == true and @switch_to_switch_link_reverse_link == true )
@@ -70,7 +130,7 @@ module Trema
       end
 
 
-	    def add_port_to_switch dpid, port, external_link
+      def add_port_to_switch dpid, port, external_link
         new_port = PortDS.new( port )
         new_port.external_link = external_link
         if @switches.has_key? dpid
@@ -149,3 +209,10 @@ module Trema
     end
   end
 end
+
+
+### Local variables:
+### mode: Ruby
+### coding: utf-8-unix
+### indent-tabs-mode: nil
+### End:

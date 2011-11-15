@@ -22,6 +22,7 @@
 #include "trema.h"
 #include "libpathresolver.h"
 
+
 extern VALUE mTrema;
 VALUE mPathResolver;
 VALUE cPathResolverHop;
@@ -33,7 +34,6 @@ init_path_resolver( VALUE self ) {
   handle = create_pathresolver();
   return self;
 }
-
 
 
 #if 0
@@ -64,7 +64,7 @@ static VALUE
 pathresolver_hop_dpid( VALUE self ) {
   return ULL2NUM( get_pathresolver_hop( self )->dpid );
 }
-  
+
 
 static VALUE
 pathresolver_hop_in_port_no( VALUE self ) {
@@ -83,7 +83,7 @@ path_resolve( VALUE self, VALUE in_dpid, VALUE in_port, VALUE out_dpid_id, VALUE
   UNUSED( self );
 
   if ( handle != NULL ) {
- 	  dlist_element *hops = resolve_path( handle, NUM2ULL( in_dpid ), ( uint16_t ) NUM2UINT( in_port ), NUM2ULL( out_dpid_id ), ( uint16_t ) NUM2UINT( out_port ) );
+    dlist_element *hops = resolve_path( handle, NUM2ULL( in_dpid ), ( uint16_t ) NUM2UINT( in_port ), NUM2ULL( out_dpid_id ), ( uint16_t ) NUM2UINT( out_port ) );
     if ( hops != NULL ) {
       VALUE pathresolver_hops_arr = rb_ary_new();
       for ( dlist_element *e = hops; e != NULL; e = e->next ) {
@@ -92,9 +92,9 @@ path_resolve( VALUE self, VALUE in_dpid, VALUE in_port, VALUE out_dpid_id, VALUE
         Data_Get_Struct( message, pathresolver_hop, tmp );
         memcpy( tmp, e->data,  sizeof( pathresolver_hop ) );
         rb_ary_push( pathresolver_hops_arr, message );
-        return pathresolver_hops_arr;
       }
-    } 
+      return pathresolver_hops_arr;
+    }
     else {
       return Qnil;
     }
@@ -118,6 +118,7 @@ update_path( VALUE self, VALUE from_dpid, VALUE to_dpid, VALUE from_portno, VALU
   return self;
 }
 #endif
+
 
 static VALUE
 update_path( VALUE self, VALUE message ) {
@@ -143,7 +144,6 @@ Init_path_resolver() {
   rb_define_method( mPathResolver, "init_path_resolver", init_path_resolver, 0 );
   rb_define_method( mPathResolver, "path_resolve", path_resolve, 4 );
   rb_define_method( mPathResolver, "update_path", update_path, 1 );
-  rb_require( "trema/path-resolver" );
 }
 
 

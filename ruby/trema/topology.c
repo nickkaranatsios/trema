@@ -125,7 +125,7 @@ static VALUE
 init_topology( VALUE self, VALUE service_name ) {
   int argc = 1;
   char **argv = xmalloc( sizeof ( char * ) * ( uint32_t ) ( argc + 1 ) );
-  argv[ 0 ] = STR2CSTR( service_name );
+  argv[ 0 ] = RSTRING_PTR( service_name );
   argv[ 1 ] = NULL; 
   
   init_topology_service_interface_options( &argc, &argv );

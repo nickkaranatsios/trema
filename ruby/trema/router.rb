@@ -19,14 +19,12 @@
 
 
 require "observer"
-require "model"
+require "trema/model"
 
 
 module Trema
   module Router
-    include PathResolver
-    include Topology
-    include Model
+    include PathResolver, Topology, Model
 
 
     def start_router options
@@ -149,9 +147,9 @@ module Trema
     def parse!( args )
       super
       args.options do |opts|
-      opts.on( "-i",
-        "--idle-timeout TIMEOUT",
-        "Idle timeout value for flow entry" ) do | t |
+        opts.on( "-i",
+          "--idle-timeout TIMEOUT",
+          "Idle timeout value for flow entry" ) do | t |
           @options[ :idle_timeout ] = t.to_i
         end
       end.parse!

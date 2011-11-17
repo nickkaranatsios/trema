@@ -35,7 +35,6 @@ include Trema::Util
 
 $verbose = false
 $run_as_daemon = false
-$extra_options = false
 
 
 class Trema::SubCommands
@@ -45,9 +44,8 @@ class Trema::SubCommands
   end
 
 
-  def run args
+  def run
     sanity_check
-puts "we are here #{args.inspect}"
 
     @options.banner = "Usage: #{ $0 } run [OPTIONS ...]"
 
@@ -56,13 +54,6 @@ puts "we are here #{args.inspect}"
     end
     @options.on( "-d", "--daemonize" ) do
       $run_as_daemon = true
-    end
-    (0...ARGV.length).step( 2 ) do | i |
-      if ARGV.grep( /-c/ )
-        @options.on( ARGV[ i ], ARGV[ i + 1 ] ) do 
-          $extra_options = true
-        end
-      end
     end
 
     @options.separator ""
@@ -342,11 +333,8 @@ EOL
       else
         # Ruby controller
         require "trema"
-#        require "application"
         ARGV.replace ARGV[ 0 ].split
         $LOAD_PATH << File.dirname( controller_file )
-#        Application.module_eval IO.read( controller_file )
-#        config.apps[Application::RoutingSwitch.instance.name] = Application::RoutingSwitch.instance
         Trema.module_eval IO.read( controller_file )
       end
     end

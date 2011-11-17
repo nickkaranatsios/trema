@@ -141,28 +141,6 @@ module Trema
       end
     end
   end
-
-
-  class RoutingSwitchOptions < Model::Options
-    def parse!( args )
-      super
-      args.options do |opts|
-        opts.on( "-i",
-          "--idle-timeout TIMEOUT",
-          "Idle timeout value for flow entry" ) do | t |
-          @options[ :idle_timeout ] = t.to_i
-        end
-      end.parse!
-      self
-    end
-
-
-    def default_options
-      {
-        :idle_timeout => 60
-      }
-    end
-  end
 end
 
 

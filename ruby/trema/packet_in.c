@@ -26,7 +26,9 @@
 
 extern VALUE mTrema;
 VALUE cPacketIn;
+#ifdef TEST
 VALUE cPacketInfo;
+#endif
 
 
 #if 0
@@ -198,6 +200,7 @@ packet_info_udp_src_port( VALUE self ) {
 }
 
 
+#ifdef TEST
 static VALUE
 packet_info_udp_dst_port( VALUE self ) {
   return UINT2NUM( get_cpacket_info( self )->udp_dst_port );
@@ -220,8 +223,7 @@ static VALUE
 packet_info_arp( VALUE self ) {
   return ( ( get_cpacket_info( self )->format & NW_ARP ) == NW_ARP ); 
 }
-
-
+#endif
 
 
 /*
@@ -230,8 +232,10 @@ packet_info_arp( VALUE self ) {
  * @return [PacketInfo] an object that encapsulates the packet_in's information.
  */
 static VALUE
-packet_in_packet_info( VALUE self ) {
-  return rb_iv_get( self, "@packet_info" );
+packet_in_packet_info( VALUE self, VALUE kclass ) {
+  packet_in *cpacket_in = get_packet_in( self );
+  packet_info _packet_info = get_packet_info( cpacket_in->data );
+  return Data_Wrap_Struct( kclass, 0, NULL, &_packet_info );
 }
 
 
@@ -239,7 +243,9 @@ void
 Init_packet_in() {
   rb_require( "trema/mac" );
   cPacketIn = rb_define_class_under( mTrema, "PacketIn", rb_cObject );
+#ifdef TEST
   cPacketInfo = rb_define_class_under( mTrema, "PacketInfo", rb_cObject );
+#endif
   rb_define_alloc_func( cPacketIn, packet_in_alloc );
 #if 0
   /*
@@ -258,13 +264,15 @@ Init_packet_in() {
   rb_define_method( cPacketIn, "data", packet_in_data, 0 );
   rb_define_method( cPacketIn, "macsa", packet_in_macsa, 0 );
   rb_define_method( cPacketIn, "macda", packet_in_macda, 0 );
-  rb_define_method( cPacketIn, "packet_info", packet_in_packet_info, 0 );
+  rb_define_method( cPacketIn, "packet_info", packet_in_packet_info, 1 );
 
+#ifdef TEST
   rb_define_method( cPacketInfo, "arp?", packet_info_arp, 0 );
   rb_define_method( cPacketInfo, "udp_src_port", packet_info_udp_src_port, 0 ); 
   rb_define_method( cPacketInfo, "udp_dst_port", packet_info_udp_dst_port, 0 ); 
   rb_define_method( cPacketInfo, "tcp_src_port", packet_info_tcp_src_port, 0 ); 
   rb_define_method( cPacketInfo, "tcp_dst_port", packet_info_tcp_dst_port, 0 ); 
+#endif
 }
 
 
@@ -283,8 +291,10 @@ handle_packet_in( uint64_t datapath_id, packet_in message ) {
   Data_Get_Struct( r_message, packet_in, tmp );
   memcpy( tmp, &message, sizeof( packet_in ) );
 
+#ifdef TEST
   packet_info _packet_info = get_packet_info( message.data );
   rb_iv_set( r_message, "@packet_info", Data_Wrap_Struct( cPacketInfo, 0, NULL, &_packet_info ) );
+#endif
 
   rb_funcall( controller, rb_intern( "packet_in" ), 2, ULL2NUM( datapath_id ), r_message );
 }

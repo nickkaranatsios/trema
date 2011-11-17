@@ -1,4 +1,5 @@
 require "router"
+require "packet-info"
 
 class RedirectableRoutingSwitch < Trema::Controller
   include Router
@@ -18,6 +19,9 @@ puts "start is called"
     return unless validate_in_port datapath_id, message.in_port
     return if message.macda.is_multicast?
     @fdb.learn message.macsa, message.in_port, datapath_id
+    packet_info = PacketInfo.new( message )
+    packet_info.udp_src_port
+exit
     if !Authenticator.authenticate_mac( message.macsa )
       # if the array list is empty call redirect otherwise skip redirection
       authentication_exempted = AuthenticationFilter.apply( message.packet_info )

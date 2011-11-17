@@ -18,7 +18,8 @@
 #
 
 
-require "router"
+require "trema/router"
+require "routing-switch-options"
 
 
 class RoutingSwitch < Controller

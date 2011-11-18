@@ -18,21 +18,21 @@
  */
 
 
-#ifndef PORT_MOD_H
-#define PORT_MOD_H
+#undef PACKET_INFO_H
+#ifndef PACKET_INFO_H
+#define PACKET_INFO_H
 
 
 #include "ruby.h"
-#include "trema.h"
 
 
-extern VALUE cPortMod;
+extern VALUE cPacketInfo;
 
 
-void Init_port_mod( void );
+void Init_packet_info( void );
 
 
-#endif // PORT_MOD_H
+#endif // PACKET_INFO_H
 
 
 /*

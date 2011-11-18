@@ -401,11 +401,23 @@ task :distclean => "rubylib:distclean"
 
 
 desc "Build ruby library."
-task :rubylib => "ruby/trema.so"
+task :rubylib => [ "ruby/trema.so", "ruby/packet_info.so" ]
 file "ruby/trema.so" => FileList[ "ruby/trema/*.c", "ruby/trema/*.h", libtrema ] do
   sys.cd "ruby" do
     sys "ruby extconf.rb --with-trema-include=#{ trema_include } --with-trema-lib=#{ trema_lib } --with-topology-lib=#{ trema_lib } --with-openflow-include=#{ openflow_include }"
     sys "make"
+  end
+end
+
+
+################################################################################
+# Build packet_info.so (ruby packet info. library)
+################################################################################
+file "ruby/packet_info.so" => FileList[ "ruby/packet_info/*.c", "ruby/packet_info/*.h", libtrema ] do
+  sys.cd "ruby/packet_info" do
+    sys "ruby extconf.rb --with-trema-include=#{ trema_include } --with-trema-lib=#{ trema_lib } --with-openflow-include=#{ openflow_include }"
+    sys "make"
+    sys.mv "packet_info.so", ".."
   end
 end
 

@@ -498,12 +498,6 @@ static VALUE
 redirect_ruby( VALUE self, VALUE datapath_id, VALUE message ) {
   packet_in *_packet_in;
   Data_Get_Struct( message, packet_in, _packet_in );
-#ifdef TEST
-  uint16_t length = ( u_int16_t ) RSTRING_LEN( data );
-  buffer *packet_data = alloc_buffer_with_length( length );
-  void *p = append_back_buffer( packet_data, length );
-  memcpy( p, RSTRING_PTR( data ), length );
-#endif
   redirect( NUM2ULL( datapath_id ), ( uint16_t ) NUM2INT( _packet_in->in_port ), _packet_in->data );
   return self;
 }

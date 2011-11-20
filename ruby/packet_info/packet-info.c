@@ -42,6 +42,20 @@ get_pinfo( VALUE self ) {
 }
 
 
+static VALUE
+packet_info_macsa( VALUE self ) {
+  VALUE macsa = ULL2NUM( mac_to_uint64( get_pinfo( self )->eth_macsa ) );
+  return rb_funcall( rb_eval_string( "Trema::Mac" ), rb_intern( "new" ), 1, macsa );
+}
+
+
+static VALUE
+packet_info_macda( VALUE self ) {
+  VALUE macda = ULL2NUM( mac_to_uint64( get_pinfo( self )->eth_macda ) );
+  return rb_funcall( rb_eval_string( "Trema::Mac" ), rb_intern( "new" ), 1, macda );
+}
+
+
 static VALUE 
 packet_info_udp_src_port( VALUE self ) {
   return UINT2NUM( get_pinfo( self )->udp_src_port );
@@ -54,6 +68,26 @@ packet_info_udp_dst_port( VALUE self ) {
 }
 
 
+static VALUE
+packet_info_tcp_src_port( VALUE self ) {
+  return UINT2NUM( get_pinfo( self )->tcp_src_port );
+}
+
+
+static VALUE
+packet_info_tcp_dst_port( VALUE self ) {
+  return UINT2NUM( get_pinfo( self )->tcp_dst_port );
+}
+
+
+static VALUE
+packet_info_is_arp( VALUE self ) {
+  return ( ( get_pinfo( self )->format & NW_ARP ) == NW_ARP ); 
+}
+
+
+
+
 void
 Init_packet_info() {
   VALUE module_defined = rb_eval_string( "Object.constants.include?( \"mTrema\")" );
@@ -62,8 +96,13 @@ Init_packet_info() {
   }
   cPacketInfo = rb_define_class_under( mTrema,  "PacketInfo", rb_cObject );
   rb_define_method( cPacketInfo, "initialize", packet_info_init, 1 );
+  rb_define_method( cPacketInfo, "macsa", packet_info_macsa, 0 );
+  rb_define_method( cPacketInfo, "macda", packet_info_macda, 0 );
   rb_define_method( cPacketInfo, "udp_src_port", packet_info_udp_src_port, 0 );
   rb_define_method( cPacketInfo, "udp_dst_port", packet_info_udp_dst_port, 0 );
+  rb_define_method( cPacketInfo, "tcp_src_port", packet_info_tcp_src_port, 0 );
+  rb_define_method( cPacketInfo, "tcp_dst_port", packet_info_tcp_dst_port, 0 );
+  rb_define_method( cPacketInfo, "arp?", packet_info_is_arp, 0 );
 }
 
 

@@ -1,4 +1,4 @@
-require "router"
+require "trema/router"
 require "packet_info"
 
 class RedirectableRoutingSwitch < Trema::Controller
@@ -6,25 +6,35 @@ class RedirectableRoutingSwitch < Trema::Controller
 
 
   def start
-puts "start is called"
     opts = RedirectableRoutingSwitchOptions.parse( ARGV )
     if  Authenticator.init_authenticator( opts[ :authorized_host_db ] )
+      Redirector.init_redirector
       start_router( opts )
     end
   end
-
 
 
   def packet_in datapath_id, message
     return unless validate_in_port datapath_id, message.in_port
     return if message.macda.is_multicast?
     @fdb.learn message.macsa, message.in_port, datapath_id
-    packet_info = PacketInfo.new( message )
-    puts packet_info.udp_src_port
-exit
+puts message.macsa
     if !Authenticator.authenticate_mac( message.macsa )
       # if the array list is empty call redirect otherwise skip redirection
-      authentication_exempted = AuthenticationFilter.apply( message.packet_info )
+      packet_info = PacketInfo.new( message )
+      filtered = AuthenticationFilter.apply( packet_info )
+      if filtered.length == 0
+puts "calling redirect"
+        Redirector.redirect( datapath_id, message )
+      end
+    else
+      if dest = @fdb.lookup( message.macda )
+puts "make_path"
+        make_path datapath_id, message, dest
+      else
+puts "flood packet"
+        flood_packet datapath_id, message
+      end
     end
   end
 
@@ -41,6 +51,7 @@ exit
         opts.on( "-i",
           "--idle-timeout TIMEOUT",
           "Idle timeout value for flow entry" ) do | t |
+            @options[ :idle_timeout ] = t.to_i
         end
       end.parse!
       self
@@ -64,12 +75,12 @@ exit
       attr_reader :packet_info_methods
 
 
-      def inherited(subclass)
+      def inherited subclass
         @subclasses << subclass
       end
 
 
-      def apply_filter packet_info
+      def apply packet_info
         @packet_info_methods = packet_info.class.instance_methods( false )
         @packet_info = packet_info
         @subclasses.select { | subclass | subclass.new.allow? }

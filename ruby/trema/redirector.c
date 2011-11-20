@@ -36,6 +36,8 @@
 #include <sys/select.h>
 #include <unistd.h>
 #include "redirector.h"
+#include "ruby.h"
+#include "trema.h"
 
 
 #define PKT_BUF_SIZE 1500
@@ -43,6 +45,10 @@
 #define TUN_DEV_TXQ_LEN 100000
 #define HOST_DB_ENTRY_TIMEOUT 600
 #define HOST_DB_AGING_INTERVAL 60
+
+
+extern VALUE mTrema;
+VALUE cRedirector;
 
 
 static int fd = -1;
@@ -465,7 +471,7 @@ redirect( uint64_t datapath_id, uint16_t in_port, const buffer *data ) {
 
   packet_info packet_info = get_packet_info( data );
   if ( !packet_type_ipv4( data ) ) {
-    debug( "Cannot redirect the packet which is not IPv4." );
+    printf( "Cannot redirect the packet which is not IPv4." );
     return;
   }
 
@@ -473,13 +479,42 @@ redirect( uint64_t datapath_id, uint16_t in_port, const buffer *data ) {
   uint32_t ip = packet_info.ipv4_saddr;
   add_host( mac, ip, datapath_id, in_port );
 
-  debug( "Redirecting an IP packet to tun interface." );
+  printf( "Redirecting an IP packet to tun interface.\n" );
   assert( packet_info.l3_header != NULL );
   // redirect an IP packet to a tun interface
   send_packet_to_tun( packet_info.l3_header,
                       packet_info.ipv4_tot_len );
 }
 
+
+static VALUE
+init_redirector_ruby( VALUE self ) {
+  init_redirector();
+  return self;
+}
+
+
+static VALUE
+redirect_ruby( VALUE self, VALUE datapath_id, VALUE message ) {
+  packet_in *_packet_in;
+  Data_Get_Struct( message, packet_in, _packet_in );
+#ifdef TEST
+  uint16_t length = ( u_int16_t ) RSTRING_LEN( data );
+  buffer *packet_data = alloc_buffer_with_length( length );
+  void *p = append_back_buffer( packet_data, length );
+  memcpy( p, RSTRING_PTR( data ), length );
+#endif
+  redirect( NUM2ULL( datapath_id ), ( uint16_t ) NUM2INT( _packet_in->in_port ), _packet_in->data );
+  return self;
+}
+
+
+void 
+Init_redirector() {
+  cRedirector = rb_define_class_under( mTrema, "Redirector", rb_cObject );
+  rb_define_singleton_method( cRedirector, "init_redirector", init_redirector_ruby, 0 );
+  rb_define_singleton_method( cRedirector, "redirect", redirect_ruby, 2 );
+}
 
 /*
  * Local variables:

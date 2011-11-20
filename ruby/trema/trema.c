@@ -25,6 +25,7 @@
 #include "path-resolver.h"
 #include "topology.h"
 #include "authenticator.h"
+#include "redirector.h"
 #include "features-reply.h"
 #include "features-request.h"
 #include "set-config.h"
@@ -100,6 +101,7 @@ Init_trema() {
   Init_path_resolver();
   Init_topology();
   Init_authenticator();
+  Init_redirector();
   Init_features_reply();
   Init_features_request();
   Init_set_config();

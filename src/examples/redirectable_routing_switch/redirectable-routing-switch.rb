@@ -1,5 +1,4 @@
 require "trema/router"
-require "packet_info"
 
 class RedirectableRoutingSwitch < Trema::Controller
   include Router
@@ -7,7 +6,7 @@ class RedirectableRoutingSwitch < Trema::Controller
 
   def start
     opts = RedirectableRoutingSwitchOptions.parse( ARGV )
-    if  Authenticator.init_authenticator( opts[ :authorized_host_db ] )
+    if  @authenticator = Authenticator.new( opts[ :authorized_host_db ] )
       Redirector.init_redirector
       start_router( opts )
     end
@@ -19,10 +18,9 @@ class RedirectableRoutingSwitch < Trema::Controller
     return if message.macda.is_multicast?
     @fdb.learn message.macsa, message.in_port, datapath_id
 puts message.macsa
-    if !Authenticator.authenticate_mac( message.macsa )
+    if !@autheneticator.authenticate_mac( message.macsa )
       # if the array list is empty call redirect otherwise skip redirection
-      packet_info = PacketInfo.new( message )
-      filtered = AuthenticationFilter.apply( packet_info )
+      filtered = AuthenticationFilter.apply( message )
       if filtered.length == 0
 puts "calling redirect"
         Redirector.redirect( datapath_id, message )
@@ -71,8 +69,8 @@ puts "flood packet"
 
 
     class << self
-      attr_reader :packet_info
-      attr_reader :packet_info_methods
+      attr_reader :packet_in
+      attr_reader :packet_in_methods
 
 
       def inherited subclass
@@ -80,9 +78,9 @@ puts "flood packet"
       end
 
 
-      def apply packet_info
-        @packet_info_methods = packet_info.class.instance_methods( false )
-        @packet_info = packet_info
+      def apply packet_in
+        @packet_in_methods = packet_in.class.instance_methods( false )
+        @packet_in = packet_in
         @subclasses.select { | subclass | subclass.new.allow? }
       end
     end
@@ -91,9 +89,9 @@ puts "flood packet"
     def filter_attributes *attributes
       attributes.each_index do | i |
         attribute = attributes[ i ].to_s
-        match = AuthenticationFilter.packet_info_methods.select { | v | v == attribute or v == attribute + "?" }
+        match = AuthenticationFilter.packet_in_methods.select { | v | v == attribute or v == attribute + "?" }
         if match.length == 1
-          instance_variable_set("@#{ attributes[ i ] }", AuthenticationFilter.packet_info.send( match.to_s ) )
+          instance_variable_set("@#{ attributes[ i ] }", AuthenticationFilter.packet_in.send( match.to_s ) )
           instance_variable_get "@#{ attributes[ i ] }"
         end
       end

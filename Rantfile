@@ -35,7 +35,6 @@ import "directedrule"
 desc "Build trema."
 task :default => [
   :libtrema,
-  :libtopology,
   :rubylib,
   :switch_manager,
   :switch,
@@ -46,6 +45,9 @@ task :default => [
   :stdin_relay,
   :vendor,
   :examples,
+  :topology_client,
+  :path_resolver_client,
+  :authenticator
 ]
 
 
@@ -401,26 +403,13 @@ task :distclean => "rubylib:distclean"
 
 
 desc "Build ruby library."
-task :rubylib => [ "ruby/trema.so", "ruby/packet_info.so" ]
+task :rubylib => [ "ruby/trema.so" ]
 file "ruby/trema.so" => FileList[ "ruby/trema/*.c", "ruby/trema/*.h", libtrema ] do
   sys.cd "ruby" do
-    sys "ruby extconf.rb --with-trema-include=#{ trema_include } --with-trema-lib=#{ trema_lib } --with-topology-lib=#{ trema_lib } --with-openflow-include=#{ openflow_include }"
-    sys "make"
-  end
-end
-
-
-################################################################################
-# Build packet_info.so (ruby packet info. library)
-################################################################################
-file "ruby/packet_info.so" => FileList[ "ruby/packet_info/*.c", "ruby/packet_info/*.h", libtrema ] do
-  sys.cd "ruby/packet_info" do
     sys "ruby extconf.rb --with-trema-include=#{ trema_include } --with-trema-lib=#{ trema_lib } --with-openflow-include=#{ openflow_include }"
     sys "make"
-    sys.mv "packet_info.so", ".."
   end
 end
-
 
 task "rubylib:clean" do
   sys.cd "ruby" do
@@ -430,6 +419,78 @@ end
 
 task "rubylib:distclean" do
   sys.rm_f "ruby/Makefile"
+end
+
+
+task :clean => "topology_client:clean"
+task :distclean => "topology_client:distclean"
+
+
+desc "Build topology client library."
+task :topology_client => [ "topology_client.so" ]
+file "topology_client.so" => FileList[ "*.c", "*.h" ] do
+  sys.cd "src/examples/topology_client" do
+    sys "ruby extconf.rb --with-trema-include=#{ trema_include } --with-openflow-include=#{ openflow_include }"
+    sys "make"
+  end
+end
+
+task "topology_client:clean" do
+  sys "make clean" rescue nil
+end
+
+task "topology_client:distclean" do
+  sys.rm_f "Makefile"
+end
+
+
+task :clean => "path_resolver_client:clean"
+task :distclean => "path_resolver_client:distclean"
+
+
+desc "Build path resolver client library."
+task :path_resolver_client => [ "path_resolver_client.so" ]
+file "path_resolver_client.so" => FileList[ "*.c", "*.h" ] do
+  sys.cd "src/examples/path_resolver_client" do
+    sys "ruby extconf.rb --with-trema-include=#{ trema_include } --with-openflow-include=#{ openflow_include }"
+    sys "make"
+  end
+end
+
+
+task "path_resolver_client:clean" do
+  sys "make clean" rescue nil
+end
+
+
+task "path_resolver_client:distclean" do
+  sys.rm_f "Makefile"
+end
+
+
+task :clean => "authenticator:clean"
+task :distclean => "authenticator:distclean"
+
+
+desc "Build autheticator library."
+task :authenticator => [ "authenticator.so" ]
+file "authenticator.so" => FileList[ "*.c", "*.h" ] do
+  sys.cd "src/examples/authenticator" do
+    sys "ruby extconf.rb --with-trema-include=#{ trema_include } --with-openflow-include=#{ openflow_include }"
+    sys "make"
+  end
+end
+
+task "authenticator:clean" do
+  sys "make clean" rescue nil
+end
+
+task "authenticator:clean" do
+  sys "make clean" rescue nil
+end
+
+task "autheticator:distclean" do
+  sys.rm_f "Makefile"
 end
 
 

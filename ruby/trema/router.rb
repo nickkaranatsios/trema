@@ -18,13 +18,19 @@
 #
 
 
+$LOAD_PATH << "./src/examples/topology_client/"
+$LOAD_PATH << "./src/examples/path_resolver_client/"
+
+
 require "observer"
 require "trema/model"
+require "topology-client"
+require "path-resolver-client"
 
 
 module Trema
   module Router
-    include PathResolver, Topology, Model
+    include PathResolverClient, TopologyClient, Model
 
 
     def start_router options

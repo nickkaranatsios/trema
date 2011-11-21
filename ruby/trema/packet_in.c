@@ -26,9 +26,8 @@
 
 extern VALUE mTrema;
 VALUE cPacketIn;
-#ifdef TEST
-VALUE cPacketInfo;
-#endif
+static VALUE cPacketInfo;
+static VALUE packet_info_ruby;
 
 
 #if 0
@@ -59,6 +58,15 @@ get_packet_in( VALUE self ) {
   packet_in *cpacket;
   Data_Get_Struct( self, packet_in, cpacket );
   return cpacket;
+}
+
+
+static packet_info *
+get_pinfo( VALUE self ) {
+  UNUSED( self );
+  packet_info *_packet_info;
+  Data_Get_Struct( packet_info_ruby, packet_info, _packet_info );
+  return _packet_info;
 }
 
 
@@ -166,9 +174,8 @@ packet_in_reason( VALUE self ) {
  * @return [Trema::Mac] macsa MAC source address.
  */
 static VALUE
-packet_in_macsa( VALUE self ) {
-  packet_in *cpacket_in = get_packet_in( self );
-  VALUE macsa = ULL2NUM( mac_to_uint64( ( ( packet_info * ) cpacket_in->data->user_data )->eth_macsa ) );
+packet_info_macsa( VALUE self ) {
+  VALUE macsa = ULL2NUM( mac_to_uint64( ( get_pinfo( self )->eth_macsa ) ) );
   return rb_funcall( rb_eval_string( "Trema::Mac" ), rb_intern( "new" ), 1, macsa );
 }
 
@@ -179,63 +186,39 @@ packet_in_macsa( VALUE self ) {
  * @return [Trema::Mac] macda MAC destination address.
  */
 static VALUE
-packet_in_macda( VALUE self ) {
-  packet_in *cpacket_in = get_packet_in( self );
-  VALUE macda = ULL2NUM( mac_to_uint64( ( ( packet_info * ) cpacket_in->data->user_data )->eth_macda ) );
+packet_info_macda( VALUE self ) {
+  VALUE macda = ULL2NUM( mac_to_uint64( ( get_pinfo( self )->eth_macda ) ) );
   return rb_funcall( rb_eval_string( "Trema::Mac" ), rb_intern( "new" ), 1, macda );
-}
-
-
-packet_info *
-get_cpacket_info( VALUE self ) {
-  packet_info *_packet_info;
-  Data_Get_Struct( self, packet_info, _packet_info );
-  return _packet_info;
 }
 
 
 static VALUE
 packet_info_udp_src_port( VALUE self ) {
-  return UINT2NUM( get_cpacket_info( self )->udp_src_port );
+  return UINT2NUM( get_pinfo( self )->udp_src_port );
 }
 
 
-#ifdef TEST
 static VALUE
 packet_info_udp_dst_port( VALUE self ) {
-  return UINT2NUM( get_cpacket_info( self )->udp_dst_port );
+  return UINT2NUM( get_pinfo( self )->udp_dst_port );
 }
 
 
 static VALUE
 packet_info_tcp_src_port( VALUE self ) {
-  return UINT2NUM( get_cpacket_info( self )->tcp_src_port );
+  return UINT2NUM( get_pinfo( self )->tcp_src_port );
 }
 
 
 static VALUE
 packet_info_tcp_dst_port( VALUE self ) {
-  return UINT2NUM( get_cpacket_info( self )->tcp_dst_port );
+  return UINT2NUM( get_pinfo( self )->tcp_dst_port );
 }
 
 
 static VALUE
 packet_info_arp( VALUE self ) {
-  return ( ( get_cpacket_info( self )->format & NW_ARP ) == NW_ARP ); 
-}
-#endif
-
-
-/*
- * Packet information embedded with this packet_in.
- *
- * @return [PacketInfo] an object that encapsulates the packet_in's information.
- */
-static VALUE
-packet_in_packet_info( VALUE self, VALUE kclass ) {
-  packet_in *cpacket_in = get_packet_in( self );
-  packet_info _packet_info = get_packet_info( cpacket_in->data );
-  return Data_Wrap_Struct( kclass, 0, NULL, &_packet_info );
+  return ( ( get_pinfo( self )->format & NW_ARP ) == NW_ARP ); 
 }
 
 
@@ -243,9 +226,7 @@ void
 Init_packet_in() {
   rb_require( "trema/mac" );
   cPacketIn = rb_define_class_under( mTrema, "PacketIn", rb_cObject );
-#ifdef TEST
   cPacketInfo = rb_define_class_under( mTrema, "PacketInfo", rb_cObject );
-#endif
   rb_define_alloc_func( cPacketIn, packet_in_alloc );
 #if 0
   /*
@@ -262,17 +243,14 @@ Init_packet_in() {
   rb_define_method( cPacketIn, "total_len", packet_in_total_len, 0 );
   rb_define_method( cPacketIn, "reason", packet_in_reason, 0 );
   rb_define_method( cPacketIn, "data", packet_in_data, 0 );
-  rb_define_method( cPacketIn, "macsa", packet_in_macsa, 0 );
-  rb_define_method( cPacketIn, "macda", packet_in_macda, 0 );
-  rb_define_method( cPacketIn, "packet_info", packet_in_packet_info, 1 );
 
-#ifdef TEST
-  rb_define_method( cPacketInfo, "arp?", packet_info_arp, 0 );
-  rb_define_method( cPacketInfo, "udp_src_port", packet_info_udp_src_port, 0 ); 
-  rb_define_method( cPacketInfo, "udp_dst_port", packet_info_udp_dst_port, 0 ); 
-  rb_define_method( cPacketInfo, "tcp_src_port", packet_info_tcp_src_port, 0 ); 
-  rb_define_method( cPacketInfo, "tcp_dst_port", packet_info_tcp_dst_port, 0 ); 
-#endif
+  rb_define_method( cPacketIn, "macsa", packet_info_macsa, 0 );
+  rb_define_method( cPacketIn, "macda", packet_info_macda, 0 );
+  rb_define_method( cPacketIn, "udp_src_port", packet_info_udp_src_port, 0 ); 
+  rb_define_method( cPacketIn, "udp_dst_port", packet_info_udp_dst_port, 0 ); 
+  rb_define_method( cPacketIn, "tcp_src_port", packet_info_tcp_src_port, 0 ); 
+  rb_define_method( cPacketIn, "tcp_dst_port", packet_info_tcp_dst_port, 0 ); 
+  rb_define_method( cPacketIn, "arp?", packet_info_arp, 0 );
 }
 
 
@@ -291,11 +269,8 @@ handle_packet_in( uint64_t datapath_id, packet_in message ) {
   Data_Get_Struct( r_message, packet_in, tmp );
   memcpy( tmp, &message, sizeof( packet_in ) );
 
-#ifdef TEST
   packet_info _packet_info = get_packet_info( message.data );
-  rb_iv_set( r_message, "@packet_info", Data_Wrap_Struct( cPacketInfo, 0, NULL, &_packet_info ) );
-#endif
-
+  packet_info_ruby = Data_Wrap_Struct( cPacketInfo, 0, NULL, &_packet_info );
   rb_funcall( controller, rb_intern( "packet_in" ), 2, ULL2NUM( datapath_id ), r_message );
 }
 

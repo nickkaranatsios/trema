@@ -22,9 +22,6 @@
 
 #include "action-output.h"
 #include "controller.h"
-#include "path-resolver.h"
-#include "topology.h"
-#include "authenticator.h"
 #include "redirector.h"
 #include "features-reply.h"
 #include "features-request.h"
@@ -98,9 +95,6 @@ Init_trema() {
   Init_error();
   Init_logger();
   Init_controller();
-  Init_path_resolver();
-  Init_topology();
-  Init_authenticator();
   Init_redirector();
   Init_features_reply();
   Init_features_request();

@@ -25,7 +25,6 @@
 #include "topology_service_interface_option_parser.h"
 
 
-extern VALUE mTrema;
 VALUE mTopologyClient;
 static VALUE cTopologyPortStatus;
 static VALUE cTopologyLinkStatus;
@@ -122,7 +121,7 @@ topology_subscribed( void *user_data ) {
 
 
 static VALUE
-init_topology( VALUE self, VALUE service_name ) {
+init_topology_client( VALUE self, VALUE service_name ) {
   int argc = 1;
   char **argv = xmalloc( sizeof ( char * ) * ( uint32_t ) ( argc + 1 ) );
   argv[ 0 ] = RSTRING_PTR( service_name );
@@ -130,7 +129,7 @@ init_topology( VALUE self, VALUE service_name ) {
   
   init_topology_service_interface_options( &argc, &argv );
   init_libtopology( get_topology_service_interface_name() );
-  subscribe_topology( topology_subscribed, (void *) self );
+  subscribe_topology( topology_subscribed, ( void * ) self );
   return self;
 }
 
@@ -207,7 +206,7 @@ topology_link_status_status( VALUE self ) {
 
 void
 Init_topology_client() {
-  mTopologyClient = rb_define_module_under( mTrema, "Topology" );
+  mTopologyClient = rb_define_module( "TopologyClient" );
   cTopologyPortStatus = rb_define_class_under( mTopologyClient, "TopologyPortStatus", rb_cObject );
   cTopologyLinkStatus = rb_define_class_under( mTopologyClient, "TopologyLinkStatus", rb_cObject );
   rb_define_alloc_func( cTopologyPortStatus, topology_port_status_alloc );
@@ -216,7 +215,7 @@ Init_topology_client() {
   rb_define_method( cTopologyPortStatus, "initialize", topology_port_status_init, 0 );
   rb_define_method( cTopologyLinkStatus, "initialize", topology_link_status_init, 0 );
 #endif
-  rb_define_method( mTopologyClient, "init_topology", init_topology, 1 );
+  rb_define_method( mTopologyClient, "init_topology_client", init_topology_client, 1 );
   rb_define_method( cTopologyPortStatus, "dpid", topology_port_status_dpid, 0 );
   rb_define_method( cTopologyPortStatus, "port_no", topology_port_status_port_no, 0 );
   rb_define_method( cTopologyPortStatus, "status", topology_port_status_status, 0 );
@@ -227,7 +226,7 @@ Init_topology_client() {
   rb_define_method( cTopologyLinkStatus, "from_portno", topology_link_status_from_portno, 0 );
   rb_define_method( cTopologyLinkStatus, "to_portno", topology_link_status_to_portno, 0 );
   rb_define_method( cTopologyLinkStatus, "status", topology_link_status_status, 0 );
-  rb_require( "trema/topology" );
+  rb_require( "topology-client" );
 }
 
 

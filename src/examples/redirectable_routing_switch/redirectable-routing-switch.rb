@@ -1,4 +1,11 @@
+$LOAD_PATH << "./src/examples/authenticator/"
+$LOAD_PATH << "./src/examples/redirector/"
+
+
 require "trema/router"
+require "authenticator"
+require "redirector"
+
 
 class RedirectableRoutingSwitch < Trema::Controller
   include Router
@@ -7,7 +14,7 @@ class RedirectableRoutingSwitch < Trema::Controller
   def start
     opts = RedirectableRoutingSwitchOptions.parse( ARGV )
     if  @authenticator = Authenticator.new( opts[ :authorized_host_db ] )
-      Redirector.init_redirector
+      @redirector = Redirector.new
       start_router( opts )
     end
   end
@@ -18,12 +25,12 @@ class RedirectableRoutingSwitch < Trema::Controller
     return if message.macda.is_multicast?
     @fdb.learn message.macsa, message.in_port, datapath_id
 puts message.macsa
-    if !@autheneticator.authenticate_mac( message.macsa )
+    if !@authenticator.authenticate_mac( message.macsa )
       # if the array list is empty call redirect otherwise skip redirection
       filtered = AuthenticationFilter.apply( message )
+puts "calling redirect #{filtered.length}"
       if filtered.length == 0
-puts "calling redirect"
-        Redirector.redirect( datapath_id, message )
+        @redirector.redirect( datapath_id, message )
       end
     else
       if dest = @fdb.lookup( message.macda )
@@ -103,6 +110,7 @@ puts "flood packet"
   class DhcpBootpFilter < AuthenticationFilter
     def allow?
       filter_attributes :udp_src_port, :udp_dst_port
+puts @udp_src_port, @udp_dst_port
       return @udp_src_port == 67 || @udp_src_port == 68 || @udp_dst_port == 67 || @udp_dst_port == 68
     end
   end
@@ -111,6 +119,7 @@ puts "flood packet"
   class DnsUdpFilter < AuthenticationFilter
      def allow?
        filter_attributes :udp_src_port, :udp_dst_port
+puts @udp_src_port, @udp_dst_port
        return @udp_src_port == 53 || @udp_dst_port == 53
      end
   end
@@ -119,6 +128,7 @@ puts "flood packet"
   class DnsTcpFilter < AuthenticationFilter
     def allow?
       filter_attributes :tcp_src_port, :tcp_dst_port
+puts @tcp_src_port, @tcp_dst_port
       return @tcp_src_port == 53 || @tcp_dst_port == 53
     end
   end
@@ -127,6 +137,7 @@ puts "flood packet"
   class ArpFilter < AuthenticationFilter
     def allow?
       filter_attributes :arp
+puts @arp
       return @arp
     end
   end

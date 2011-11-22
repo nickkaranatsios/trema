@@ -22,7 +22,6 @@
 
 #include "action-output.h"
 #include "controller.h"
-#include "redirector.h"
 #include "features-reply.h"
 #include "features-request.h"
 #include "set-config.h"
@@ -95,7 +94,6 @@ Init_trema() {
   Init_error();
   Init_logger();
   Init_controller();
-  Init_redirector();
   Init_features_reply();
   Init_features_request();
   Init_set_config();

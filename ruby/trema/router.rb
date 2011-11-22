@@ -24,18 +24,18 @@ $LOAD_PATH << "./src/examples/path_resolver_client/"
 
 require "observer"
 require "trema/model"
-require "topology-client"
-require "path-resolver-client"
+require "topology_client"
+require "path_resolver_client"
 
 
 module Trema
   module Router
-    include PathResolverClient, TopologyClient, Model
+    include Observable, PathResolverClient, TopologyClient, Model
 
 
     def start_router options
-      init_path_resolver
-      init_topology name
+      init_path_resolver_client
+      init_topology_client name
       add_observer self
       @opts = options
       @model_ds = SwitchDS.new

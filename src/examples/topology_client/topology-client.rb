@@ -20,16 +20,13 @@
 
 require "observer"
 
-
-module Trema
-  module TopologyClient
-    include Observable
+module TopologyClient
+  include Observable
 
 
-    def topology_notifier message, kind
-      changed
-      notify_observers message, kind
-    end
+  def topology_notifier message, kind
+    changed
+    notify_observers message, kind
   end
 end
 

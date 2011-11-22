@@ -58,17 +58,6 @@ unless find_library( "sqlite3", "sqlite3_open" )
 end
 
 
-=begin
-unless find_library( "authenticator", "init_authenticator" )
-  error_exit <<-EOF
-ERROR: Authenticator is not compiled yet!
-
-Please try the following command:
-% ./build.rb
-EOF
-end
-=end
-
 unless find_library( "trema", "create_hello" )
   error_exit <<-EOF
 ERROR: Trema is not compiled yet!

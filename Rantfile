@@ -34,8 +34,9 @@ import "directedrule"
 
 desc "Build trema."
 task :default => [
-  :libexamples,
+  :libtrema,
   :rubylib,
+  :libexamples,
   :switch_manager,
   :switch,
   :packetin_filter,
@@ -411,9 +412,7 @@ desc "Build ruby library."
 task :rubylib => [ "ruby/trema.so" ]
 file "ruby/trema.so" => FileList[ "ruby/trema/*.c", "ruby/trema/*.h", libtrema ] do
   sys.cd "ruby" do
-    cmd = "ruby extconf.rb --with-trema-include=#{ trema_include } --with-trema-lib=#{ trema_lib } --with-openflow-include=#{ openflow_include }"
-      #--with-authenticator-lib=#{ Trema.home }/src/examples/authenticator --with-openflow-include=#{ openflow_include }"
-    sys cmd
+    sys "ruby extconf.rb --with-trema-include=#{ trema_include } --with-trema-lib=#{ trema_lib } --with-openflow-include=#{ openflow_include }"
     sys "make"
   end
 end

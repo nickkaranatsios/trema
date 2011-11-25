@@ -36,7 +36,6 @@ desc "Build trema."
 task :default => [
   :libtrema,
   :rubylib,
-  :libexamples,
   :switch_manager,
   :switch,
   :packetin_filter,
@@ -60,16 +59,12 @@ task :examples => [
   "examples:packet_in",
   "examples:repeater_hub",                 
   "examples:switch_info",
-  "examples:switch_monitor"
-]
-
-task :libexamples => [
+  "examples:switch_monitor",
   "examples:authenticator",
   "examples:redirector",
   "examples:topology_client",
   "examples:path_resolver_client"
 ]
-
 
 import "clean"
 
@@ -123,6 +118,15 @@ def openflow_include
   "#{ Trema.home }/objects/openflow"
 end
 
+
+def trema_examples
+  "src/examples"
+end
+
+
+def trema_apps
+  "~/apps"
+end
 
 ################################################################################
 # !!!!!! DO NOT MODIFY !!!!!!
@@ -371,34 +375,65 @@ file libtrema_gcov => libtrema_gcov_o.candidates do | t |
   build_libtrema_a.call t
 end
 
-libexamples = [
-  "authenticator",
-  "redirector",
-  "topology_client",
-  "path_resolver_client"
-].each do | example |
 
-  task :clean => "#{ example }:clean"
-  task :distclean => "#{ example }:distclean"
+################################################################################
+# Build ruby examples libraries
+################################################################################
+task ":clean" => "authenticator:clean"
+task ":distclean" => "authenticator:distclean"
+task :authenticator => [ "#{ trema_examples }/authenticator/authenticator.so" ]
+file "#{ trema_examples }/authenticator/authenticator.so" => FileList[ 
+  "#{ trema_apps }/redirectable_routing_switch/authenticator.c",
+  "#{ trema_apps }/redirectable_routing_switch/authenticator.h",
+  "#{ trema_examples }/authenticator/*.c",
+  "#{ trema_examples }/authenticator/*.h"  ] do
+  sys.cd "#{ trema_examples }/authenticator"  do
+    sys "ruby extconf.rb --with-trema-include=#{ trema_include } --with-openflow-include=#{ openflow_include }"
+    sys "make"
+  end
+end
 
-  desc "Build #{ example } library."
-  task "examples:#{ example }"  => [ "#{ example }.so" ]
-  file "#{ example }.so" => FileList[ "*.c", "*.h" ] do
-    sys.cd "src/examples/#{ example }" do
+
+task "authenticator:clean" do
+  sys.cd "#{ trema_examples }/authenticator"
+  sys "make clean" rescue nil
+end
+
+task "authenticator:distclean" do
+  sys.cd "#{ trema_examples }/#{ authenticator }"
+  sys.rm_f "Makefile"
+end
+desc "Build authenticator examples library."
+task "examples:authenticator" => :authenticator
+
+
+libexamples = [ "redirector", "topology_client", "path_resolver_client" ].each do | lib |
+  task ":clean" => "#{ lib }:clean"
+  task ":distclean" => "#{ lib }:distclean"
+
+  task :"#{ lib }" => [ "#{ trema_examples }/#{ lib }/#{ lib }.so" ]
+  file "#{ trema_examples }/#{ lib }/#{ lib }.so" => FileList[ "#{ trema_examples }/#{ lib }/*.c", "#{ trema_examples }/#{ lib }/*.h" ] do
+    sys.cd "#{ trema_examples }/#{ lib }"  do
       sys "ruby extconf.rb --with-trema-include=#{ trema_include } --with-openflow-include=#{ openflow_include }"
       sys "make"
     end
   end
 
 
-  task "#{ example }:clean" do
+  task "#{ lib }:clean" do
+    sys.cd "#{ trema_examples }/#{ lib }"
     sys "make clean" rescue nil
   end
 
-  task "#{ example }:distclean" do
+  task "#{ lib }:distclean" do
+    sys.cd "#{ trema_examples }/#{ lib }"
     sys.rm_f "Makefile"
   end
+
+  desc "Build #{ lib } examples library."
+  task "examples:#{ lib }" => :"#{ lib }"
 end
+
 
 ################################################################################
 # Build trema.so (ruby library)

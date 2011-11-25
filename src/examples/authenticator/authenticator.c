@@ -25,11 +25,7 @@
 #include <unistd.h>
 #include <sqlite3.h>
 #include "authenticator.h"
-// #include "redirector.h"
-#include "ruby.h"
-
-
-VALUE cAuthenticator;
+//#include "redirector.h"
 
 
 #define AUTHORIZED_HOST_DB_UPDATE_INTERVAL 10
@@ -244,48 +240,16 @@ finalize_authenticator() {
 bool
 authenticate( const uint8_t *mac ) {
   if ( lookup_authorized_host( mac ) == NULL ) {
+    printf( "failed to authenticate "
+           "(mac = %02x:%02x:%02x:%02x:%02x:%02x).\n",
+           mac[ 0 ], mac[ 1 ], mac[ 2 ], mac[ 3 ], mac[ 4 ], mac[ 5 ] );
     return false;
   }
+  printf( "authentication ok "
+           "(mac = %02x:%02x:%02x:%02x:%02x:%02x).\n",
+           mac[ 0 ], mac[ 1 ], mac[ 2 ], mac[ 3 ], mac[ 4 ], mac[ 5 ] );
 
   return true;
-}
-
-
-static VALUE
-rb_authenticate_mac( VALUE self, VALUE mac ) {
-  UNUSED( self );
-
-  if ( authorized_host_db == NULL ) {
-    rb_raise( rb_eRuntimeError, 
-      "Authenticator is not initialized. Pls create an authenticator instance first" );
-  }
-  VALUE mac_arr = rb_funcall( mac, rb_intern( "to_short" ), 0 );
-  int i;
-  uint8_t haddr[ OFP_ETH_ALEN ];
-  for ( i = 0; i < RARRAY_LEN( mac_arr ); i++ ) {
-    haddr[ i ] = ( uint8_t ) ( NUM2INT( RARRAY_PTR( mac_arr )[ i ] ) );
-  }
-  if ( !authenticate( haddr ) ) {
-    return Qfalse;
-  }
-  return Qtrue;
-}
-
-
-static VALUE
-rb_init_authenticator( VALUE self, VALUE file ) {
- if ( !init_authenticator( RSTRING_PTR( file ) ) ) {
-   rb_raise( rb_eRuntimeError, "Authenticator already initialized" );
- }
- return self;
-}
-
-
-void
-Init_authenticator() {
-  cAuthenticator = rb_define_class( "Authenticator", rb_cObject );
-  rb_define_method( cAuthenticator, "initialize", rb_init_authenticator, 1 );
-  rb_define_method( cAuthenticator, "authenticate_mac", rb_authenticate_mac, 1 );
 }
 
 

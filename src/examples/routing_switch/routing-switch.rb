@@ -27,7 +27,7 @@ class RoutingSwitch < Controller
 
 
   def start
-    start_router( RoutingSwitchOptions.parse( ARGV ) )
+    start_router RoutingSwitchOptions.parse( ARGV )
   end
 end
 

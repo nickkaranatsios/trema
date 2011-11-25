@@ -18,8 +18,8 @@
 #
 
 
-$LOAD_PATH << "./src/examples/topology_client/"
-$LOAD_PATH << "./src/examples/path_resolver_client/"
+$LOAD_PATH << "./src/examples/topology_client"
+$LOAD_PATH << "./src/examples/path_resolver_client"
 
 
 require "observer"
@@ -95,8 +95,7 @@ module Trema
 
 
     def make_path in_datapath_id, message, dest
-      out_datapath_id = dest[ 0 ]
-      out_port = dest[ 1 ]
+      out_datapath_id, out_port = *dest
       if hops = path_resolve( in_datapath_id, message.in_port, out_datapath_id, out_port )
         modify_flow_entry hops, message
         output_packet_from_last_switch hops.last, message
@@ -117,7 +116,7 @@ module Trema
     def discard_packet_in datapath_id, message
       send_flow_mod_add( datapath_id, 
         :match => Match.from( message ),
-        :hard_timeout => 1
+        :hard_timeout => @opts.packet_in_discard_duration
       )
     end
 
@@ -125,7 +124,7 @@ module Trema
     def modify_flow_entry hops, message
       nr_hops = hops.length
       hops.each do | hop |
-        idle_timeout = @opts[ :idle_timeout ] + nr_hops 
+        idle_timeout = @opts.idle_timeout + nr_hops 
         nr_hops -= 1
         send_flow_mod_add( hop.dpid,
           :match => Match.from( message ),

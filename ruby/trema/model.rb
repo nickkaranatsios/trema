@@ -36,9 +36,14 @@ module Model
     end
 
 
-    def parse!( args )
+    def parse! args
       args.extend( ::OptionParser::Arguable )
     end
+
+
+    ################################################################################
+    protected
+    ################################################################################
 
 
     def []( key )
@@ -48,11 +53,6 @@ module Model
 
     def []=( value )
       @options[ key ] = value
-    end
-
-
-    def merge other
-      @options.merge other.options
     end
   end
 
@@ -78,17 +78,17 @@ module Model
     end
 
 
-    def external_link=(value)
+    def external_link=( value )
       @external_link = value == TD_PORT_EXTERNAL
     end
 
 
-    def switch_to_switch_link=(status)
+    def switch_to_switch_link=( status )
       @switch_to_switch_link = link_status( status )
     end
 
 
-    def switch_to_switch_reverse_link=(status)
+    def switch_to_switch_reverse_link=( status )
       @switch_to_switch_reverse_link = link_status( status )
     end
 

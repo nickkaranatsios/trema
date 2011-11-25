@@ -20,7 +20,7 @@
 #
 
 
-require "fdb"
+require "trema/fdb"
 
 
 #

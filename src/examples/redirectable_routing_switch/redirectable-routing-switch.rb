@@ -1,10 +1,9 @@
-$LOAD_PATH << "./src/examples/authenticator/"
-$LOAD_PATH << "./src/examples/redirector/"
+$LOAD_PATH << "./src/examples/"
 
 
 require "trema/router"
-require "authenticator"
-require "redirector"
+require "authenticator/authenticator"
+require "redirector/redirector"
 
 
 class RedirectableRoutingSwitch < Trema::Controller
@@ -13,8 +12,9 @@ class RedirectableRoutingSwitch < Trema::Controller
 
   def start
     opts = RedirectableRoutingSwitchOptions.parse( ARGV )
-    if  @authenticator = Authenticator.new( opts[ :authorized_host_db ] )
+    if  @authenticator = Authenticator.new( opts.authorized_host_db )
       @redirector = Redirector.new
+      @redirector2 = Redirector.new
       start_router( opts )
     end
   end
@@ -28,16 +28,16 @@ puts message.macsa
     if !@authenticator.authenticate_mac( message.macsa )
       # if the array list is empty call redirect otherwise skip redirection
       filtered = AuthenticationFilter.apply( message )
-puts "calling redirect #{filtered.length}"
       if filtered.length == 0
-        @redirector.redirect( datapath_id, message )
+puts "redirect"
+        @redirector2.redirect( datapath_id, message )
       end
     else
       if dest = @fdb.lookup( message.macda )
-puts "make_path"
+puts "make path"
         make_path datapath_id, message, dest
       else
-puts "flood packet"
+puts "flood_packet"
         flood_packet datapath_id, message
       end
     end
@@ -67,6 +67,16 @@ puts "flood packet"
       {
         :authorized_host_db => "db_file"
       }
+    end
+
+
+    def idle_timeout
+      @options[ :idle_timeout ]
+    end
+
+
+    def authorized_host_db
+      @options[ :authorized_host_db ]
     end
   end
 
@@ -110,7 +120,6 @@ puts "flood packet"
   class DhcpBootpFilter < AuthenticationFilter
     def allow?
       filter_attributes :udp_src_port, :udp_dst_port
-puts @udp_src_port, @udp_dst_port
       return @udp_src_port == 67 || @udp_src_port == 68 || @udp_dst_port == 67 || @udp_dst_port == 68
     end
   end
@@ -119,7 +128,6 @@ puts @udp_src_port, @udp_dst_port
   class DnsUdpFilter < AuthenticationFilter
      def allow?
        filter_attributes :udp_src_port, :udp_dst_port
-puts @udp_src_port, @udp_dst_port
        return @udp_src_port == 53 || @udp_dst_port == 53
      end
   end
@@ -128,7 +136,6 @@ puts @udp_src_port, @udp_dst_port
   class DnsTcpFilter < AuthenticationFilter
     def allow?
       filter_attributes :tcp_src_port, :tcp_dst_port
-puts @tcp_src_port, @tcp_dst_port
       return @tcp_src_port == 53 || @tcp_dst_port == 53
     end
   end
@@ -137,7 +144,6 @@ puts @tcp_src_port, @tcp_dst_port
   class ArpFilter < AuthenticationFilter
     def allow?
       filter_attributes :arp
-puts @arp
       return @arp
     end
   end

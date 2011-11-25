@@ -20,7 +20,7 @@
 require "trema/model"
 
 
-class RoutingSwitchOptions < Trema::Model::Options
+class RoutingSwitchOptions < Model::Options
   def parse!( args )
     super
     args.options do |opts|
@@ -29,6 +29,11 @@ class RoutingSwitchOptions < Trema::Model::Options
         "Idle timeout value for flow entry" ) do | t |
         @options[ :idle_timeout ] = t.to_i
       end
+      opts.on( "-d",
+        "-packet-in-discard-duration DURATION",
+        "hard timeout value for packet_in discard duration" ) do | t |
+        @options[ :packet_in_discard_duration ] = t.to_i
+      end
     end.parse!
     self
   end
@@ -36,8 +41,19 @@ class RoutingSwitchOptions < Trema::Model::Options
 
   def default_options
     {
-      :idle_timeout => 60
+      :idle_timeout => 60,
+      :packet_in_discard_duration => 1
     }
+  end
+
+
+  def idle_timeout
+    @options[ :idle_timeout ]
+  end
+
+
+  def discard_packet_in_duration
+    @options[ :packet_in_discard_duration ]
   end
 end
 

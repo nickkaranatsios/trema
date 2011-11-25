@@ -24,15 +24,11 @@
 
 #include <stdint.h>
 #include "trema.h"
-#include "ruby.h"
 
 
 bool init_redirector();
 bool finalize_redirector();
 void redirect( uint64_t datapath_id, uint16_t in_port, const buffer *data );
-
-extern VALUE cRedirector;
-void Init_redirector( void );
 
 
 #endif // REDIRECTOR_H

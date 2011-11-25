@@ -27,7 +27,7 @@
 extern VALUE mTrema;
 VALUE cPacketIn;
 static VALUE cPacketInfo;
-static VALUE packet_info_ruby;
+static VALUE rb_packet_info;
 
 
 #if 0
@@ -65,7 +65,7 @@ static packet_info *
 get_pinfo( VALUE self ) {
   UNUSED( self );
   packet_info *_packet_info;
-  Data_Get_Struct( packet_info_ruby, packet_info, _packet_info );
+  Data_Get_Struct( rb_packet_info, packet_info, _packet_info );
   return _packet_info;
 }
 
@@ -270,7 +270,7 @@ handle_packet_in( uint64_t datapath_id, packet_in message ) {
   memcpy( tmp, &message, sizeof( packet_in ) );
 
   packet_info _packet_info = get_packet_info( message.data );
-  packet_info_ruby = Data_Wrap_Struct( cPacketInfo, 0, NULL, &_packet_info );
+  rb_packet_info = Data_Wrap_Struct( cPacketInfo, 0, NULL, &_packet_info );
   rb_funcall( controller, rb_intern( "packet_in" ), 2, ULL2NUM( datapath_id ), r_message );
 }
 

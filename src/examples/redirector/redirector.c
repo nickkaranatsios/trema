@@ -36,8 +36,6 @@
 #include <sys/select.h>
 #include <unistd.h>
 #include "redirector.h"
-#include "ruby.h"
-#include "trema.h"
 
 
 #define PKT_BUF_SIZE 1500
@@ -45,9 +43,6 @@
 #define TUN_DEV_TXQ_LEN 100000
 #define HOST_DB_ENTRY_TIMEOUT 600
 #define HOST_DB_AGING_INTERVAL 60
-
-
-VALUE cRedirector;
 
 
 static int fd = -1;
@@ -470,7 +465,7 @@ redirect( uint64_t datapath_id, uint16_t in_port, const buffer *data ) {
 
   packet_info packet_info = get_packet_info( data );
   if ( !packet_type_ipv4( data ) ) {
-    printf( "Cannot redirect the packet which is not IPv4." );
+    debug( "Cannot redirect the packet which is not IPv4." );
     return;
   }
 
@@ -478,44 +473,12 @@ redirect( uint64_t datapath_id, uint16_t in_port, const buffer *data ) {
   uint32_t ip = packet_info.ipv4_saddr;
   add_host( mac, ip, datapath_id, in_port );
 
-  printf( "Redirecting an IP packet to tun interface.\n" );
   assert( packet_info.l3_header != NULL );
   // redirect an IP packet to a tun interface
   send_packet_to_tun( packet_info.l3_header,
                       packet_info.ipv4_tot_len );
 }
 
-
-static VALUE
-rb_init_redirector( VALUE self ) {
-  if ( fd != -1  || host_db != NULL ) {
-    rb_raise( rb_eRuntimeError, "Only a single instance of Redirector is permitted" );
-  }
-  if ( !init_redirector() ) {
-    rb_raise( rb_eRuntimeError, "Failed to initialize redirector" );
-  }
-  return self;
-}
-
-
-static VALUE
-rb_redirect( VALUE self, VALUE datapath_id, VALUE message ) {
-  if ( fd == -1 || host_db == NULL ) {
-    rb_raise( rb_eRuntimeError, "Redirector instance not initialized" );
-  }
-  packet_in *_packet_in;
-  Data_Get_Struct( message, packet_in, _packet_in );
-  redirect( NUM2ULL( datapath_id ), _packet_in->in_port, _packet_in->data );
-  return self;
-}
-
-
-void 
-Init_redirector() {
-  cRedirector = rb_define_class( "Redirector", rb_cObject );
-  rb_define_method( cRedirector, "initialize", rb_init_redirector, 0 );
-  rb_define_method( cRedirector, "redirect", rb_redirect, 2 );
-}
 
 /*
  * Local variables:

@@ -24,18 +24,14 @@
 
 #include <assert.h>
 #include "trema.h"
-#include "ruby.h"
 
-
-extern VALUE cAuthenticator;
 
 bool init_authenticator( const char *file );
 bool finalize_authenticator();
 bool authenticate( const uint8_t *mac );
-void Init_authenticator( void );
 
 
-#endif // AUTHENTICATOR_H
+#endif // AUTHENTICATIOR_H
 
 
 /*

@@ -1,0 +1,92 @@
+#
+# Author: Yasuhito Takamiya <yasuhito@gmail.com>
+#
+# Copyright (C) 2008-2011 NEC Corporation
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License, version 2, as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+
+import "c/dependencies"
+import "directedrule"
+
+
+################################################################################
+# Main tasks
+################################################################################
+
+desc "Build trema."
+task :default => [
+  :topology_client,
+#  :routing_switch,
+#  :redirectable_routing_switch
+]
+
+
+trema_apps = sys.expand_path( "." )
+trema_home = sys.expand_path( "../develop" )
+trema_include = "#{trema_home}/src/lib"
+openflow_include = "#{trema_home}/objects/openflow"
+
+
+import "clean"
+
+
+desc "Cleanup generated files."
+gen Clean
+var[ :clean ].include "**/*.a","**/*.so", "**/*.o"
+
+
+desc "Cleanup everything."
+task :distclean => :clean
+
+
+desc "Generate build.rb."
+task :buildrb do
+  sys "rant-import --force --imports c/dependencies,directedrule,clean,sys/tgz build.rb"
+  sys "chmod +x build.rb"
+end
+
+var :CFLAGS => "-I/usr/lib/ruby/1.8/i686-linux -I/usr/lib/ruby/1.8/i686-linux"
+#gcc -shared -o topology_client.so libtopology.o topology_service_interface_option_parser.o topology-client.o -L. -L/usr/lib -Wl,-Bsymbolic    -lruby1.8  -lpthread -lrt -ldl -lcrypt -lm   -lc
+
+task ":clean" => "topology_client:clean"
+task ":distclean" => "topology_client:distclean"
+
+task :topology_client => [ "topology_client/topology_client.so" ]
+file "topology_client/topology_client.so" => FileList[ 
+  "topology_client/libtology.c",
+  "topology_client/libtology.h",
+  "topology_client/lldp.h",
+  "topology_client/probe_timer_table.h",
+  "topology_client/topology_service_interface_option_parser.c",
+  "topology_client/topology_service_interface_option_parser.h",
+  "topology_client/topology-client.c",
+  "topology_client/topology-client.h"  ] do
+  sys.cd "topology_client"  do
+    sys "ruby extconf.rb --with-trema-include=#{ trema_include } --with-openflow-include=#{ openflow_include }"
+    sys "make"
+  end
+end
+
+
+task "topology_client:clean" do
+  sys.cd "topology_client"
+  sys "make clean" rescue nil
+end
+
+task "topology_client:distclean" do
+  sys.cd "topology_client"
+  sys.rm_f "Makefile"
+end

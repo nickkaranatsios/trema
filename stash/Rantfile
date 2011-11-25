@@ -61,6 +61,11 @@ end
 var :CFLAGS => "-I/usr/lib/ruby/1.8/i686-linux -I/usr/lib/ruby/1.8/i686-linux"
 #gcc -shared -o topology_client.so libtopology.o topology_service_interface_option_parser.o topology-client.o -L. -L/usr/lib -Wl,-Bsymbolic    -lruby1.8  -lpthread -lrt -ldl -lcrypt -lm   -lc
 
+gen C::Dependencies, "depends.rb", :search => [ trema_include, "topology" ], :sources => sys[ "topology_client/*.c" ]
+gen Action do
+  source "depends.rb"
+end
+
 task ":clean" => "topology_client:clean"
 task ":distclean" => "topology_client:distclean"
 

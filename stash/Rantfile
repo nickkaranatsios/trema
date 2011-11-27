@@ -1,5 +1,5 @@
 #
-# Author: Yasuhito Takamiya <yasuhito@gmail.com>
+# Author: Nick Karanatsios <nickkaranatsios@gmail.com>
 #
 # Copyright (C) 2008-2011 NEC Corporation
 #
@@ -19,18 +19,18 @@
 
 
 import "c/dependencies"
-import "directedrule"
 
 
 ################################################################################
 # Main tasks
 ################################################################################
 
-desc "Build trema."
+desc "Build trema apps."
 task :default => [
   :topology_client,
-#  :routing_switch,
-#  :redirectable_routing_switch
+  :path_resolver_client,
+  :authenticator,
+  :redirector
 ]
 
 
@@ -39,13 +39,18 @@ trema_home = sys.expand_path( "../develop" )
 trema_include = "#{trema_home}/src/lib"
 openflow_include = "#{trema_home}/objects/openflow"
 
+def dependency name
+  file = ".#{ name }.dependency"
+  var[ :clean ] << file
+  ".#{ name }.dependency"
+end
 
 import "clean"
 
 
 desc "Cleanup generated files."
 gen Clean
-var[ :clean ].include "**/*.a","**/*.so", "**/*.o"
+var[ :clean ].include %w( **/*.{o,so,log} )
 
 
 desc "Cleanup everything."
@@ -54,44 +59,67 @@ task :distclean => :clean
 
 desc "Generate build.rb."
 task :buildrb do
-  sys "rant-import --force --imports c/dependencies,directedrule,clean,sys/tgz build.rb"
+  sys "rant-import --force --imports c/dependencies,clean,build.rb"
   sys "chmod +x build.rb"
 end
 
-var :CFLAGS => "-I/usr/lib/ruby/1.8/i686-linux -I/usr/lib/ruby/1.8/i686-linux"
-#gcc -shared -o topology_client.so libtopology.o topology_service_interface_option_parser.o topology-client.o -L. -L/usr/lib -Wl,-Bsymbolic    -lruby1.8  -lpthread -lrt -ldl -lcrypt -lm   -lc
+var :CFLAGS => "-I/usr/lib/ruby/1.8/i686-linux -I/usr/lib/ruby/1.8/i686-linux -D_FILE_OFFSET_BITS=64  -fPIC -g -std=gnu99 -D_GNU_SOURCE -fno-strict-aliasing -Wall -Wextra -Wformat=2 -Wcast-qual -Wcast-align -Wwrite-strings -Wconversion -Wfloat-equal -Wpointer-arith" 
+var :LDFLAGS => "-L. -L/usr/lib -Wl,-Bsymbolic -lruby1.8 -lpthread -lrt -ldl -lcrypt -lm -lc"
 
-gen C::Dependencies, "depends.rb", :search => [ trema_include, "topology" ], :sources => sys[ "topology_client/*.c" ]
-gen Action do
-  source "depends.rb"
+
+src = FileList[ "#{ trema_apps }/topology/libtopology*.c",
+  "#{ trema_apps }/topology/topology_service_*.c",
+  "#{ trema_apps }/topology/topology-client*.c" ]
+topology_obj = src.ext( "o" )
+gen Rule, '.o' => '.c' do | t |
+  sys "gcc -I#{ trema_include } -I#{ openflow_include } #{ var :CFLAGS } -c -o #{ t.name } #{ t.source }"
 end
-
-task ":clean" => "topology_client:clean"
-task ":distclean" => "topology_client:distclean"
-
-task :topology_client => [ "topology_client/topology_client.so" ]
-file "topology_client/topology_client.so" => FileList[ 
-  "topology_client/libtology.c",
-  "topology_client/libtology.h",
-  "topology_client/lldp.h",
-  "topology_client/probe_timer_table.h",
-  "topology_client/topology_service_interface_option_parser.c",
-  "topology_client/topology_service_interface_option_parser.h",
-  "topology_client/topology-client.c",
-  "topology_client/topology-client.h"  ] do
-  sys.cd "topology_client"  do
-    sys "ruby extconf.rb --with-trema-include=#{ trema_include } --with-openflow-include=#{ openflow_include }"
-    sys "make"
-  end
+desc "Build topology client"
+task :topology_client => [ "topology/topology_client.so" ]
+file "topology/topology_client.so" => topology_obj do | t |
+  sys "gcc -shared -o #{ t.name } #{ topology_obj } #{ var :LDFLAGS }"
 end
 
 
-task "topology_client:clean" do
-  sys.cd "topology_client"
-  sys "make clean" rescue nil
+src = FileList[ "#{ trema_apps }/routing_switch/libpathresolver*.c",
+  "#{ trema_apps }/path_resolver_client/*.c" ]
+path_resolver_obj = src.ext( "o" )
+gen Rule, '.o' => '.c' do | t |
+  sys "gcc -I#{ trema_include } -I#{ openflow_include } #{ var :CFLAGS } -c -o #{ t.name } #{ t.source }"
+end
+desc "Build path resolver client"
+task :path_resolver_client => [ "path_resolver_client/path_resolver_client.so" ]
+file "path_resolver_client/path_resolver_client.so" => path_resolver_obj do | t |
+  sys "gcc -shared -o #{ t.name } #{ path_resolver_obj } #{ var :LDFLAGS }"
 end
 
-task "topology_client:distclean" do
-  sys.cd "topology_client"
-  sys.rm_f "Makefile"
+
+src = FileList[ "#{ trema_apps }/redirectable_routing_switch/*authenticator*.c" ]
+authenticator_obj = src.ext( "o" )
+gen Rule, '.o' => '.c' do | t |
+  sys "gcc -I#{ trema_include } -I#{ openflow_include } #{ var :CFLAGS } -c -o #{ t.name } #{ t.source }"
 end
+desc "Build authenticator"
+task :authenticator => [ "redirectable_routing_switch/authenticator.so" ]
+file "redirectable_routing_switch/authenticator.so" => authenticator_obj do | t |
+  sys "gcc -shared -o #{ t.name } #{ authenticator_obj } #{ var :LDFLAGS }"
+end
+
+
+src = FileList[ "#{ trema_apps }/redirectable_routing_switch/*redirector*.c" ]
+redirector_obj = src.ext( "o" )
+gen Rule, '.o' => '.c' do | t |
+  sys "gcc -I#{ trema_include } -I#{ openflow_include } #{ var :CFLAGS } -c -o #{ t.name } #{ t.source }"
+end
+desc "Build redirector"
+task :redirector => [ "redirectable_routing_switch/redirector.so" ]
+file "redirectable_routing_switch/redirector.so" => redirector_obj do | t |
+  sys "gcc -shared -o #{ t.name } #{ redirector_obj } #{ var :LDFLAGS }"
+end
+
+
+### Local variables:
+### mode: Ruby
+### coding: utf-8-unix
+### indent-tabs-mode: nil
+### End:

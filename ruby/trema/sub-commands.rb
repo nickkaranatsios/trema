@@ -200,7 +200,7 @@ EOF
 
     stats = nil
 
-    @options.banner = "Usage: #{ $0 } show_stats [OPTIONS ...]"
+    @options.banner = "Usage: #{ $0 } show_stats HOSTNAME [OPTIONS ...]"
 
     @options.on( "-t", "--tx" ) do
       stats = :tx
@@ -216,6 +216,8 @@ EOF
     @options.parse! ARGV
 
     host = @dsl_parser.load_current.hosts[ ARGV[ 0 ] ]
+    raise "Unknown host: #{ ARGV[ 0 ] }" if host.nil?
+
     case stats
     when :tx
       Trema::Cli.new( host ).show_tx_stats

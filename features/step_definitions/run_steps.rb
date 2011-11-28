@@ -25,7 +25,7 @@ end
 
 
 When /^I try to run "([^"]*)" \(log = "([^"]*)"\)$/ do | command, log_name |
-  run "#{ command } > #{ cucumber_log log_name }"
+  run "#{ command } > #{ cucumber_log log_name } 2>&1"
 end
 
 
@@ -64,6 +64,14 @@ end
 
 When /^I try trema run "([^"]*)" with following configuration:$/ do | args, config |
   step "I try trema run \"#{ args }\" with following configuration (no options):", config
+end
+
+
+Then /^"([^"]*)" exits abnormally with an error message:$/ do | command, message |
+  log = "error.log"
+  step %{I try to run "#{ command }" (log = "#{ log }")} rescue error_occured = true
+  error_occured.should be_true
+  step %{the content of "#{ log }" should be:}, message
 end
 
 

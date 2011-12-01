@@ -35,10 +35,15 @@ module Trema
 
     def start_router options
       @opts = options
-      @model_ds = SwitchDS.new
-      @fdb = FDB.new
+      load_model
       start_topology
       register_observer
+    end
+
+
+    def load_model
+      @model_ds = SwitchDS.new
+      @fdb = FDB.new
     end
 
 

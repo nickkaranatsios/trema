@@ -18,8 +18,8 @@
 #
 
 
-$LOAD_PATH << "../apps/topology"
-$LOAD_PATH << "../apps/path_resolver_client"
+$LOAD_PATH << "../apps_backup/topology"
+$LOAD_PATH << "../apps_backup/path_resolver_client"
 
 
 require "observer"
@@ -34,12 +34,22 @@ module Trema
 
 
     def start_router options
-      init_path_resolver_client
-      init_topology_client name
-      add_observer self
       @opts = options
       @model_ds = SwitchDS.new
       @fdb = FDB.new
+      start_topology
+      register_observer
+    end
+
+
+    def start_topology
+      init_path_resolver_client
+      init_topology_client name
+    end
+
+
+    def register_observer
+      add_observer self
     end
 
 

@@ -35,26 +35,16 @@ module Trema
 
     def start_router options
       @opts = options
-      load_model
-      start_topology
-      register_observer
-    end
-
-
-    def load_model
       @model_ds = SwitchDS.new
       @fdb = FDB.new
+      start_topology
+      add_observer self
     end
 
 
     def start_topology
       init_path_resolver_client
       init_topology_client name
-    end
-
-
-    def register_observer
-      add_observer self
     end
 
 
@@ -65,7 +55,7 @@ module Trema
       when :port_status
         process_port_status message
       else
-        raise "Invalid update message received"
+        raise "An invalid topology change message received"
       end
     end
 

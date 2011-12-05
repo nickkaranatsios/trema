@@ -1,4 +1,4 @@
-$LOAD_PATH << "../apps/redirectable_routing_switch"
+$LOAD_PATH << "../apps_backup/redirectable_routing_switch"
 
 
 require "trema/router"

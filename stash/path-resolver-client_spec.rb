@@ -27,6 +27,7 @@ require "path_resolver_client"
 
 
 module PathResolverClient
+
   describe HopInfo, ".new" do
     its ( :dpid ) { should == 0 }
     its ( :in_port_no ) { should == 0 }
@@ -40,130 +41,173 @@ module PathResolverClient
       expect { subject }.to raise_error( ArgumentError )
     end
   end
-end
 
 
-describe PathResolverClient do
-=begin
-  before do
-    class Client
-      include Trema::Router
-    end
-    def client
-      @client ||= Client.new
-    end
-    client.stub!( :name ).and_return( 'Client' )
-    client.stub!( :init_topology_client ).and_return( true )
-#    client.stub!( :init_path_resolver_client ).and_return( true )
-  end
+  describe PathResolverClient do
+    before :each do
+      class Resolver < Controller
+        include Router
 
 
-  it "should respond to #init_path_resolver_client" do
-    client.should_receive( :init_path_resolver_client )
-    client.start_topology
-  end
-=end
+        def start
+          start_router DummyOptions.new 
+        end
 
 
-  it "should resolve a specified path" do
-=begin
-    class Resolver < Controller
-    end
-=end
-    class Resolver < Controller
-      include Router
-      class DummyOptions < Options; 
-        def default_options
-          {
-            :dummy_option => "dummy"
-          }
+        class DummyOptions < Options
+          def default_options
+            {
+              :idle_timeout => 60,
+              :packet_in_discard_duration => 1
+            }
+          end
+
+
+          def packet_in_discard_duration
+            1
+          end
+
+
+          def idle_timeout
+            60
+          end
         end
       end
-      def start
-        start_router DummyOptions.new
+    end
+
+=begin
+    it "should respond to #init_path_resolver_client" do
+      client.stub!( :name ).and_return( 'Resolver' )
+      client.stub!( :init_topology_client ).and_return( true )
+      client.should_receive( :init_path_resolver_client )
+      client.start_topology
+    end
+=end
+
+
+    context "when a second packet_in is received" do
+      it "should respond to #path_resolve" do
+        network {
+          vswitch { datapath_id "0xe0" }
+          vswitch { datapath_id "0xe1" } 
+          vhost ("host1") {
+            ip "192.168.0.1"
+            netmask "255.255.0.0"
+            mac "00:00:00:00:10:01"
+          }
+          vhost ("host2") {
+            ip "192.168.0.2"
+            netmask "255.255.0.0"
+            mac "00:00:00:00:10:02"
+          }
+
+
+          link "0xe0", "host1"
+          link "0xe1", "host2"
+
+
+          link "0xe0", "0xe1"
+          link "0xe1", "0xe0"
+
+
+          app {
+            path "/home/nick/apps_backup/topology/topology"
+          }
+
+
+          app {
+            path "/home/nick/apps_backup/topology/topology_discovery"
+          }
+
+
+          event :port_status => "topology", :packet_in => "filter", :state_notify => "topology"
+          filter :lldp => "topology_discovery", :packet_in => "Resolver"
+        }.run( Resolver ) {
+          sleep 10
+          controller( "Resolver" ).should_receive( :flood_packet ).at_least( :once )
+          send_packets "host1", "host2"
+          sleep 2
+          controller( "Resolver" ).should_receive( :path_resolve ).at_least( :once ).and_return( [ HopInfo.new ] )
+          send_packets "host2", "host1"
+          sleep 2
+       }
       end
     end
-    network {
-      vswitch { datapath_id "0xe0" }
-      vswitch { datapath_id "0xe1" } 
-      vswitch { datapath_id "0xe2" }
-      vswitch { datapath_id "0xe3" }
-      vswitch { datapath_id "0xe4" }
-      vhost ("host1") {
-        ip "192.168.0.1"
-        netmask "255.255.0.0"
-        mac "00:00:00:00:10:01"
-      }
-      vhost ("host2") {
-        ip "192.168.0.2"
-        netmask "255.255.0.0"
-        mac "00:00:00:00:10:02"
-      }
-
-      vhost ("host3") {
-        ip "192.168.0.3"
-        netmask "255.255.0.0"
-        mac "00:00:00:01:00:03"
-      }
-
-      vhost ("host4") {
-        ip "192.168.0.4"
-        netmask "255.255.0.0"
-        mac "00:00:00:01:00:04"
-      }
-
-      vhost ("host5") {
-        ip "192.168.0.5"
-        netmask "255.255.0.0"
-        mac "00:00:00:01:00:04"
-      }
-
-      link "0xe0", "host1"
-      link "0xe1", "host2"
-      link "0xe2", "host3"
-      link "0xe3", "host4"
-      link "0xe4", "host5"
-
-      link "0xe0", "0xe1"
-      link "0xe0", "0xe2"
-      link "0xe0", "0xe4"
-
-      link "0xe1", "0xe0"
-      link "0xe1", "0xe3"
-      link "0xe1", "0xe4"
-
-      link "0xe2", "0xe0"
-      link "0xe2", "0xe3"
-      link "0xe2", "0xe4"
-
-      link "0xe3", "0xe1"
-      link "0xe3", "0xe2"
-      link "0xe3", "0xe4"
-
-      link "0xe4", "0xe0"
-      link "0xe4", "0xe1"
-      link "0xe4", "0xe2"
-      link "0xe4", "0xe3"
 
 
-      app {
-        path "../apps/topology/topology"
-      }
+    context "when a switch goes down" do
+      it "should respond to #update_path" do
+        network {
+          vswitch { datapath_id "0xe0" }
+          vswitch { datapath_id "0xe1" } 
+          vhost ("host1") {
+            ip "192.168.0.1"
+            netmask "255.255.0.0"
+            mac "00:00:00:00:10:01"
+          }
+          vhost ("host2") {
+            ip "192.168.0.2"
+            netmask "255.255.0.0"
+            mac "00:00:00:00:10:02"
+          }
 
 
-      app {
-        path "../apps/topology/topology_discovery"
-      }
+          link "0xe0", "host1"
+          link "0xe1", "host2"
 
 
-      event :port_status => "topology", :packet_in => "filter", :state_notify => "topology"
-      filter :lldp => "topology_discovery", :packet_in => "Resolver"
-    }.run( Resolver ) {
-      controller( 'Resolver' ).should_receive( :update ).at_least(2)
+          link "0xe0", "0xe1"
+          link "0xe1", "0xe0"
+
+
+          app {
+            path "/home/nick/apps_backup/topology/topology"
+          }
+
+
+          app {
+            path "/home/nick/apps_backup/topology/topology_discovery"
+          }
+
+
+          event :port_status => "topology", :packet_in => "filter", :state_notify => "topology"
+          filter :lldp => "topology_discovery", :packet_in => "Resolver"
+        }.run( Resolver ) {
+          controller( "Resolver" ).stop_topology
+          controller( "Resolver" ).start_topology
+          controller( "Resolver" ).should_receive( :update_path ).at_least( :once )
+          switch( "0xe0" ).shutdown!
+          sleep 3
+        }
+      end
+    end
+
+
+=begin
+      controller( "Resolver" ).should_receive( :update ).at_least( :twice )
       switch( "0xe0" ).shutdown!
-      sleep 3
-    }
-  end
+      sleep 3 # FIXME: wait to send_packets
+=end
+=begin
+      # this works with flood packet
+      sleep 10
+      controller( 'Resolver' ).should_receive( :flood_packet ).at_least( :once )
+      send_packets "host1", "host2"
+      sleep 2
+=end
+=begin
+      # this works with make_path
+      sleep 10
+      controller( 'Resolver' ).should_receive( :flood_packet ).at_least( :once )
+      send_packets "host1", "host2"
+      sleep 2
+      controller( 'Resolver' ).should_receive( :make_path ).at_least( :once ) 
+      send_packets "host2", "host1"
+      sleep 2
+=end
+=begin
+=end
+end
 end
 
 

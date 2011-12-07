@@ -30,7 +30,7 @@ require "trema/switch"
 
 module Trema
   #
-  # Open vSwitch http://openvswitch.org/
+  # Open vSwitch support (http://openvswitch.org)
   #
   class OpenVswitch < OpenflowSwitch
     #
@@ -40,8 +40,6 @@ module Trema
     #   switch = Trema::OpenVswitch.new( stanza, 6633 )
     #
     # @return [OpenVswitch]
-    #
-    # @api public
     #
     def initialize stanza, port
       super stanza
@@ -59,25 +57,22 @@ module Trema
     #
     # @return [undefined]
     #
-    # @api public
-    #
-    def add_interface name
-      @interfaces << name
+    def add_interface interface
+      @interfaces << interface
       restart! if running?
     end
 
 
     #
-    # Returns the unique name that identifies an Open vSwitch instance
+    # Returns the network device name associated with the datapath's
+    # local port
     #
     # @example
-    #   switch.datapath_id
+    #   switch.network_device  #=> "vsw_0xabc"
     #
     # @return [String]
     #
-    # @api public
-    #
-    def datapath
+    def network_device
       "vsw_#{ @stanza[ :dpid_short ] }"
     end
 
@@ -90,10 +85,8 @@ module Trema
     #
     # @return [undefined]
     #
-    # @api public
-    #
     def run!
-      shutdown! if running?
+      raise "Open vSwitch '#{ @name }' is already running!" if running?
       FileUtils.rm_f log_file
       sh "sudo #{ Executables.ovs_openflowd } #{ options }"
     end
@@ -106,8 +99,6 @@ module Trema
     #   switch.shutdown!
     #
     # @return [undefined]
-    #
-    # @api public
     #
     def shutdown!
       return if not running?
@@ -123,8 +114,6 @@ module Trema
     #
     # @return [undefined]
     #
-    # @api public
-    #
     def restart!
       if running?
         shutdown!
@@ -138,33 +127,12 @@ module Trema
     # Returns flow entries
     #
     # @example
-    #   switch.flows
+    #   switch.flows  #=> [ flow0, flow1, ... ]
     #
     # @return [Array]
     #
-    # @api public
-    #
     def flows
-      @ofctl.flows( self ).select do | each |
-        not each.rspec_flow?
-      end
-    end
-
-
-    #
-    # A stub handler when flow_mod_add is called
-    #
-    # @example
-    #   def switch.flow_mod_add line
-    #     p "New flow_mod!: #{ line }"
-    #   end
-    #
-    # @return [undefined]
-    #
-    # @api public
-    #
-    def flow_mod_add line
-      # Do nothing
+      @ofctl.flows( self ).select( &:users_flow? )
     end
 
 
@@ -173,37 +141,11 @@ module Trema
     ################################################################################
 
 
-    #
-    # The IP address
-    #
-    # @return [String]
-    #
-    # @api private
-    #
-    def ip
-      @stanza[ :ip ]
-    end
-
-
-    #
-    # Command-line options
-    #
-    # @return [String]
-    #
-    # @api private
-    #
     def options
-      default_options.join( " " ) + " netdev@#{ datapath } tcp:#{ ip }:#{ @port }"
+      default_options.join( " " ) + " netdev@#{ network_device } tcp:#{ ip }:#{ @port }"
     end
 
 
-    #
-    # The list of --xyz= command-line options
-    #
-    # @return [Array]
-    #
-    # @api private
-    #
     def default_options
       [
        "--detach",
@@ -222,57 +164,31 @@ module Trema
     end
 
 
-    #
-    # --ports= option
-    #
-    # @return [Array]
-    #
-    # @api private
-    #
+    def ip
+      @stanza[ :ip ]
+    end
+
+
     def ports_option
       @interfaces.empty? ? [] : [ "--ports=#{ @interfaces.join( "," ) }" ]
     end
 
 
-    #
-    # @api private
-    #
     def running?
       FileTest.exists? pid_file
     end
 
 
-    #
-    # The path of pid file
-    #
-    # @return [String]
-    #
-    # @api private
-    #
     def pid_file
       File.join Trema.tmp, "openflowd.#{ @name }.pid"
     end
 
 
-    #
-    # The path of log file
-    #
-    # @return [String]
-    #
-    # @api private
-    #
     def log_file
       File.join Trema.tmp, "log/openflowd.#{ @name }.log"
     end
 
 
-    #
-    # The path of control socket
-    #
-    # @return [String]
-    #
-    # @api private
-    #
     def unixctl
       File.join Trema.tmp, "ovs-openflowd.#{ $$ }.ctl"
     end

@@ -1,6 +1,4 @@
 #
-# vswitch command of Trema shell.
-#
 # Author: Yasuhito Takamiya <yasuhito@gmail.com>
 #
 # Copyright (C) 2008-2011 NEC Corporation
@@ -20,27 +18,26 @@
 #
 
 
-require "trema/dsl"
+Then /^the stats of "([^"]*)" should be:$/ do | host, string |
+  step %{I try to run "./trema show_stats #{ host }" (log = "show_stats.log")}
+  step %{the content of "show_stats.log" should be:}, string
+end
 
 
-module Trema
-  module Shell
-    def vswitch name = nil, &block
-      raise "Not in Trema shell" if @context.nil?
-      raise "No dpid given" if name.nil? and block.nil?
+Then /^the tx stats of "([^"]*)" should be:$/ do | host, string |
+  step %{I try to run "./trema show_stats #{ host } --tx" (log = "show_stats.log")}
+  step %{the content of "show_stats.log" should be:}, string
+end
 
-      stanza = DSL::Vswitch.new( name )
-      stanza.instance_eval &block if block
-      OpenVswitch.new( stanza, @context.port ).restart!
 
-      true
-    end
-  end
+Then /^the rx stats of "([^"]*)" should be:$/ do | host, string |
+  step %{I try to run "./trema show_stats #{ host } --rx" (log = "show_stats.log")}
+  step %{the content of "show_stats.log" should be:}, string
 end
 
 
 ### Local variables:
 ### mode: Ruby
-### coding: utf-8
+### coding: utf-8-unix
 ### indent-tabs-mode: nil
 ### End:

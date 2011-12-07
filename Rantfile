@@ -60,8 +60,9 @@ task :examples => [
   "examples:repeater_hub",                 
   "examples:packetin_filter_config",
   "examples:switch_info",
-  "examples:switch_monitor"
+  "examples:switch_monitor",
 ]
+
 
 import "clean"
 
@@ -115,15 +116,6 @@ def openflow_include
   "#{ Trema.home }/objects/openflow"
 end
 
-
-def trema_examples
-  "src/examples"
-end
-
-
-def trema_apps
-  "~/apps"
-end
 
 ################################################################################
 # !!!!!! DO NOT MODIFY !!!!!!
@@ -382,13 +374,14 @@ task :distclean => "rubylib:distclean"
 
 
 desc "Build ruby library."
-task :rubylib => [ "ruby/trema.so" ]
+task :rubylib => "ruby/trema.so"
 file "ruby/trema.so" => FileList[ "ruby/trema/*.c", "ruby/trema/*.h", libtrema ] do
   sys.cd "ruby" do
     sys "ruby extconf.rb --with-trema-include=#{ trema_include } --with-trema-lib=#{ trema_lib } --with-openflow-include=#{ openflow_include }"
     sys "make"
   end
 end
+
 
 task "rubylib:clean" do
   sys.cd "ruby" do
@@ -399,7 +392,6 @@ end
 task "rubylib:distclean" do
   sys.rm_f "ruby/Makefile"
 end
-
 
 
 ################################################################################

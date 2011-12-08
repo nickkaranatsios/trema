@@ -21,6 +21,7 @@
 
 
 require "trema/executables"
+require "trema/flow"
 
 
 module Trema
@@ -39,6 +40,11 @@ module Trema
       dump_flows( switch ).split( "\n" )[ 1..-1 ].collect do | each |
         Trema::Flow.parse( each )
       end.compact
+    end
+
+
+    def users_flows switch
+      flows( switch ).select( &:users_flow? )
     end
 
 

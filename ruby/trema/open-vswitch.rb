@@ -20,12 +20,10 @@
 
 require "fileutils"
 require "trema/executables"
-require "trema/flow"
 require "trema/ofctl"
 require "trema/openflow-switch"
 require "trema/path"
 require "trema/process"
-require "trema/switch"
 
 
 module Trema
@@ -45,7 +43,6 @@ module Trema
       super stanza
       @port = port
       @interfaces = []
-      @ofctl = Trema::Ofctl.new
     end
 
 
@@ -59,7 +56,7 @@ module Trema
     #
     def add_interface interface
       @interfaces << interface
-      restart! if running?
+      restart!
     end
 
 
@@ -101,7 +98,6 @@ module Trema
     # @return [undefined]
     #
     def shutdown!
-      return if not running?
       Trema::Process.read( pid_file, @name ).kill!
     end
 
@@ -115,10 +111,9 @@ module Trema
     # @return [undefined]
     #
     def restart!
-      if running?
-        shutdown!
-        sleep 1
-      end
+      return if not running?
+      shutdown!
+      sleep 1
       run!
     end
 
@@ -132,7 +127,7 @@ module Trema
     # @return [Array]
     #
     def flows
-      @ofctl.flows( self ).select( &:users_flow? )
+      Ofctl.new.users_flows( self )
     end
 
 
@@ -190,7 +185,7 @@ module Trema
 
 
     def unixctl
-      File.join Trema.tmp, "ovs-openflowd.#{ $$ }.ctl"
+      File.join Trema.tmp, "ovs-openflowd.#{ @name }.ctl"
     end
   end
 end

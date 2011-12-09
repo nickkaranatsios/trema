@@ -124,61 +124,6 @@ module Model
     end
 
 
-    def add_port_to_switch dpid, port, external_link
-      new_port = PortDS.new( port )
-      new_port.external_link = external_link
-      if @switches.has_key? dpid
-        ports = @switches[ dpid ]
-        if port = lookup_port( dpid, port )
-          port.external_link = external_link
-        else
-          ports << new_port
-        end
-      else
-        ports = [ new_port ]
-      end
-      @switches[ dpid ] = ports
-    end
-
-
-    def lookup_port dpid, port_no
-      return nil unless @switches.has_key? dpid
-      @switches[ dpid ].detect { | port | port.port_no == port_no }
-    end
-
-
-    def delete_port dpid, port_no
-      if port = lookup_port( dpid, port_no )
-        @switches[ dpid ].delete port
-      end
-    end
-
-
-    def update_link dpid, port_no, status, which_link = 0
-      if port = lookup_port( dpid, port_no )
-        port.update_link status, which_link
-      end
-    end
-
-
-    def validate_port dpid, port_no
-      port = lookup_port( dpid, port_no )
-      return unless port
-      res = true
-      if port.external_link == false || port.switch_to_switch_reverse_link == true
-        res = port.forwarding_port?
-      end
-      res
-    end
-
-
-    def each &block
-      @switches.each do | dpid, ports |
-        block.call dpid, ports
-      end
-    end
-
-
     def process_port_status message
       dpid = message.dpid
       port_no = message.port_no
@@ -200,6 +145,69 @@ module Model
         end
       end
     end
+
+
+    def validate_port dpid, port_no
+      port = lookup_port( dpid, port_no )
+      return unless port
+      res = true
+      if port.external_link == false || port.switch_to_switch_reverse_link == true
+        res = port.forwarding_port?
+      end
+      res
+    end
+
+
+    def lookup_port dpid, port_no
+      return nil unless @switches.has_key? dpid
+      @switches[ dpid ].detect { | port | port.port_no == port_no }
+    end
+
+
+    def update_link dpid, port_no, status, which_link = 0
+      if port = lookup_port( dpid, port_no )
+        port.update_link status, which_link
+      end
+    end
+
+
+    def each &block
+      @switches.each do | dpid, ports |
+        block.call dpid, ports
+      end
+    end
+
+
+
+    ################################################################################
+    private
+    ################################################################################
+
+
+    def add_port_to_switch dpid, port, external_link
+      new_port = PortDS.new( port )
+      new_port.external_link = external_link
+      if @switches.has_key? dpid
+        ports = @switches[ dpid ]
+        if port = lookup_port( dpid, port )
+          port.external_link = external_link
+        else
+          ports << new_port
+        end
+      else
+        ports = [ new_port ]
+      end
+      @switches[ dpid ] = ports
+    end
+
+
+    def delete_port dpid, port_no
+      if port = lookup_port( dpid, port_no )
+        @switches[ dpid ].delete port
+      end
+    end
+
+
   end
 end
 

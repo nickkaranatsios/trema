@@ -48,6 +48,12 @@ module Trema
     end
 
 
+    def stop_topology
+      finalize_path_resolver_client
+      finalize_topology_client
+    end
+
+
     def update message, kind
       case kind
       when :link_status

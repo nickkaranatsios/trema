@@ -20,26 +20,28 @@
 #
 
 
+require "trema/daemon"
 require "trema/executables"
-require "trema/process"
 
 
 module Trema
   class Phost
+    include Trema::Daemon
+
+
+    command { | phost | "sudo #{ Executables.phost } -i #{ phost.interface } -D" }
+    wait_until_up
+    daemon_id :interface
+
+
     def initialize host
       @host = host
     end
 
 
-    def run
-      raise "The link(s) for vhost '#{ @host.name }' is not defined." if @host.interface.nil?
-      sh "sudo #{ Executables.phost } -i #{ @host.interface } -D"
-      wait_until_up
-    end
-
-
-    def shutdown!
-      Trema::Process.read( pid_file, @host.name ).kill!
+    def interface
+      raise "The link(s) for vhost '#{ name }' is not defined." if @host.interface.nil?
+      @host.interface
     end
 
 
@@ -48,16 +50,8 @@ module Trema
     ################################################################################
 
 
-    def pid_file
-      File.join Trema.tmp, "phost.#{ @host.interface }.pid"
-    end
-
-
-    def wait_until_up
-      loop do
-        sleep 0.1
-        break if FileTest.exists?( pid_file )
-      end
+    def name
+      @host.name
     end
   end
 end

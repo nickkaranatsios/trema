@@ -24,6 +24,7 @@ else
   trema_apps = "../apps"
 end
 
+
 $LOAD_PATH << "#{ trema_apps }/topology"
 $LOAD_PATH << "#{ trema_apps }/path_resolver_client"
 
@@ -39,6 +40,14 @@ module Trema
     include Observable, TopologyClient, PathResolverClient, Model
 
 
+    #
+    # Saves the options, initializes data sources and starts the topology
+    # application service. Registers the current instance to receive topology
+    # update status messages.
+    #
+    # @param [Options] options
+    #   a subclass instance of class Options.
+    #
     def start_router options
       @opts = options
       @model_ds = SwitchDS.new
@@ -48,18 +57,32 @@ module Trema
     end
 
 
+    #
+    # Starts the path resolver and topology application service.
+    #
     def start_topology
       init_path_resolver_client
       init_topology_client name
     end
 
 
+    #
+    # Finalizes the path resolver and topology application service.
+    #
     def stop_topology
       finalize_path_resolver_client
       finalize_topology_client
     end
 
 
+    #
+    # Processes a topology update status message. There are two kind of
+    # supported messages link and port.
+    #
+    # @raise [Exception] message
+    #   raise an exception message if an invalid kind of topology update message
+    #   is received.
+    #
     def update message, kind
       case kind
       when :link_status
@@ -72,6 +95,17 @@ module Trema
     end
 
 
+    #
+    # Processes the packet in message. Validates the originator and learns
+    # the source mac address. Finally it makes a path and forwards the
+    # packet to destination if destination mac address is known or floods the
+    # packet on the network.
+    #
+    # @param [Number] datapath_id
+    #   the datapath identifier of the received packet in message.
+    # @param [PacketIn] message
+    #   the packet in received message to process.
+    #
     def packet_in datapath_id, message
       # abort processing if in_port is not known.
       return unless validate_in_port datapath_id, message.in_port
@@ -85,32 +119,78 @@ module Trema
     end
 
 
+    #
+    # Overrides the switch_ready handler to send a features request message.
+    #
+    # @param [Number] datapath_id
+    #   the datapath identifier that become available.
+    #
     def switch_ready datapath_id
       send_message datapath_id, FeaturesRequest.new
     end
 
 
+    #
+    # Overrides the features_reply handler to send a set config request message.
+    # Sets the miss_send_len to a maximum short integer value so that the packet in's
+    # data portion includes the same amount of bytes of a data message.
+    #
+    # @param [FeaturesReply] message
+    #  the message that encapsulates the features reply.
+    #
     def features_reply message
       send_message message.datapath_id, SetConfigRequest.new( :miss_send_len => 2**16 -1 )
     end
 
 
+    #
+    # Validate packet in's input port.
+    #
+    # @param [Number] datapath_id
+    #   the datapath identifier of the received packet in message.
+    # @param [Number] port
+    #   the input port of the received packet in message.
+    #
     def validate_in_port datapath_id, port
       @model_ds.validate_port datapath_id, port
     end
 
 
+    #
+    # Processes the topology port status message.
+    #
+    # @param [TopologyPortStatus] message
+    #   a message that represents an instance of the class TopologyPortStatus.
+    #
     def process_port_status message
       @model_ds.process_port_status message
     end
 
 
+    #
+    # Processes the topology link status message.
+    #
+    # @param [TopologyLinkStatus] message
+    #   a message that represents an instance of the class TopologyLinkStatus.
+    #
     def process_link_status message
       @model_ds.process_link_status message
       update_path message
     end
 
 
+    #
+    # Resolves a path and constructs flows to output the packet
+    # otherwise discards the packet in.
+    #
+    # @param [Number] in_datapath_id
+    #   the datapath identifier of the received packet in message.
+    # @param {PacketIn] message
+    #   the received packet in message.
+    # @param [Array] dest
+    #   an array of destination identification information 
+    #   (datapath_id, out_port)
+    #
     def make_path in_datapath_id, message, dest
       out_datapath_id, out_port = *dest
       if hops = path_resolve( in_datapath_id, message.in_port, out_datapath_id, out_port )
@@ -122,26 +202,54 @@ module Trema
     end
 
 
-    def output_packet_from_last_switch last_hop, message 
-      send_packet_out( last_hop.dpid, 
-        :packet_in => message, 
+    #
+    # Sends a packet out to the last hop to output it on the specified output
+    # port.
+    #
+    # @param [PathResolverHop] last_hop
+    #   last hop path information dpid, output port number.
+    # @param [PacketIn] message
+    #   the packet in message to output.
+    #
+    def output_packet_from_last_switch last_hop, message
+      send_packet_out( last_hop.dpid,
+        :packet_in => message,
         :actions => ActionOutput.new( :port => last_hop.out_port_no )
       )
     end
 
 
+    #
+    # Creates a flow entry to discard a packet in.
+    #
+    # @param [Number] datapath_id
+    #   the datapath identifier that the flow entry would be created.
+    # @param [PacketIn] message
+    #   the received packet in message. Copy the packet in's match structure
+    #   to the createda flow entry match structure.
+    #
     def discard_packet_in datapath_id, message
-      send_flow_mod_add( datapath_id, 
+      send_flow_mod_add( datapath_id,
         :match => Match.from( message ),
         :hard_timeout => @opts.packet_in_discard_duration
       )
     end
 
 
+    #
+    # For each hop resolved creates a flow entry so that subsequent packets
+    # can be forwarded according to flow entries without resulting in flow 
+    # entry misses.
+    #
+    # @param [Array<PathResolverHop>] hops
+    #   an array of PathResolverHop instances.
+    # @param [message] message
+    #   the received packet in message.
+    #
     def modify_flow_entry hops, message
       nr_hops = hops.length
       hops.each do | hop |
-        idle_timeout = @opts.idle_timeout + nr_hops 
+        idle_timeout = @opts.idle_timeout + nr_hops
         nr_hops -= 1
         send_flow_mod_add( hop.dpid,
           :match => Match.from( message ),
@@ -152,6 +260,15 @@ module Trema
     end
 
 
+    #
+    # Floods the packet by sending a packet out to every interconnected node 
+    # and every port on the network except received packet in's input port
+    #
+    # @param [Number] datapath_id
+    #   the datapath identifier of the received packet in message.
+    # @param [PacketIn] message
+    #   the received packet in message.
+    #
     def flood_packet datapath_id, message
       @model_ds.each do | dpid, ports |
         actions = []

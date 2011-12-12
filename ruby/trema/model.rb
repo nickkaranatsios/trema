@@ -46,11 +46,17 @@ module Model
     ################################################################################
 
 
+    #
+    # Options protected getter method.
+    #
     def []( key )
       @options[ key ]
     end
 
 
+    #
+    # Options protected setter method.
+    #
     def []=( value )
       @options[ key ] = value
     end
@@ -64,6 +70,12 @@ module Model
     attr_accessor :port_no, :external_link, :switch_to_switch_link, :switch_to_switch_reverse_link
 
 
+    #
+    # Creates a port data source instance.
+    #
+    # @param [Number] port_no
+    #   the port number to save to into its corresponding attribute.
+    #
     def initialize port_no
       @port_no = port_no
     end
@@ -78,32 +90,68 @@ module Model
     end
 
 
+    #
+    # Sets the port's external link status to true or false depending on the
+    # value parameter.
+    #
+    # @param [Number] value
+    #   the value to check to set port's external link status to true
+    #   if value equals TD_PORT_EXTERNAL or false if not.
+    #
+    #
     def external_link=( value )
       @external_link = value == TD_PORT_EXTERNAL
     end
 
 
+    #
+    # Sets the port's switch to switch link status to true or false depending 
+    # on the given status parameter.
+    #
+    # @param [Number] status
+    #   the status value to check to set port's switch to switch link status to
+    #   true if status equals TD_LINK_UP or false if not.
+    #
     def switch_to_switch_link=( status )
       @switch_to_switch_link = link_status( status )
     end
 
 
+    #
+    # Sets the port's switch to switch reverse link status to true or false 
+    # depending on the given status parameter.
+    #
+    # @param [Number] status
+    #   the status value to check to set port's switch to switch reverse link
+    #   status to true if status equals TD_LINK_UP or false if not.
+    #
     def switch_to_switch_reverse_link=( status )
       @switch_to_switch_reverse_link = link_status( status )
     end
 
 
+    #
+    # Checks the link status parameter.
+    #
+    # @return [Boolean] true if status is TD_LINK_UP otherwise false.
+    #
     def link_status status
       status == TD_LINK_UP
     end
 
 
-    def include? obj
-      @port_no == obj
+    # FIXME maybe is better to convert this method to equal.
+    def include? other
+      @port_no == other
     end
 
 
-    # non_edge port
+    #
+    # @return [Boolean]
+    #   true if the port is a non-edge port which means the external link 
+    #   status is set to false and its switch to switch and switch to switch 
+    #   reverse link status is set to true otherwise it returns false.
+    #
     def forwarding_port?
       @external_link == false and ( @switch_to_switch_link  == true and @switch_to_switch_link_reverse_link == true )
     end

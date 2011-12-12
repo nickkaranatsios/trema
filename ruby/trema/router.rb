@@ -18,8 +18,14 @@
 #
 
 
-$LOAD_PATH << "../apps_backup/topology"
-$LOAD_PATH << "../apps_backup/path_resolver_client"
+if ENV.has_key? 'TREMA_APPS'
+  trema_apps = ENV[ 'TREMA_APPS' ]
+else
+  trema_apps = "../apps"
+end
+
+$LOAD_PATH << "#{ trema_apps }/topology"
+$LOAD_PATH << "#{ trema_apps }/path_resolver_client"
 
 
 require "observer"

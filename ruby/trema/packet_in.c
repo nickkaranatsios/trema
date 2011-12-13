@@ -46,6 +46,25 @@ packet_in_init( VALUE kclass ) {
 #endif
 
 
+#if 0
+/*
+ * @overload initialize()
+ *   Allocates and wraps a {PacketInfo} object to store details about the user's
+ *   data  packet included in the +OFPT_PACKET_IN+ message.
+ *
+ * @param [PacketIn] message
+ *   the received packet in message.
+ *
+ * @return [PacketInfo] an object that encapsulates the user data packet.
+ */ 
+static VALUE
+packet_info_init( VALUE kclass, VALUE message ) {
+  packet_info _packet_info = get_packet_info( message.data );
+  return Data_Wrap_Struct( cPacketInfo, 0, NULL, &_packet_info );
+}
+#endif
+
+
 static VALUE
 packet_in_alloc( VALUE klass ) {
   packet_in *_packet_in = xmalloc( sizeof( packet_in ) );
@@ -108,8 +127,7 @@ packet_in_buffer_id( VALUE self ) {
 /*
  * A buffer_id value either than +UINT32_MAX+ marks the packet_in as buffered.
  *
- * @return [true] if packet_in is buffered.
- * @return [false] if packet_in is not buffered.
+ * @return [Boolean] true if packet_in is buffered otherwise false.
  */
 static VALUE
 packet_in_is_buffered( VALUE self ) {
@@ -123,7 +141,7 @@ packet_in_is_buffered( VALUE self ) {
 
 
 /*
- * The port the frame was received.
+ * The port number from where the packet_in received.
  *
  * @return [Number] the value of in_port.
  */
@@ -134,7 +152,7 @@ packet_in_in_port( VALUE self ) {
 
 
 /*
- * The full length of the received frame.
+ * The full length of the received packet_in.
  *
  * @return [Number] the value of total_len.
  */
@@ -171,7 +189,7 @@ packet_in_reason( VALUE self ) {
 /*
  * The MAC source address.
  *
- * @return [Trema::Mac] macsa MAC source address.
+ * @return [Trema::Mac]
  */
 static VALUE
 packet_info_macsa( VALUE self ) {
@@ -183,7 +201,7 @@ packet_info_macsa( VALUE self ) {
 /*
  * The MAC destination address.
  *
- * @return [Trema::Mac] macda MAC destination address.
+ * @return [Trema::Mac]
  */
 static VALUE
 packet_info_macda( VALUE self ) {
@@ -192,30 +210,55 @@ packet_info_macda( VALUE self ) {
 }
 
 
+/*
+ * The UDP source port number of the user's data packet.
+ *
+ * @return [Number]
+ */
 static VALUE
 packet_info_udp_src_port( VALUE self ) {
   return UINT2NUM( get_pinfo( self )->udp_src_port );
 }
 
 
+/*
+ * The UDP destination port number of the user's data packet.
+ *
+ * @return [Number]
+ */
 static VALUE
 packet_info_udp_dst_port( VALUE self ) {
   return UINT2NUM( get_pinfo( self )->udp_dst_port );
 }
 
 
+/*
+ * The TCP source port number of the user's data packet.
+ *
+ * @return [Number]
+ */
 static VALUE
 packet_info_tcp_src_port( VALUE self ) {
   return UINT2NUM( get_pinfo( self )->tcp_src_port );
 }
 
 
+/*
+ * The TCP destination port number of the user's data packet.
+ *
+ * @return [Number]
+ */
 static VALUE
 packet_info_tcp_dst_port( VALUE self ) {
   return UINT2NUM( get_pinfo( self )->tcp_dst_port );
 }
 
 
+/*
+ * true if the user data packet is an ARP packet otherwise false.
+ *
+ * @return [Boolean]
+ */
 static VALUE
 packet_info_arp( VALUE self ) {
   return ( ( get_pinfo( self )->format & NW_ARP ) == NW_ARP ); 
@@ -230,11 +273,18 @@ Init_packet_in() {
   rb_define_alloc_func( cPacketIn, packet_in_alloc );
 #if 0
   /*
-   * Do not remove this is to fake yard to create a constructor for 
+   * Don't remove this because it is to fake yard to create a constructor for 
    * PacketIn object.
    */
   rb_define_method( cPacketIn, "initialize", packet_in_init, 0 );
-#endif  
+  /*
+   * Don't remove this because it is to fake yard to create a constructor for
+   * PacketInfo object.
+   */
+   rb_define_method( cPacketInfo, "initialize", packet_info_init, 0 );
+  */
+#endif
+
   rb_define_method( cPacketIn, "datapath_id", packet_in_datapath_id, 0 );
   rb_define_method( cPacketIn, "transaction_id", packet_in_transaction_id, 0 );  
   rb_define_method( cPacketIn, "buffer_id", packet_in_buffer_id, 0 );

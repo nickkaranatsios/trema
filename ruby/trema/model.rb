@@ -26,16 +26,31 @@ module Model
     attr_reader :options
 
 
+    #
+    # Creates an new instance of subclass Options to parse the options.
+    #
+    # @return [Options] any instance of subclass of Options.
+    #
     def self.parse args
       new.parse!( args )
     end
 
 
+    #
+    # Initialize options with a hash of default options.
+    #
+    # @return [Hash] 
+    #
     def initialize
       @options = default_options
     end
 
 
+    #
+    # Extends the arguments array in order to parse options.
+    #
+    # @return [void]
+    #
     def parse! args
       args.extend( ::OptionParser::Arguable )
     end
@@ -47,7 +62,9 @@ module Model
 
 
     #
-    # Options protected getter method.
+    # Options getter method.
+    #
+    # @api protected
     #
     def []( key )
       @options[ key ]
@@ -55,7 +72,9 @@ module Model
 
 
     #
-    # Options protected setter method.
+    # Options setter method.
+    #
+    # @api protected
     #
     def []=( value )
       @options[ key ] = value
@@ -67,37 +86,57 @@ module Model
     TD_PORT_EXTERNAL = 1
     TD_LINK_UP = 1
     TD_PORT_UP = 1
-    attr_accessor :port_no, :external_link, :switch_to_switch_link, :switch_to_switch_reverse_link
+    #
+    # A port represents any configured virtual link or a physical port of 
+    # an openflow switch.
+    #
+    # @return [Number]
+    #
+    attr_accessor :port_no
+    #
+    # A status attached to a port to classify it as an edge port or not.
+    #
+    # @return [Boolean]
+    #
+    attr_accessor :external_link
+    #
+    # A status attached to a port that indicates a virtual or a physical 
+    # connection to another switch.
+    #
+    # @return [Boolean]
+    #
+    attr_accessor :switch_to_switch_link
+    #
+    # A status attached to a port that indicates a reverse link connection
+    # from one switch to another.
+    #
+    # @return [Boolean]
+    #
+    attr_accessor :switch_to_switch_reverse_link
 
 
     #
-    # Creates a port data source instance.
+    # Creates a new instance.
     #
     # @param [Number] port_no
-    #   the port number to save.
+    #   the port number to associate with this instance.
     #
     def initialize port_no
       @port_no = port_no
     end
 
 
-    def update_link status, which_link = 0
-      if !which_link
-        @switch_to_switch_link = status 
-      else
-        @switch_to_switch_reverse_link = status
-      end
-    end
-
-
     #
     # Sets the port's external link status to true or false depending on the
-    # external status parameter.
+    # external status parameter. Edge ports have their external link status
+    # set to true.
     #
-    # @param [Number] link_status
-    #   the value to check to set port's external link status to true
-    #   if it is equal to TD_PORT_EXTERNAL or false if not.
+    # @param [Number] external_status
+    #   if it's equal to TD_PORT_EXTERNAL sets the port's external link
+    #   status to true otherwise sets it to false.
     #
+    # @return [Boolean] external_link
+    #   true or false depending on the evaluation result.
     #
     def external_link=( external_status )
       @external_link = external_status == TD_PORT_EXTERNAL
@@ -105,12 +144,15 @@ module Model
 
 
     #
-    # Sets the port's switch to switch link status to true or false depending 
-    # on the given status parameter.
+    # Sets the port's switch to switch link status to true or false depending
+    # on the given status parameter. Edge ports have their switch to
+    # switch link status set to false.
     #
     # @param [Number] status
     #   the status value to check to set port's switch to switch link status to
     #   true if the status equals TD_LINK_UP or false if not.
+    #
+    # @return [Boolean]
     #
     def switch_to_switch_link=( status )
       @switch_to_switch_link = link_status( status )
@@ -118,12 +160,15 @@ module Model
 
 
     #
-    # Sets the port's switch to switch reverse link status to true or false 
-    # depending on the given status parameter.
+    # Sets the port's switch to switch reverse link status to true or false
+    # depending on the given status parameter. Edge ports have their switch to
+    # switch reverse link status set to false.
     #
     # @param [Number] status
     #   the status value to check to set port's switch to switch reverse link
     #   status to true if status equals TD_LINK_UP or false if not.
+    #
+    # @return [Boolean]
     #
     def switch_to_switch_reverse_link=( status )
       @switch_to_switch_reverse_link = link_status( status )
@@ -131,9 +176,10 @@ module Model
 
 
     #
-    # Checks the link status parameter.
+    # Given a link status parameter returns true if it is equal to +TD_LINK_UP+
+    # otherwise false.
     #
-    # @return [Boolean] true if status is TD_LINK_UP otherwise false.
+    # @return [Boolean]
     #
     def link_status status
       status == TD_LINK_UP
@@ -141,9 +187,10 @@ module Model
 
 
     #
+    # True if the given port number equals the receiver's class instance
+    # variable port_no otherwise false.
+    #
     # @return [Boolean]
-    #   true if the given port number equals the instance
-    #   variable port_no otherwise false.
     #
     def include? _port_no
       @port_no == _port_no
@@ -151,10 +198,11 @@ module Model
 
 
     #
+    # True if the port is a non-edge port otherwise false. An non-edge port
+    # is a port whose its external link status is set to false and its switch
+    # to switch and switch to switch reverse link status is set to true.
+    #
     # @return [Boolean]
-    #   true if the port is a non-edge port otherwise false. An non-edge port
-    #   is a port which its external link status is set to false and its switch 
-    #   to switch and switch to switch reverse link status is set to true.
     #
     def forwarding_port?
       @external_link == false and ( @switch_to_switch_link  == true and @switch_to_switch_link_reverse_link == true )
@@ -162,10 +210,12 @@ module Model
 
 
     #
+    # True if a port is an action port otherwise false. An action port is an
+    # port whose its external link status is set to true or its switch to switch
+    # reverse link status is false.
+    #
     # @return [Boolean]
-    #   true if a port is an action port otherwise false. An action port is an
-    #   port which its external link status is set to true or its switch to switch
-    #   reverse link status is false.
+    #
     def action_port?
       if @external_link == false or @switch_to_switch_reverse_link == true
         return false
@@ -176,17 +226,23 @@ module Model
 
 
   class SwitchDS
+    #
+    # Create a new instance of SwitchDS that maintains a hash for each 
+    # switch keyed by a datapath identifier.
+    #
     def initialize
       @switches ||= {}
     end
 
 
     #
-    # Adds or deletes a port to a switch data source according to port's 
+    # Adds or deletes a port to a switch data source according to port's
     # status up or down.
     #
     # @param [TopologyPortStatus] message
     #   the message that encapsulates this class instance.
+    #
+    # @return [void]
     #
     def process_port_status message
       dpid = message.dpid
@@ -205,6 +261,8 @@ module Model
     #
     # @param [TopologyLinkStatus] message
     #   the message that encapsulates this class instance.
+    #
+    # @return [void]
     #
     def process_link_status message
       if port = lookup_port( message.from_dpid, message.from_portno )
@@ -240,8 +298,9 @@ module Model
     # Looks up switch's data source to locate a given port number for a switch
     # identified by its datapath id.
     #
-    # @return [PortDS] an instance of class PortDS that matched.
-    # @return [NilClass]  nil if unable to key in switch's data soure.
+    # @return [PortDS] an instance of class PortDS matched.
+    # @return [NilClass]  nil a non-existent key is used to locate switch's 
+    #   data source.
     #
     def lookup_port dpid, port_no
       return nil unless @switches.has_key? dpid
@@ -250,16 +309,8 @@ module Model
 
 
     #
-    def update_link dpid, port_no, status, which_link = 0
-      if port = lookup_port( dpid, port_no )
-        port.update_link status, which_link
-      end
-    end
-
-
-    #
-    # Iterates through each switch and calls the given block passing 
-    # switch's datapath identifier and ports an array of PortDS instances.
+    # Iterates through each switch and call the given block passing 
+    # switch's datapath identifier and ports, an array of PortDS instances.
     #
     def each &block
       @switches.each do | dpid, ports |
@@ -274,6 +325,17 @@ module Model
     ################################################################################
 
 
+    #
+    # Adds a port to switch's data source. If a port already exists update
+    # its external link status.
+    #
+    # @param [Number] datapath_id
+    #   the datapath identifier to which this port is attached.
+    # @param [Number] port
+    #   the port number to add.
+    # @param [Number] external_link
+    #   for an edge port the external_link is set to 1 otherwise 0.
+    #
     def add_port_to_switch dpid, port, external_link
       new_port = PortDS.new( port )
       new_port.external_link = external_link
@@ -292,7 +354,7 @@ module Model
 
 
     #
-    # Deletes a given port from switch's data source keyed by a given dpid.
+    # Deletes a given port from switch's data source keyed by the given dpid.
     #
     # @param [Number] dpid
     #   the datapath identifier a unique key to switch's data source.
@@ -304,8 +366,6 @@ module Model
         @switches[ dpid ].delete port
       end
     end
-
-
   end
 end
 

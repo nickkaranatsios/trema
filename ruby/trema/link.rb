@@ -1,4 +1,6 @@
 #
+# link command of Trema shell.
+#
 # Author: Yasuhito Takamiya <yasuhito@gmail.com>
 #
 # Copyright (C) 2008-2011 NEC Corporation
@@ -18,132 +20,33 @@
 #
 
 
-require "trema/network-component"
+require "trema/dsl"
 
 
 module Trema
-  #
-  # Network link between hosts and switches.
-  #
-  class Link < NetworkComponent
-    #
-    # Returns the name of link interface
-    #
-    # @example
-    #   link.name => "trema3-0"
-    #
-    # @return [String]
-    #
-    # @api public
-    #
-    attr_reader :name
+  module Shell
+    def link peer0, peer1
+      stanza = DSL::Link.new( peer0, peer1 )
+      link = Link.new( stanza )
+      link.enable!
 
+      if Switch[ peer0 ]
+        Switch[ peer0 ] << link.name
+      end
+      if Switch[ peer1 ]
+        Switch[ peer1 ] << link.name_peer
+      end
 
-    #
-    # Returns the name of link peer interface
-    #
-    # @example
-    #   link.name => "trema3-1"
-    #
-    # @return [String]
-    #
-    # @api public
-    #
-    attr_reader :name_peer
-    
+      if Host[ peer0 ]
+        Host[ peer0 ].interface = link.name
+        Host[ peer0 ].run!
+      end
+      if Host[ peer1 ]
+        Host[ peer1 ].interface = link.name_peer
+        Host[ peer1 ].run!
+      end
 
-    #
-    # Returns the configuration names of link peers
-    #
-    # @example
-    #   link.peers => [ "host 0", "switch 1" ]
-    #
-    # @return [Array]
-    #
-    # @api public
-    #
-    attr_reader :peers
-
-
-    #
-    # Creates a new Trema link from {DSL::Link}
-    #
-    # @example
-    #   link = Trema::Link.new( stanza )
-    #
-    # @return [Link]
-    #
-    # @api public
-    #
-    def initialize stanza
-      @link_id = Link.instances.size
-      @name = "trema#{ @link_id }-0"
-      @name_peer = "trema#{ @link_id }-1"
-      @peers = stanza.peers
-      Link.add self
-    end
-
-
-    #
-    # Adds a virtual link
-    #
-    # @example
-    #   link.add!
-    #
-    # @return [undefined]
-    #
-    # @api public
-    #
-    def add!
-      sh "sudo ip link add name #{ @name } type veth peer name #{ @name_peer }"
-    end
-
-
-    #
-    # Ups the peer interfaces of a virtual link
-    #
-    # @example
-    #   link.up!
-    #
-    # @return [undefined]
-    #
-    # @api public
-    #
-    def up!
-      sh "sudo /sbin/ifconfig #{ @name } up"
-      sh "sudo /sbin/ifconfig #{ @name_peer } up"
-    end
-
-
-    #
-    # Creates and enables a virtual link
-    #
-    # @example
-    #   link.enable!
-    #
-    # @return [undefined]
-    #
-    # @api public
-    #
-    def enable!
-      add!
-      up!
-    end
-
-
-    #
-    # Deletes a virtual link
-    #
-    # @example
-    #   link.delete!
-    #
-    # @return [undefined]
-    #
-    # @api public
-    #
-    def delete!
-      # FIXME: do not rescue nil
-      sh "sudo ip link delete #{ @name } 2>/dev/null" rescue nil
+      true
     end
   end
 end
@@ -151,6 +54,6 @@ end
 
 ### Local variables:
 ### mode: Ruby
-### coding: utf-8-unix
+### coding: utf-8
 ### indent-tabs-mode: nil
 ### End:

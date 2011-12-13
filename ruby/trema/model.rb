@@ -27,9 +27,9 @@ module Model
 
 
     #
-    # Creates an new instance of subclass Options to parse the options.
+    # Creates a new instance subclassed from Options to parse the options.
     #
-    # @return [Options] any instance of subclass of Options.
+    # @return [Options] any instance subclassed from Options.
     #
     def self.parse args
       new.parse!( args )
@@ -37,7 +37,7 @@ module Model
 
 
     #
-    # Initialize options with a hash of default options.
+    # Initialize options attribute with a hash of default options.
     #
     # @return [Hash] 
     #
@@ -47,7 +47,7 @@ module Model
 
 
     #
-    # Extends the arguments array in order to parse options.
+    # Extends the arguments array in order to parse the options.
     #
     # @return [void]
     #
@@ -87,8 +87,7 @@ module Model
     TD_LINK_UP = 1
     TD_PORT_UP = 1
     #
-    # A port represents any configured virtual link or a physical port of 
-    # an openflow switch.
+    # A port represents a virtual link or a physical port of an openflow switch.
     #
     # @return [Number]
     #
@@ -116,10 +115,12 @@ module Model
 
 
     #
-    # Creates a new instance.
+    # Creates a new instance with a given port number.
     #
     # @param [Number] port_no
     #   the port number to associate with this instance.
+    #
+    # @return [PortDS]
     #
     def initialize port_no
       @port_no = port_no
@@ -132,7 +133,7 @@ module Model
     # set to true.
     #
     # @param [Number] external_status
-    #   if it's equal to TD_PORT_EXTERNAL sets the port's external link
+    #   if it is equal to +TD_PORT_EXTERNAL+ sets the port's external link
     #   status to true otherwise sets it to false.
     #
     # @return [Boolean] external_link
@@ -150,7 +151,7 @@ module Model
     #
     # @param [Number] status
     #   the status value to check to set port's switch to switch link status to
-    #   true if the status equals TD_LINK_UP or false if not.
+    #   true if the status equals +TD_LINK_UP+ or false if not.
     #
     # @return [Boolean]
     #
@@ -166,7 +167,7 @@ module Model
     #
     # @param [Number] status
     #   the status value to check to set port's switch to switch reverse link
-    #   status to true if status equals TD_LINK_UP or false if not.
+    #   status to true if status equals +TD_LINK_UP+ or false if not.
     #
     # @return [Boolean]
     #
@@ -187,8 +188,8 @@ module Model
 
 
     #
-    # True if the given port number equals the receiver's class instance
-    # variable port_no otherwise false.
+    # Returns true if the attribute port number equals the given port number
+    # otherwise false.
     #
     # @return [Boolean]
     #
@@ -227,8 +228,8 @@ module Model
 
   class SwitchDS
     #
-    # Create a new instance of SwitchDS that maintains a hash for each 
-    # switch keyed by a datapath identifier.
+    # Creates a new instance and instantiates a new hash keyed in by
+    # a datapath id.
     #
     def initialize
       @switches ||= {}
@@ -309,8 +310,8 @@ module Model
 
 
     #
-    # Iterates through each switch and call the given block passing 
-    # switch's datapath identifier and ports, an array of PortDS instances.
+    # Iterates the switches hash and yields the block with each key
+    # (datapath_id) and value (array of ports)
     #
     def each &block
       @switches.each do | dpid, ports |
@@ -326,7 +327,7 @@ module Model
 
 
     #
-    # Adds a port to switch's data source. If a port already exists update
+    # Adds a port to switch's hash. If a port already exists update
     # its external link status.
     #
     # @param [Number] datapath_id
@@ -335,6 +336,8 @@ module Model
     #   the port number to add.
     # @param [Number] external_link
     #   for an edge port the external_link is set to 1 otherwise 0.
+    #
+    # @return [Hash] the updated hash.
     #
     def add_port_to_switch dpid, port, external_link
       new_port = PortDS.new( port )
@@ -354,12 +357,15 @@ module Model
 
 
     #
-    # Deletes a given port from switch's data source keyed by the given dpid.
+    # Deletes a given port from a switch's hash indexed by its datapath 
+    # identifier.  
     #
     # @param [Number] dpid
     #   the datapath identifier a unique key to switch's data source.
     # @param [Number] port_no
     #   a port number to delete.
+    #
+    # @return [void]
     #
     def delete_port dpid, port_no
       if port = lookup_port( dpid, port_no )

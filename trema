@@ -59,10 +59,14 @@ FileUtils.cd Trema.home do
   unless FileTest.directory?( Trema.log_directory )
     FileUtils.mkdir_p Trema.log_directory
   end
+  unless FileTest.directory?( Trema.pid_directory )
+    FileUtils.mkdir_p Trema.pid_directory
+  end
 
   sub_command = ARGV.shift
   if sub_command.nil?
     Trema::SubCommands.new.start_shell
+    cleanup @context
   elsif method_for( sub_command )
     begin
       Trema::SubCommands.new.__send__ method_for( sub_command )

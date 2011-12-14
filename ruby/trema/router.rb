@@ -21,7 +21,7 @@
 if ENV.has_key? 'TREMA_APPS'
   trema_apps = ENV[ 'TREMA_APPS' ]
 else
-  trema_apps = "../apps"
+  trema_apps = "../apps_backup"
 end
 
 
@@ -41,12 +41,14 @@ module Trema
 
 
     #
-    # Saves the options, initializes data sources and starts the topology
+    # Saves the options, initializes databases and starts the topology
     # application service. Registers the current instance to receive topology
     # update status messages.
     #
     # @param [Options] options
     #   a subclass instance of class Options.
+    #
+    # @return [void]
     #
     def start_router options
       @opts = options
@@ -60,6 +62,8 @@ module Trema
     #
     # Starts the path resolver and topology application service.
     #
+    # @return [void]
+    #
     def start_topology
       init_path_resolver_client
       init_topology_client name
@@ -68,6 +72,8 @@ module Trema
 
     #
     # Finalizes the path resolver and topology application service.
+    #
+    # @return [void]
     #
     def stop_topology
       finalize_path_resolver_client
@@ -80,14 +86,18 @@ module Trema
     # supported messages link and port.
     #
     # @raise [Exception] message
-    #   raise an exception message if an invalid kind of topology update message
+    #   raises an exception message if an invalid kind of topology update message
     #   is received.
+    #
+    # @return [void]
     #
     def update message, kind
       case kind
       when :link_status
+puts "TopologyLinkStatus #{message.from_dpid.to_hex} #{message.to_dpid.to_hex}, #{message.from_portno}, #{message.to_portno}, #{message.status}"
         process_link_status message
       when :port_status
+puts "TopologyPortStatus #{message.dpid.to_hex} #{message.port_no}, #{message.status}, #{message.external}"
         process_port_status message
       else
         raise "An invalid topology change message received"
@@ -98,13 +108,15 @@ module Trema
     #
     # Processes the packet in message. Validates the originator and learns
     # the source mac address. Finally it makes a path and forwards the
-    # packet to destination if destination mac address is known or floods the
-    # packet on the network.
+    # packet to destination if the destination mac address is known or floods
+    # the packet on the network.
     #
     # @param [Number] datapath_id
     #   the datapath identifier of the received packet in message.
     # @param [PacketIn] message
     #   the packet in received message to process.
+    #
+    # @return [void]
     #
     def packet_in datapath_id, message
       # abort processing if in_port is not known.
@@ -125,6 +137,8 @@ module Trema
     # @param [Number] datapath_id
     #   the datapath identifier that become available.
     #
+    # @return [void]
+    #
     def switch_ready datapath_id
       send_message datapath_id, FeaturesRequest.new
     end
@@ -132,11 +146,13 @@ module Trema
 
     #
     # Overrides the features_reply handler to send a set config request message.
-    # Sets the miss_send_len to a maximum short integer value so that the packet in's
-    # data portion includes the same amount of bytes of a data message.
+    # Sets the miss_send_len to a maximum value of a short integer value so that 
+    # the packet in's data portion includes a large portion of user data.
     #
     # @param [FeaturesReply] message
     #  the message that encapsulates the features reply.
+    #
+    # @return [void]
     #
     def features_reply message
       send_message message.datapath_id, SetConfigRequest.new( :miss_send_len => 2**16 -1 )
@@ -149,7 +165,9 @@ module Trema
     # @param [Number] datapath_id
     #   the datapath identifier of the received packet in message.
     # @param [Number] port
-    #   the input port of the received packet in message.
+    #   the input port on which the packet in is received.
+    #
+    # @return [Boolean] whether or not the +port+ is valid.
     #
     def validate_in_port datapath_id, port
       @model_ds.validate_port datapath_id, port
@@ -162,16 +180,21 @@ module Trema
     # @param [TopologyPortStatus] message
     #   a message that represents an instance of the class TopologyPortStatus.
     #
+    # @return [void]
+    #
     def process_port_status message
       @model_ds.process_port_status message
     end
 
 
     #
-    # Processes the topology link status message.
+    # Processes the topology link status message. Informs the path resolver
+    # of the topology change.
     #
     # @param [TopologyLinkStatus] message
     #   a message that represents an instance of the class TopologyLinkStatus.
+    #
+    # @return [void]
     #
     def process_link_status message
       @model_ds.process_link_status message
@@ -190,6 +213,8 @@ module Trema
     # @param [Array] dest
     #   an array of destination identification information 
     #   (datapath_id, out_port)
+    #
+    # @return [void]
     #
     def make_path in_datapath_id, message, dest
       out_datapath_id, out_port = *dest
@@ -211,6 +236,8 @@ module Trema
     # @param [PacketIn] message
     #   the packet in message to output.
     #
+    # @return [void]
+    #
     def output_packet_from_last_switch last_hop, message
       send_packet_out( last_hop.dpid,
         :packet_in => message,
@@ -227,6 +254,8 @@ module Trema
     # @param [PacketIn] message
     #   the received packet in message. Copy the packet in's match structure
     #   to the createda flow entry match structure.
+    #
+    # @return [void]
     #
     def discard_packet_in datapath_id, message
       send_flow_mod_add( datapath_id,
@@ -246,6 +275,8 @@ module Trema
     # @param [message] message
     #   the received packet in message.
     #
+    # @return [void]
+    #
     def modify_flow_entry hops, message
       nr_hops = hops.length
       hops.each do | hop |
@@ -261,13 +292,15 @@ module Trema
 
 
     #
-    # Floods the packet by sending a packet out to every interconnected node 
+    # Floods the network by sending a packet out to every interconnected node 
     # and every port on the network except received packet in's input port
     #
     # @param [Number] datapath_id
     #   the datapath identifier of the received packet in message.
     # @param [PacketIn] message
     #   the received packet in message.
+    #
+    # @return [void]
     #
     def flood_packet datapath_id, message
       @model_ds.each do | dpid, ports |

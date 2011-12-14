@@ -22,7 +22,16 @@ require "trema/fdb"
 
 
 module Model
+  #
+  # A class to assist with the parsing of the command line arguments.
+  # Subclasses should override the {#parse!} method to parse their own options.
+  # Parsed options can be accessed as instance variables of each specific
+  # subclass of Options.
+  #
   class Options
+    #
+    # @return [Hash]
+    #
     attr_reader :options
 
 
@@ -49,7 +58,8 @@ module Model
     #
     # Extends the arguments array in order to parse the options.
     #
-    # @return [void]
+    # @return [Array] 
+    #   the extended arguments array with the parse! method added.
     #
     def parse! args
       args.extend( ::OptionParser::Arguable )
@@ -82,6 +92,9 @@ module Model
   end
 
 
+  #
+  # A database that maintains certain characteristics for each port.
+  #
   class PortDS
     TD_PORT_EXTERNAL = 1
     TD_LINK_UP = 1
@@ -115,7 +128,8 @@ module Model
 
 
     #
-    # Creates a new instance with a given port number.
+    # Creates a new instance and binds the instance variable {#port_no} to the
+    # given +port_no+ value.
     #
     # @param [Number] port_no
     #   the port number to associate with this instance.
@@ -177,8 +191,8 @@ module Model
 
 
     #
-    # Given a link status parameter returns true if it is equal to +TD_LINK_UP+
-    # otherwise false.
+    # Given a link +status+ parameter returns true if it is equal to 
+    # +TD_LINK_UP+ otherwise false.
     #
     # @return [Boolean]
     #
@@ -188,8 +202,8 @@ module Model
 
 
     #
-    # Returns true if the attribute port number equals the given port number
-    # otherwise false.
+    # Takes one argument +_port_no+ and returns the value of the equality 
+    # expression evaluated against the instance variable {#port_no}.
     #
     # @return [Boolean]
     #
@@ -226,6 +240,9 @@ module Model
   end
 
 
+  #
+  # A database that maintains a port list for each switch.
+  #
   class SwitchDS
     #
     # Creates a new instance and instantiates a new hash keyed in by
@@ -237,8 +254,7 @@ module Model
 
 
     #
-    # Adds or deletes a port to a switch data source according to port's
-    # status up or down.
+    # Adds or deletes a port to the hash according to port's status up or down.
     #
     # @param [TopologyPortStatus] message
     #   the message that encapsulates this class instance.
@@ -258,7 +274,7 @@ module Model
 
     #
     # Updates the port's switch to switch link status or switch to switch
-    # reverse link status depending on the status message.
+    # reverse link status depending on the message status attribute.
     #
     # @param [TopologyLinkStatus] message
     #   the message that encapsulates this class instance.
@@ -278,8 +294,13 @@ module Model
 
 
     #
-    # Validates a switch's port. The port to be valid must already been
-    # configured and must have its external link status set to true.
+    # Validates a port. The port to be valid should be configured and should 
+    # have its external link status set to true.
+    #
+    # @param [Number] dpid
+    #   the datapath identifier unique key to the hash.
+    # @param [Number] port_no
+    #   the port number to validate.
     #
     # @return [Boolean]
     #   true if a valid port false otherwise.
@@ -296,12 +317,11 @@ module Model
 
 
     #
-    # Looks up switch's data source to locate a given port number for a switch
-    # identified by its datapath id.
+    # Looks up the hash to locate the given +port_no+ for a switch identified by 
+    # its +dpid+.
     #
     # @return [PortDS] an instance of class PortDS matched.
-    # @return [NilClass]  nil a non-existent key is used to locate switch's 
-    #   data source.
+    # @return [NilClass]  nil a non-existent key is used to hash.
     #
     def lookup_port dpid, port_no
       return nil unless @switches.has_key? dpid
@@ -310,8 +330,8 @@ module Model
 
 
     #
-    # Iterates the switches hash and yields the block with each key
-    # (datapath_id) and value (array of ports)
+    # Iterates the hash and calls the given +block+ with the hash key
+    # (datapath_id) and value (array of ports) as arguments.
     #
     def each &block
       @switches.each do | dpid, ports |
@@ -327,8 +347,8 @@ module Model
 
 
     #
-    # Adds a port to switch's hash. If a port already exists update
-    # its external link status.
+    # Adds a port to the hash. If a port already exists update its external 
+    # link status.
     #
     # @param [Number] datapath_id
     #   the datapath identifier to which this port is attached.
@@ -357,15 +377,15 @@ module Model
 
 
     #
-    # Deletes a given port from a switch's hash indexed by its datapath 
-    # identifier.  
+    # Deletes a given port from the hash keyed in by its datapath 
+    # identifier.
     #
     # @param [Number] dpid
-    #   the datapath identifier a unique key to switch's data source.
+    #   the datapath identifier a unique key to the hash.
     # @param [Number] port_no
     #   a port number to delete.
     #
-    # @return [void]
+    # @return [Hash] the updated hash.
     #
     def delete_port dpid, port_no
       if port = lookup_port( dpid, port_no )

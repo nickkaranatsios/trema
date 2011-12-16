@@ -1,4 +1,6 @@
 #
+# trema shell command.
+#
 # Author: Yasuhito Takamiya <yasuhito@gmail.com>
 #
 # Copyright (C) 2008-2011 NEC Corporation
@@ -18,8 +20,36 @@
 #
 
 
+require "irb"
+require "trema/util"
+
+
+include Trema::Util
+
+
 module Trema
-  VERSION = "0.1.3".freeze
+  module Command
+    def shell
+      begin
+        undef :kill
+
+        require "tempfile"
+        require "trema"
+        require "trema/shell"
+        f = Tempfile.open( "irbrc" )
+        f.print <<EOF
+include Trema::Shell
+ENV[ "TREMA_HOME" ] = Trema.home
+@context = Trema::DSL::Context.new
+EOF
+        f.close
+        load f.path
+        IRB.start
+      ensure
+        cleanup @context
+      end
+    end
+  end
 end
 
 

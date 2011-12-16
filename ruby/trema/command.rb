@@ -1,4 +1,6 @@
 #
+# Trema sub-commands.
+#
 # Author: Yasuhito Takamiya <yasuhito@gmail.com>
 #
 # Copyright (C) 2008-2011 NEC Corporation
@@ -18,9 +20,16 @@
 #
 
 
-module Trema
-  VERSION = "0.1.3".freeze
-end
+require "trema/command/dump_flows"
+require "trema/command/kill"
+require "trema/command/killall"
+require "trema/command/reset_stats"
+require "trema/command/run"
+require "trema/command/send_packets"
+require "trema/command/shell"
+require "trema/command/show_stats"
+require "trema/command/usage"
+require "trema/command/version"
 
 
 ### Local variables:

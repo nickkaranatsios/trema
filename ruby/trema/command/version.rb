@@ -1,4 +1,6 @@
 #
+# trema version command.
+#
 # Author: Yasuhito Takamiya <yasuhito@gmail.com>
 #
 # Copyright (C) 2008-2011 NEC Corporation
@@ -18,8 +20,15 @@
 #
 
 
+require "trema/version"
+
+
 module Trema
-  VERSION = "0.1.3".freeze
+  module Command
+    def version
+      puts "trema version #{ Trema::VERSION }"
+    end
+  end
 end
 
 

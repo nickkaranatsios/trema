@@ -66,14 +66,10 @@ VALUE mTrema;
 
 void
 Init_trema() {
-  VALUE module_defined = rb_eval_string( "Object.constants.include?( \"mTrema\")" );
-  if ( module_defined == Qfalse ) {
-    mTrema = rb_define_module( "Trema" );
-  }
+  mTrema = rb_define_module( "Trema" );
 
   rb_require( "trema/host" );
   rb_require( "trema/path" );
-  rb_require( "trema/sub-commands" );
   rb_require( "trema/switch" );
 
   Init_action_output();

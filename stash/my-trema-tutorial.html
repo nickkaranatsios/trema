@@ -1,0 +1,203 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML>
+<HEAD>
+	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=shift_jis">
+	<TITLE></TITLE>
+	<META NAME="GENERATOR" CONTENT="OpenOffice.org 3.3  (Win32)">
+	<META NAME="AUTHOR" CONTENT="Nick Karanatsios">
+	<META NAME="CREATED" CONTENT="20120203;16533298">
+	<META NAME="CHANGEDBY" CONTENT="Nick Karanatsios">
+	<META NAME="CHANGED" CONTENT="20120207;16341161">
+	<META NAME="CHANGEDBY" CONTENT="Nick Karanatsios">
+</HEAD>
+<BODY LANG="ja-JP" DIR="LTR">
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">If you
+download trema and perform a directory listing you will find the
+following:</SPAN></FONT></P>
+<P><IMG SRC="trema-directory-listing.JPG" NAME="graphics1" ALIGN=LEFT WIDTH=960 HEIGHT=649 BORDER=0><BR CLEAR=LEFT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">I
+am not going to explain every directory but I want you to pay
+particular attention to ruby, spec and src directories and their
+subdirectories.</SPAN></FONT></P>
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">In the
+<I>ruby/trema</I> directory you will find a number of C source files
+and some ruby files.</SPAN></FONT></P>
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">The
+common rule is that each C source file is an implementation file for
+an Openflow message with the accompanying header interface file. It
+is a ruby C extension file. It contains calls to ruby prefixed with
+rb_*. Most of the defined classes are defined under the </SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>trema</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">
+module. The function block that start with Ini</SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">t_&lt;class_name&gt;
+defines the constructor and public, protected or private methods of
+the class. </SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">You
+will also find that all initialization calls are called from </SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>trema.c</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">
+</SPAN></FONT></SPAN></FONT>
+</P>
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">Another
+file worth mentioning is the </SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>con</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>troller.c</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">
+It defines the </SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>Controller</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">
+class and all its supported methods. You don't instantiate the
+</SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>Controller</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">
+class but you inherit from it to receive all its functionality.
+Controller kicks into life implicitly by the </SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>trema
+run</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">
+command that starts your application within the trema framework.
+After the initialization process your child class can be coded to
+receive any openflow event.</SPAN></FONT></SPAN></FONT></P>
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">The
+</SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>trema</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">
+command needs some further explanation. It is a command written in
+Ruby that resides at Trema's top directory. If you invoke </SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>trema</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">
+without passing any options it enters the ruby interpreter irb for
+you. At the moment exit the irb prompt. To print out what
+sub-commands the </SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>trema</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">
+supports run help on it. </SPAN></FONT></SPAN></FONT>
+</P>
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">./trema
+help</SPAN></FONT></I></SPAN></FONT></P>
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">You
+will see a list of options and one of them is the </SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>run</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">
+option that we men</SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">tioned
+above. Further invoking </SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>trema</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">
+with </SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>./trema
+run &ndash;help</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">
+will display the available options for the run sub-command.</SPAN></FONT></SPAN></FONT></P>
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">We
+can use the </SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>trema
+run</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">
+command to either run a ruby or a C program. You use the -c option to
+supply any configuration that the program needs to run and execute.</SPAN></FONT></SPAN></FONT></P>
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">The
+following two examples indicate how to run the ruby and C version of
+the learning switch program.</SPAN></FONT></SPAN></FONT></P>
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">./trema
+run ./src/examples/learning_switch/learning_switch.rb -c
+./src/examples/learning_switch/learning_switch.conf</SPAN></FONT></I></SPAN></FONT></P>
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">./trema
+run ./objects/examples/learning_switch -c
+./src/examples/learning_switch/learning_switch.conf</SPAN></FONT></I></SPAN></FONT></P>
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">You
+probably notice that the command syntax is identical for both ruby
+and C program. The </SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>trema
+</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">command
+behind the scenes would ensure that the configuration file is read
+and parsed correctly. Regardless of the executable program type C or
+Ruby the </SPAN></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>trema
+</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">command
+with start up and initialize for you all trema services. The only
+prerequisite here is that the ruby program must declare a class
+inherited from the </SPAN></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>Controller</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">
+class that is evaluated with the context of its definition.</SPAN></SPAN></FONT></SPAN></FONT></P>
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">Now
+I want to turn your att</SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">ention
+to directory </SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>src/lib</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">.
+This is the directory where most of the trema services are found. Two
+important set of files </SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>openflow_message.[ch]</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">
+and </SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>openflow_application_interface.[ch]</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">.
+The </SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>openflow_message.c</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">
+file contains a number of function calls starting with create_xxx
+that as the name suggests create openflow messages. For example
+</SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>create_hello(...)</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">,
+</SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>create_echo_request(...)</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">
+and so on. The </SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>openflow_message.h</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">
+defines the function prototypes for those calls, consult them to find
+out what parameters you need to pass when you call them. </SPAN></FONT></SPAN></FONT>
+</P>
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">The
+</SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>openflow_application_interface.c
+</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">file
+defines all the openflow event handlers and callbacks. The file
+contains a number of set_xxx_handler functions that a controller
+class would call to register a callback that is called when an event
+is triggered. The common practice here is to name the callback
+handle_xxx. The </SPAN></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>openflow_application_interface.h
+</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">defines
+the function prototypes for the handlers and the parameters passed
+when callbacks invoked.</SPAN></SPAN></FONT></SPAN></FONT></P>
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">Going
+up the directory tree there is a </SPAN></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>packetin_filter</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">
+directory that contains a single file </SPAN></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>packetin_filter.c</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">.
+ It interprets and executes a simple rule  filter an incoming packet
+type and output the result to a destination service as a packet_in
+event. It can filter packets conforming to lldp type or any other
+IPv4 type packet.</SPAN></SPAN></FONT></SPAN></FONT></P>
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">Under
+the same </SPAN></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>src
+</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">tree
+there is a </SPAN></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>switch_manager
+</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">directory
+that contains code  process that listens for any Openflow connections
+on a server port and theb forks a switch daemon process to handle the
+connection thereafter.</SPAN></SPAN></FONT></SPAN></FONT></P>
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">Another
+important directory from debugging point of view is </SPAN></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>tremashark.
+</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">It
+is a wireshark plugin that collects trema's inter-process messages
+and other openflow events for display. How to configure and install
+</SPAN></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>tremashark
+</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">refer
+to the README file under its directory. We are going through an
+example to use to display openflow events using </SPAN></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>tremashark.</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">
+To run insert the following line of text at the beginning of a
+configuration file.</SPAN></SPAN></FONT></SPAN></FONT></P>
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">Bear
+in mind that </SPAN></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>tremashark
+</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">
+</SPAN></SPAN></FONT></SPAN></FONT>
+</P>
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">use_tremashark</SPAN></FONT></I></SPAN></FONT></P>
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">To
+indicate to </SPAN></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>tremashark
+</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">what
+processes you need to debug use the following command from the top
+trema directory.</SPAN></SPAN></FONT></SPAN></FONT></P>
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">Sudo
+kill -USR2 `cat tmp/pid/&lt;process-name&gt;.pid`</SPAN></FONT></I></SPAN></FONT></P>
+<P STYLE="font-style: normal"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">Now
+when you run the program using </SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>trema
+run </I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US">
+wireshark should be invoked automatically. You don't need to set
+anything in wireshark apart from executing one or more of the above
+commands to collect messages to debug. </SPAN></FONT></SPAN></FONT>
+</P>
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">The
+following screenshot shows a captured output from wireshark.</SPAN></SPAN></FONT></SPAN></FONT></P>
+<P><IMG SRC="screenshot.png" NAME="graphics2" ALIGN=LEFT WIDTH=680 HEIGHT=510 BORDER=0><BR CLEAR=LEFT><BR><BR>
+</P>
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">From
+the above screenshot you can observe that the highlighted message
+from screen is originated from application LearningSwitch destined
+for switch.0xabc which is a switch daemon process. </SPAN></SPAN></FONT></SPAN></FONT>
+</P>
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">To
+send an openflow message an application use a wrapper functions
+called </SPAN></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>send_message()</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">.
+It takes two arguments the datapath_id (the vSwitch identifier) and
+the enclosed message encapsulated as a opaque buffer object. </SPAN></SPAN></FONT></SPAN></FONT>
+</P>
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">When
+a message is dumped to </SPAN></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><I>tremashark
+</I></SPAN></FONT><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">
+the header and body include the following fields.</SPAN></SPAN></FONT></SPAN></FONT></P>
+<UL>
+	<LI><P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">Type
+	of message</SPAN></SPAN></FONT></SPAN></FONT></P>
+	<LI><P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">date
+	and time in nanoseconds precision</SPAN></SPAN></FONT></SPAN></FONT></P>
+	<LI><P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">application
+	name length</SPAN></SPAN></FONT></SPAN></FONT></P>
+	<LI><P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">service
+	name length</SPAN></SPAN></FONT></SPAN></FONT></P>
+	<LI><P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">application
+	name</SPAN></SPAN></FONT></SPAN></FONT></P>
+	<LI><P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">service
+	name</SPAN></SPAN></FONT></SPAN></FONT></P>
+</UL>
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">-I/usr/lib/i386-linux-gnu/glib-2.0/include</SPAN></SPAN></FONT></SPAN></FONT></P>
+<P><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><FONT FACE="Times New Roman, serif"><SPAN LANG="en-US"><SPAN STYLE="font-style: normal">copy
+the packet-openflow.so wireshark plugin into ~/.wireshark</SPAN></SPAN></FONT></SPAN></FONT></P>
+<P><BR><BR>
+</P>
+<P><BR><BR>
+</P>
+</BODY>
+</HTML>

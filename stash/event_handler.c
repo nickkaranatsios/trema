@@ -153,18 +153,18 @@ static inline void pool_unlock( void ) {
 
 
 static void
-update_pool( void *thread_id ) {
+update_pool( void *index ) {
   int i;
-  int *pool_idx = ( int * )thread_id;
+  int *pool_idx = ( int * )index;
 
   pool_lock();
-  for ( i = 0; i < nr_threads; i++ ) {
-    if ( pool[ i ].thread_num == *pool_idx ) {
+  for ( i = 0; i < MAX_THREADS; i++ ) {
+    if ( i == *pool_idx && pool[ i ].thread_num ) {
       pool[ i ].thread_num = 0;
       nr_threads--;
     }
   }
-  error( "update_pool is called pool_idx %d nr_threads = %d" , *pool_idx, nr_threads );
+  debug( "update_pool is called pool_idx %d nr_threads = %d" , *pool_idx, nr_threads );
   pool_unlock();
 }
 
@@ -172,7 +172,6 @@ update_pool( void *thread_id ) {
 int get_next_thread() {
   int i = -1;
 
-//      thread_wait( &pool[ i ].thread, ( thread_addr_t ) &status, "thread_wait" ); 
   pool_lock();
   for ( i = 0; i < MAX_THREADS; i++ ) {
     if ( !pool[ i ].thread_num ) {
@@ -184,9 +183,22 @@ int get_next_thread() {
   pool_unlock();
   if ( i == -1  || i == MAX_THREADS ) {
     error( "failed to get_next_thread %d", i );
+
+#ifdef TEST
+  int status;
+    pool_lock();
+    for ( i = 0;  i < MAX_THREADS; i++ ) {
+      if ( pool[ i ].thread_num ) {
+        thread_wait( &pool[ i ].thread_id, ( thread_addr_t ) &status, "thread_wait" );
+      }
+    }
+    error(" completed wait" );
+    pool_unlock();
+#endif
+
     return -1;
   }
-  info( "returning next_thread %d", i );
+  debug( "returning next_thread %d", i );
   return i;
 }
   
@@ -195,10 +207,20 @@ int get_next_thread() {
 
 void 
 *invoke_callback( void * args ) {
-   threaded_pool *pool = ( threaded_pool * ) args;
-  pthread_cleanup_push( update_pool, ( void * )&pool->thread_num );
+  threaded_pool *pool = ( threaded_pool * ) args;
+  pool_lock();
+  int pool_idx = pool->thread_num - 1;
+  pool_unlock();
+
+  pthread_cleanup_push( update_pool, ( void * ) &pool_idx );
   pool->callback( pool->fd, pool->data );
   pthread_cleanup_pop( 1 );
+
+#ifdef TEST
+  if ( pool->thread_num == 2 )
+    update_pool( ( void * ) &pool->thread_num );
+#endif
+
   int ret = 1;
   return ( void * ) ( intptr_t ) ret;
 }
@@ -267,7 +289,11 @@ _run_event_handler_once( int timeout_usec ) {
     event_fd current_event = *event_itr;
 
     if ( FD_ISSET( current_event.fd, &current_write_set ) ) {
-//      current_event.write_callback( current_event.fd, current_event.write_data );
+
+#ifdef TEST
+      current_event.write_callback( current_event.fd, current_event.write_data );
+#endif
+
         pool_idx = get_next_thread();
         if ( pool_idx != -1 ) {
           pool[ pool_idx ].fd = current_event.fd;
@@ -275,6 +301,11 @@ _run_event_handler_once( int timeout_usec ) {
           pool[ pool_idx ].data = current_event.write_data;
           
           thread_create( &pool[ pool_idx ].thread_id, invoke_callback, &pool[ pool_idx ], "thread_create" );
+
+#ifdef TEST
+            invoke_callback( &pool[ pool_idx ] );
+#endif
+
         }
     }
 
@@ -315,6 +346,11 @@ _start_event_handler() {
   }
 
   event_handler_state &= ~EVENT_HANDLER_RUNNING;
+
+  pthread_mutexattr_t attr;
+  pthread_mutexattr_init( &attr );
+  pthread_mutexattr_settype( &attr, PTHREAD_MUTEX_RECURSIVE_NP );
+  pthread_mutex_init( &pool_mutex, &attr );
 
   debug( "Event handler terminated." );
   return true;

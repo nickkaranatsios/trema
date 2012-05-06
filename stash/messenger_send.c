@@ -59,7 +59,6 @@ static const uint32_t messenger_bucket_size = MESSENGER_SEND_BUFFER;
 
 
 void on_send_write( int fd, void *data );
-void my_on_send_write( void *args );
 void on_send_read( int fd, void *data );
 static int send_queue_connect_timeout( send_queue *sq );
 static uint32_t get_send_data( send_queue *sq, size_t offset );
@@ -813,71 +812,6 @@ get_send_data( send_queue *sq, size_t offset ) {
     offset += message_length;
   }
   return length;
-}
-
-
-void
-my_on_send_write( void *args ) {
-  struct push_args *pargs = ( struct push_args * )args;
-  int fd = pargs->fd;
-
-  send_queue *sq = lookup_hash_entry( send_queues, ( char * ) pargs->data );
-
-  assert( sq != NULL );
-  assert( fd >= 0 );
-
-  debug( "Sending data to remote ( fd = %d, service_name = %s, buffer = %p, data_length = %u ).",
-         fd, sq->service_name, get_message_buffer_head( sq->buffer ), sq->buffer->data_length );
-
-  if ( sq->buffer->data_length < sizeof( message_header ) ) {
-    set_writable( sq->server_socket, false );
-    return;
-  }
-
-  void *send_data;
-  size_t send_len;
-  ssize_t sent_len;
-  size_t sent_total = 0;
-
-  while ( ( send_len = get_send_data( sq, sent_total ) ) > 0 ) {
-    send_data = ( ( char * ) get_message_buffer_head( sq->buffer ) + sent_total );
-    sent_len = send( fd, send_data, send_len, MSG_DONTWAIT );
-    if ( sent_len == -1 ) {
-      int err = errno;
-      if ( err != EAGAIN && err != EWOULDBLOCK ) {
-        error( "Failed to send ( service_name = %s, fd = %d, errno = %s [%d] ).",
-               sq->service_name, fd, strerror( err ), err );
-        send_dump_message( MESSENGER_DUMP_SEND_CLOSED, sq->service_name, NULL, 0 );
-
-        set_readable( sq->server_socket, false );
-        set_writable( sq->server_socket, false );
-        delete_fd_handler( sq->server_socket );
-
-        close( sq->server_socket );
-        sq->server_socket = -1;
-        sq->refused_count = 0;
-
-        // Tries to reconnecting immediately, else adds a reconnect timer.
-        send_queue_try_connect( sq );
-      }
-error( "truncate inside error %d", sent_total );
-      truncate_message_buffer( sq->buffer, sent_total );
-      if ( err == EMSGSIZE || err == ENOBUFS || err == ENOMEM ) {
-        warn( "Dropping %u bytes data in send queue ( service_name = %s ).", sq->buffer->data_length, sq->service_name );
-        truncate_message_buffer( sq->buffer, sq->buffer->data_length );
-      }
-      return;
-    }
-    assert( sent_len != 0 );
-    assert( send_len == ( size_t ) sent_len );
-    send_dump_message( MESSENGER_DUMP_SENT, sq->service_name, send_data, ( uint32_t ) sent_len );
-    sent_total += ( size_t ) sent_len;
-  }
-  truncate_message_buffer( sq->buffer, sent_total );
-debug("truncating message buffer %d length %d offset %d", sent_total, sq->buffer->data_length, sq->buffer->head_offset);
-  if ( sq->buffer->data_length == 0 ) {
-    set_writable( sq->server_socket, false );
-  }
 }
 
 

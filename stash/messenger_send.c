@@ -110,9 +110,9 @@ add_work( const struct work_opt *opt ) {
   }
 
   todo[ todo_end ].done = 0;
-  memcpy( &todo[ todo_end ].opt, opt, sizeof( *opt ) );
   memcpy( &todo[ todo_end ].buffer, opt->hdr_buf, opt->hdr_len );
-  memcpy( &todo[ todo_end ].buffer + opt->hdr_len, opt->data_buf, opt->data_len );
+  memcpy( &todo[ todo_end ].buffer[ opt->hdr_len ], opt->data_buf, opt->data_len );
+  todo[ todo_end ].buf_len = opt->hdr_len + opt->data_len;
   todo_end = ( todo_end + 1 ) % ARRAY_SIZE( todo );
 
   pthread_cond_signal( &cond_add );
@@ -163,7 +163,7 @@ work_done( struct work_item *w ) {
   for( ; todo[ todo_done ].done && todo_done != todo_start;
     todo_done = ( todo_done + 1 ) % ARRAY_SIZE( todo ) ) {
     w = &todo[ todo_done ];
-    data_out_size = send( w->opt.server_socket, w->buffer, w->opt.hdr_len + w->opt.data_len, MSG_DONTWAIT );
+    data_out_size = send( w->opt.server_socket, w->buffer, w->buf_len, MSG_DONTWAIT );
     if ( data_out_size < 0 && errno != EWOULDBLOCK && errno != EAGAIN && errno != EINTR ) {
       ;
     }
@@ -205,7 +205,7 @@ start_threads( void ) {
   pthread_cond_init( &cond_write, NULL );
   pthread_cond_init( &cond_result, NULL );
   
-  for ( i = 0; i < ARRAY_SIZE( todo ); i++ ) {
+  for ( i = 0; i < THREADS; i++ ) {
     int err;
 
     err = pthread_create( &threads[ i ], NULL, run_thread, NULL );

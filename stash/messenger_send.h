@@ -47,13 +47,10 @@ struct work_opt {
 
 
 struct work_item {
-  struct work_opt opt;
-  int8_t done;
-  int8_t pad;
   int8_t buffer[ 512 ];
+  uint32_t buf_len;
+  uint16_t done;
 };
-
-
 
 
 typedef struct send_queue {

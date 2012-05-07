@@ -201,6 +201,7 @@ bool
 start_messenger() {
   debug( "Starting messenger." );
   add_periodic_event_callback( 10, age_context_db, NULL );
+  start_messenger_send();
   return true;
 }
 

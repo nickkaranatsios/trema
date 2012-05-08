@@ -500,7 +500,7 @@ my_push_message_to_send_queue( const char *service_name, const uint8_t message_t
   void *tail;
 
   opt.sq = sq;
-  opt.buffer_len = sizeof( message_header ) + len;
+  opt.buffer_len = length;
   opt.buffer = get_message_buffer_tail( sq->buffer, opt.buffer_len );
   tail = write_message_buffer_at_tail( opt.buffer, &header, sizeof( message_header ) );
   write_message_buffer_at_tail( tail, data, len );

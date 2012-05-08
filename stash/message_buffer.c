@@ -27,14 +27,15 @@
 #include "message_buffer.h"
 
 
-
-
 message_buffer *
 create_message_buffer( size_t size ) {
   message_buffer *buf = xmalloc( sizeof( message_buffer ) );
 
   buf->buffer = xmalloc( size );
   buf->size = size;
+  buf->start = buf->buffer;
+  buf->end = ( char * )buf->start + size;
+  buf->tail = buf->start;
   buf->data_length = 0;
   buf->head_offset = 0;
 
@@ -57,11 +58,31 @@ get_message_buffer_head( message_buffer *buf ) {
 }
 
 
+void *
+get_message_buffer_tail( message_buffer *buf, uint32_t len ) {
+  uint32_t remaining_len = ( uint32_t ) ( ( char * ) buf->end - ( char * ) buf->tail );
+
+  if ( remaining_len < len ) {
+    return buf->start;
+  }
+  return buf->tail;
+}
+
+
 size_t
 message_buffer_remain_bytes( message_buffer *buf ) {
   assert( buf != NULL );
 
   return buf->size - buf->data_length;
+}
+
+
+
+void *
+write_message_buffer_at_tail( void *tail, const void *data, size_t len ) {
+  memcpy( tail, data, len );
+  tail = ( char * ) tail + len;
+  return tail;
 }
 
 
@@ -110,3 +131,10 @@ error( "truncate_message_buffer len %d data length %d", len, buf->data_length );
   buf->data_length -= len;
 }
 
+
+/*
+ * Local variables:
+ * c-basic-offset: 2
+ * indent-tabs-mode: nil
+ * End:
+ */

@@ -32,25 +32,10 @@
 #define MESSENGER_SEND_BUFFER 100000
 
 
-#define THREADS 2
-#define TODO_SIZE 128
+#define THREADS 4
+#define TODO_SIZE 256
+#define PENDING_SIZE TODO_SIZE / 4
 #define ARRAY_SIZE( x ) ( int32_t ) ( sizeof( x ) / sizeof( x[ 0 ] ) )
-
-
-struct work_opt {
-  int server_socket;
-  const void *hdr_buf;
-  uint32_t hdr_len;
-  const void *data_buf;
-  uint32_t data_len;
-};
-
-
-struct work_item {
-  int8_t buffer[ 512 ];
-  uint32_t buf_len;
-  uint16_t done;
-};
 
 
 typedef struct send_queue {
@@ -67,7 +52,21 @@ typedef struct send_queue {
 } send_queue;
 
 
+struct work_opt {
+  send_queue *sq;
+  void *buffer;
+  uint32_t buffer_len;
+};
+
+
+struct work_item {
+  struct work_opt opt;
+  uint16_t done;
+};
+
+
 void init_messenger_send( const char *working_directory );
+void start_messenger_send( void );
 bool ( *delete_message_replied_callback )( const char *service_name, void ( *callback )( uint16_t tag, void *data, size_t len, void *user_data ) );
 bool ( *send_message )( const char *service_name, const uint16_t tag, const void *data, size_t len );
 bool ( *send_request_message )( const char *to_service_name, const char *from_service_name, const uint16_t tag, const void *data, size_t len, void *user_data );

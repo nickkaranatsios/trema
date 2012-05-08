@@ -69,11 +69,17 @@ static struct work_item todo[ TODO_SIZE ];
 static int todo_start;
 static int todo_end;
 static int todo_done;
+static int pending_end;
 static const char *debug_cnt = "";
+static struct work_item pending[ PENDING_SIZE ];
+static int pending_start;
+static int pending_end;
+static int pending_done;
 
 
 /* this lock protects all the variables above */
 static pthread_mutex_t work_mutex;
+static pthread_mutex_t pending_mutex;
 
 
 static inline void
@@ -85,6 +91,18 @@ work_lock( void ) {
 static inline void
 work_unlock( void ) {
   pthread_mutex_unlock( &work_mutex );
+}
+
+
+static inline void
+pending_lock( void ) {
+  pthread_mutex_lock( &pending_mutex );
+}
+
+
+static inline void
+pending_unlock( void ) {
+  pthread_mutex_unlock( &pending_mutex );
 }
 
 
@@ -100,19 +118,38 @@ static pthread_cond_t cond_write;
 static pthread_cond_t cond_result;
 
 
+static void
+add_pending( const struct work_opt *opt ) {
+  pending_lock();
+  if ( ( pending_end + 1 ) % ARRAY_SIZE( pending ) == pending_done ) {
+    /* not handle the overflow at the moment */
+    pending_unlock();
+    return;
+  }
+  pending[ pending_end ].done = 0;
+  pending[ pending_end ].opt.sq = opt->sq;
+  pending[ pending_end ].opt.buffer = opt->buffer;
+  pending[ pending_end ].opt.buffer_len = opt->buffer_len;
+  pending_end = ( pending_end + 1 ) % ARRAY_SIZE( pending );
+  pending_unlock();
+}
+
+
 static void 
 add_work( const struct work_opt *opt ) {
 
   work_lock();
 
   while ( ( todo_end + 1 ) % ARRAY_SIZE( todo ) == todo_done ) {
+    debug_cnt = "waiting on add_work";
     pthread_cond_wait( &cond_write, &work_mutex );  
   }
 
   todo[ todo_end ].done = 0;
-  memcpy( &todo[ todo_end ].buffer, opt->hdr_buf, opt->hdr_len );
-  memcpy( &todo[ todo_end ].buffer[ opt->hdr_len ], opt->data_buf, opt->data_len );
-  todo[ todo_end ].buf_len = opt->hdr_len + opt->data_len;
+  todo[ todo_end ].opt.sq = opt->sq;
+  todo[ todo_end ].opt.buffer = opt->buffer;
+  todo[ todo_end ].opt.buffer_len = opt->buffer_len;
+  memcpy( &todo[ todo_end ].opt, opt, sizeof( *opt ) );
   todo_end = ( todo_end + 1 ) % ARRAY_SIZE( todo );
 
   pthread_cond_signal( &cond_add );
@@ -121,23 +158,29 @@ add_work( const struct work_opt *opt ) {
 
 
 static struct work_item *
+get_pending( void ) {
+  struct work_item *ret = NULL;
+
+  pending_lock();
+  if ( pending_start == pending_end ) {
+    pending_unlock();
+    return ret;
+  }
+  ret = &pending[ pending_start ];
+  pending_start = ( pending_start + 1 ) % ARRAY_SIZE( pending );
+  pending_unlock();
+  return ret;
+}
+
+
+static struct work_item *
 get_work( void ) {
   struct work_item *ret;
 
   work_lock();
-  debug_cnt = "before timedwait";
   while ( todo_start == todo_end ) {
     pthread_cond_wait( &cond_add, &work_mutex );
-#ifdef TEST
-  struct timespec now;
-  int err = 0;
-    clock_gettime( CLOCK_REALTIME, &now );
-    now.tv_sec += 1;
-    now.tv_nsec = 0;
-    err = pthread_cond_timedwait( &cond_add, &work_mutex, &now );
-#endif
   }
-  debug_cnt = "after timedwait";
 
   if ( todo_start == todo_end ) {
     ret = NULL;
@@ -152,7 +195,7 @@ get_work( void ) {
   
 
 static void 
-work_done( struct work_item *w ) {
+work_exec( struct work_item *w ) {
   int old_done;
   ssize_t data_out_size;
 
@@ -163,13 +206,12 @@ work_done( struct work_item *w ) {
   for( ; todo[ todo_done ].done && todo_done != todo_start;
     todo_done = ( todo_done + 1 ) % ARRAY_SIZE( todo ) ) {
     w = &todo[ todo_done ];
-    data_out_size = send( w->opt.server_socket, w->buffer, w->buf_len, MSG_DONTWAIT );
+    data_out_size = send( w->opt.sq->server_socket, w->opt.buffer, w->opt.buffer_len, MSG_DONTWAIT );
     if ( data_out_size < 0 && errno != EWOULDBLOCK && errno != EAGAIN && errno != EINTR ) {
       ;
     }
   }
   if ( old_done != todo_done ) {
-    debug_cnt = "cond_write is set";
     pthread_cond_signal( &cond_write );
   }
   if ( todo_done == todo_end ) {
@@ -180,16 +222,33 @@ work_done( struct work_item *w ) {
 }
 
 
+static void
+pending_exec( struct work_item *w ) {
+  if ( w->opt.sq->server_socket != -1 ) {
+    send( w->opt.sq->server_socket, w->opt.buffer, w->opt.buffer_len, MSG_DONTWAIT );
+    pending_lock();
+    pending_done = ( pending_done + 1 ) % ARRAY_SIZE( pending );
+    w->done = 1;
+    pending_unlock();
+  }
+}
+
+
 void 
 *run_thread( ) {
+  struct work_item *w;
   int ret = 1;
 
   while ( 1 ) {
-    struct work_item *w = get_work();
+    w = get_pending();
+    if ( w ) {
+      pending_exec( w );
+    }
+    w = get_work();
     if ( !w ) {
       continue;
     }
-    work_done( w );
+    work_exec( w );
   }
   return ( void * ) ( intptr_t ) ret;
 }
@@ -201,6 +260,7 @@ start_threads( void ) {
   int i;
 
   pthread_mutex_init( &work_mutex, NULL );
+  pthread_mutex_init( &pending_mutex, NULL );
   pthread_cond_init( &cond_add, NULL );
   pthread_cond_init( &cond_write, NULL );
   pthread_cond_init( &cond_result, NULL );
@@ -255,32 +315,11 @@ send_queue_connect( send_queue *sq ) {
     send_dump_message( MESSENGER_DUMP_SEND_REFUSED, sq->service_name, NULL, 0 );
     close( sq->server_socket );
     sq->server_socket = -1;
-
     return 0;
   }
 
   set_fd_handler( sq->server_socket, on_send_read, sq, &on_send_write, sq->service_name );
   set_readable( sq->server_socket, true );
-
-  if ( sq->buffer != NULL && sq->buffer->data_length >= sizeof( message_header ) ) {
-    struct work_opt opt;
-    void *send_data;
-    size_t send_len;
-    size_t sent_total = 0;
-
-    opt.hdr_len = sizeof( message_header );
-    opt.server_socket = sq->server_socket;
-    message_header *hdr;
-    if ( ( send_len = get_send_data( sq, sent_total ) ) > 0 ) {
-      send_data = ( ( char * ) get_message_buffer_head( sq->buffer ) + sent_total );
-      hdr = send_data;
-      opt.hdr_buf = send_data;
-      opt.data_buf = (char * ) send_data + opt.hdr_len;
-      opt.data_len = ntohl( hdr->message_length ) - opt.hdr_len;
-error( "about to add work ");
-      add_work( &opt );
-    }
-  }
 
   error( "Connection established ( service_name = %s, sun_path = %s, fd = %d ).",
          sq->service_name, sq->server_addr.sun_path, sq->server_socket );
@@ -418,7 +457,7 @@ create_send_queue( const char *service_name ) {
 static int
 my_push_message_to_send_queue( const char *service_name, const uint8_t message_type, const uint16_t tag, const void *data, size_t len ) {
 
-  error( "Pushing a message to send queue ( service_name = %s, message_type = %#x, tag = %#x, data = %p, len = %u ).",
+  debug( "Pushing a message to send queue ( service_name = %s, message_type = %#x, tag = %#x, data = %p, len = %u ).",
          service_name, message_type, tag, data, len );
 
   if ( send_queues == NULL ) {
@@ -456,20 +495,22 @@ my_push_message_to_send_queue( const char *service_name, const uint8_t message_t
   sq->overflow_total_length = 0;
 #endif
 
-  if ( sq->server_socket != -1 ) {
-    struct work_opt opt;
 
-    opt.server_socket = sq->server_socket;
-    opt.hdr_buf = &header;
-    opt.hdr_len = sizeof( message_header );
-    opt.data_buf = data;
-    opt.data_len = len;
+  struct work_opt opt;
+  void *tail;
+
+  opt.sq = sq;
+  opt.buffer_len = sizeof( message_header ) + len;
+  opt.buffer = get_message_buffer_tail( sq->buffer, opt.buffer_len );
+  tail = write_message_buffer_at_tail( opt.buffer, &header, sizeof( message_header ) );
+  write_message_buffer_at_tail( tail, data, len );
+  if ( sq->server_socket != -1 ) {
+debug( "about to add_work buffer %x length %d", opt.buffer, opt.buffer_len );
     add_work( &opt );
-error( "about to add_work hdr_buf %x data_buf %x", opt.hdr_buf, opt.data_buf );
   } 
   else {
-    write_message_buffer( sq->buffer, &header, sizeof( message_header ) );
-    write_message_buffer( sq->buffer, data, len );
+debug( "about to add_pending buffer %x length %d", opt.buffer, opt.buffer_len );
+    add_pending( &opt );
   }
 
   if ( sq->server_socket == -1 ) {
@@ -892,6 +933,11 @@ void
 init_messenger_send( const char *working_directory ) {
   strcpy( socket_directory, working_directory );
   send_queues = create_hash( compare_string, hash_string );
+}
+
+
+void
+start_messenger_send( void ) {
   start_threads();
 }
 

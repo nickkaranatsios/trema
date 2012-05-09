@@ -78,11 +78,12 @@ message_buffer_remain_bytes( message_buffer *buf ) {
 
 
 
-void *
-write_message_buffer_at_tail( void *tail, const void *data, size_t len ) {
-  memcpy( tail, data, len );
-  tail = ( char * ) tail + len;
-  return tail;
+void
+write_message_buffer_at_tail( message_buffer *buf, const void *hdr, size_t hdr_len, const void *body, size_t body_len ) {
+  memcpy( buf->tail, hdr, hdr_len );
+  buf->tail = ( char * ) buf->tail + hdr_len;
+  memcpy( buf->tail, body, body_len );
+  buf->tail = ( char * ) buf->tail + body_len;
 }
 
 

@@ -32,11 +32,78 @@
 #define MESSENGER_SEND_BUFFER 100000
 
 
-#define THREADS 4
-#define TODO_SIZE 256
-#define PENDING_SIZE TODO_SIZE / 4
+#define ITEM_SIZE 256
 #define ARRAY_SIZE( x ) ( int32_t ) ( sizeof( x ) / sizeof( x[ 0 ] ) )
+#define alloc_nr( x ) ( ( ( x ) + 8 ) * 3 / 2 )
+#define ALLOC_GROW( x, nr, alloc ) \
+ do { \
+    if ( ( nr ) > alloc ) { \
+      if ( alloc_nr( alloc ) < ( nr ) ) \
+        alloc = ( nr ); \
+      else \
+        alloc = alloc_nr( alloc ); \
+      x = realloc( ( x ), alloc * sizeof( *( x ) ) ); \
+    } \
+  } while ( 0 )
 
+
+struct job_opt {
+  void *buffer;
+  uint32_t buffer_len;
+};
+
+
+struct job_item {
+  struct job_opt opt;
+  uint16_t done;
+};
+
+
+/*
+ * one job control structure for each service for all job items
+ */
+struct job_ctrl {
+  /*
+   * protect shared job item variables.
+  */
+  pthread_mutex_t mutex;
+  /* 
+   * used to signal when a new job item is added.
+  */
+  pthread_cond_t cond_add;
+  /* 
+   * signal when the result of one item is written to socket.
+  */
+  pthread_cond_t cond_write;
+  /* 
+   * signal when we finished with all job items.
+  */
+  pthread_cond_t cond_result;
+  /*
+   * incremented by one after a new job item is added to item.
+  */
+  int job_end;
+  /*
+   * incremented by one after a job item has been retrieved from item for 
+   * processing.
+  */
+  int job_start;
+
+  /*
+   * incremented by one when a job item has been processed from item.
+  */
+  int job_done;
+  /*
+   * the server socket to send this job item.
+  */
+  int server_socket;
+  /*
+  * an array of job items to handle.
+  * The client that is connected to the service uses adds items to this array.
+  */
+  struct job_item item[ ITEM_SIZE ];
+};
+  
 
 typedef struct send_queue {
   char service_name[ MESSENGER_SERVICE_NAME_LENGTH ];
@@ -49,20 +116,9 @@ typedef struct send_queue {
   uint32_t overflow;
   uint64_t overflow_total_length;
   int socket_buffer_size;
+  pthread_t thread_id;
+  struct job_ctrl *job_ctrl;
 } send_queue;
-
-
-struct work_opt {
-  send_queue *sq;
-  void *buffer;
-  uint32_t buffer_len;
-};
-
-
-struct work_item {
-  struct work_opt opt;
-  uint16_t done;
-};
 
 
 void init_messenger_send( const char *working_directory );

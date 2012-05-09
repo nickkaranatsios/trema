@@ -40,7 +40,7 @@ void* get_message_buffer_head( message_buffer *buf );
 void* get_message_buffer_tail( message_buffer *buf, uint32_t len );
 size_t message_buffer_remain_bytes( message_buffer *buf );
 bool write_message_buffer( message_buffer *buf, const void *data, size_t len );
-void *write_message_buffer_at_tail( void *tail, const void *data, size_t len );
+void write_message_buffer_at_tail( message_buffer *buf, const void *hdr, size_t hdr_len, const void *body, size_t body_len );
 void truncate_message_buffer( message_buffer *buf, size_t len );
 
 

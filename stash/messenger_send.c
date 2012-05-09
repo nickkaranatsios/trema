@@ -64,216 +64,112 @@ static int send_queue_connect_timeout( send_queue *sq );
 static uint32_t get_send_data( send_queue *sq, size_t offset );
 
 
-static pthread_t threads[ THREADS ];
-static struct work_item todo[ TODO_SIZE ];
-static int todo_start;
-static int todo_end;
-static int todo_done;
-static int pending_end;
 static const char *debug_cnt = "";
-static struct work_item pending[ PENDING_SIZE ];
-static int pending_start;
-static int pending_end;
-static int pending_done;
-
-
-/* this lock protects all the variables above */
-static pthread_mutex_t work_mutex;
-static pthread_mutex_t pending_mutex;
 
 
 static inline void
-work_lock( void ) {
-  pthread_mutex_lock( &work_mutex );
+job_lock( pthread_mutex_t mutex ) {
+  pthread_mutex_lock( &mutex );
 }
 
 
 static inline void
-work_unlock( void ) {
-  pthread_mutex_unlock( &work_mutex );
+job_unlock( pthread_mutex_t mutex ) {
+  pthread_mutex_unlock( &mutex );
 }
-
-
-static inline void
-pending_lock( void ) {
-  pthread_mutex_lock( &pending_mutex );
-}
-
-
-static inline void
-pending_unlock( void ) {
-  pthread_mutex_unlock( &pending_mutex );
-}
-
-
-/* signalled when new work is added to todo */
-static pthread_cond_t cond_add;
-
-
-/* signalled when the result of one item is written to socket */
-static pthread_cond_t cond_write;
-
-
-/* signalled when we finished with everything */
-static pthread_cond_t cond_result;
 
 
 static void
-add_pending( const struct work_opt *opt ) {
-  pending_lock();
-  if ( ( pending_end + 1 ) % ARRAY_SIZE( pending ) == pending_done ) {
-    /* not handle the overflow at the moment */
-    pending_unlock();
-    return;
-  }
-  pending[ pending_end ].done = 0;
-  pending[ pending_end ].opt.sq = opt->sq;
-  pending[ pending_end ].opt.buffer = opt->buffer;
-  pending[ pending_end ].opt.buffer_len = opt->buffer_len;
-  pending_end = ( pending_end + 1 ) % ARRAY_SIZE( pending );
-  pending_unlock();
+update_server_socket( struct job_ctrl *ctrl, const int server_socket ) {
+  job_lock( ctrl->mutex );
+  ctrl->server_socket = server_socket;
+  job_unlock( ctrl->mutex );
 }
 
 
 static void 
-add_work( const struct work_opt *opt ) {
+add_job( struct job_ctrl *ctrl, const struct job_opt *opt ) {
 
-  work_lock();
+  job_lock( ctrl->mutex );
 
-  while ( ( todo_end + 1 ) % ARRAY_SIZE( todo ) == todo_done ) {
-    debug_cnt = "waiting on add_work";
-    pthread_cond_wait( &cond_write, &work_mutex );  
+  while ( ( ctrl->job_end + 1 ) % ARRAY_SIZE( ctrl->item ) == ctrl->job_done ) {
+    debug_cnt = "waiting on add_job";
+    pthread_cond_wait( &ctrl->cond_write, &ctrl->mutex );  
   }
 
-  todo[ todo_end ].done = 0;
-  todo[ todo_end ].opt.sq = opt->sq;
-  todo[ todo_end ].opt.buffer = opt->buffer;
-  todo[ todo_end ].opt.buffer_len = opt->buffer_len;
-  memcpy( &todo[ todo_end ].opt, opt, sizeof( *opt ) );
-  todo_end = ( todo_end + 1 ) % ARRAY_SIZE( todo );
+  ctrl->item[ ctrl->job_end ].done = 0;
+  ctrl->item[ ctrl->job_end ].opt.buffer = opt->buffer;
+  ctrl->item[ ctrl->job_end ].opt.buffer_len = opt->buffer_len;
+  ctrl->job_end = ( ctrl->job_end + 1 ) % ARRAY_SIZE( ctrl->item );
 
-  pthread_cond_signal( &cond_add );
-  work_unlock();
+  pthread_cond_signal( &ctrl->cond_add );
+  job_unlock( ctrl->mutex );
 }
 
 
-static struct work_item *
-get_pending( void ) {
-  struct work_item *ret = NULL;
+static struct job_item *
+get_job( struct job_ctrl *ctrl ) {
+  struct job_item *ret;
 
-  pending_lock();
-  if ( pending_start == pending_end ) {
-    pending_unlock();
-    return ret;
+  job_lock( ctrl->mutex );
+  while ( ctrl->job_start == ctrl->job_end ) {
+    pthread_cond_wait( &ctrl->cond_add, &ctrl->mutex );
   }
-  ret = &pending[ pending_start ];
-  pending_start = ( pending_start + 1 ) % ARRAY_SIZE( pending );
-  pending_unlock();
-  return ret;
-}
-
-
-static struct work_item *
-get_work( void ) {
-  struct work_item *ret;
-
-  work_lock();
-  while ( todo_start == todo_end ) {
-    pthread_cond_wait( &cond_add, &work_mutex );
-  }
-
-  if ( todo_start == todo_end ) {
+  if ( ctrl->job_start == ctrl->job_end || ctrl->server_socket == -1 ) {
     ret = NULL;
   }
   else {
-    ret = &todo[ todo_start ];
-    todo_start = ( todo_start + 1 ) % ARRAY_SIZE( todo );
+    ret = &ctrl->item[ ctrl->job_start ];
+    ctrl->job_start = ( ctrl->job_start + 1 ) % ARRAY_SIZE( ctrl->item );
   }
-  work_unlock();
+  job_unlock( ctrl->mutex );
   return ret;
 }
   
 
 static void 
-work_exec( struct work_item *w ) {
+job_exec( struct job_ctrl *ctrl, struct job_item *w ) {
   int old_done;
   ssize_t data_out_size;
 
-  work_lock();
+  job_lock( ctrl->mutex );
   w->done = 1;
-  old_done = todo_done;
+  old_done = ctrl->job_done;
 
-  for( ; todo[ todo_done ].done && todo_done != todo_start;
-    todo_done = ( todo_done + 1 ) % ARRAY_SIZE( todo ) ) {
-    w = &todo[ todo_done ];
-    data_out_size = send( w->opt.sq->server_socket, w->opt.buffer, w->opt.buffer_len, MSG_DONTWAIT );
+  for( ; ctrl->item[ ctrl->job_done ].done && ctrl->job_done != ctrl->job_start;
+    ctrl->job_done = ( ctrl->job_done + 1 ) % ARRAY_SIZE( ctrl->item ) ) {
+    w = &ctrl->item[ ctrl->job_done ];
+    data_out_size = send( ctrl->server_socket, w->opt.buffer, w->opt.buffer_len, MSG_DONTWAIT );
     if ( data_out_size < 0 && errno != EWOULDBLOCK && errno != EAGAIN && errno != EINTR ) {
       ;
     }
   }
-  if ( old_done != todo_done ) {
-    pthread_cond_signal( &cond_write );
+  if ( old_done != ctrl->job_done ) {
+    pthread_cond_signal( &ctrl->cond_write );
   }
-  if ( todo_done == todo_end ) {
-    pthread_cond_signal( &cond_result );
+  if ( ctrl->job_done == ctrl->job_end ) {
+    pthread_cond_signal( &ctrl->cond_result );
   }
-
-  work_unlock();
-}
-
-
-static void
-pending_exec( struct work_item *w ) {
-  if ( w->opt.sq->server_socket != -1 ) {
-    send( w->opt.sq->server_socket, w->opt.buffer, w->opt.buffer_len, MSG_DONTWAIT );
-    pending_lock();
-    pending_done = ( pending_done + 1 ) % ARRAY_SIZE( pending );
-    w->done = 1;
-    pending_unlock();
-  }
+  job_unlock( ctrl->mutex );
 }
 
 
 void 
-*run_thread( ) {
-  struct work_item *w;
+*run_thread( void *data ) {
+  struct job_ctrl *ctrl = data;
+  struct job_item *w;
   int ret = 1;
 
   while ( 1 ) {
-    w = get_pending();
-    if ( w ) {
-      pending_exec( w );
-    }
-    w = get_work();
+    w = get_job( ctrl );
     if ( !w ) {
       continue;
     }
-    work_exec( w );
+    job_exec( ctrl, w );
   }
   return ( void * ) ( intptr_t ) ret;
 }
 
-
-
-static void
-start_threads( void ) {
-  int i;
-
-  pthread_mutex_init( &work_mutex, NULL );
-  pthread_mutex_init( &pending_mutex, NULL );
-  pthread_cond_init( &cond_add, NULL );
-  pthread_cond_init( &cond_write, NULL );
-  pthread_cond_init( &cond_result, NULL );
-  
-  for ( i = 0; i < THREADS; i++ ) {
-    int err;
-
-    err = pthread_create( &threads[ i ], NULL, run_thread, NULL );
-    if ( err ) {
-      die( "Failed to create thread: %s", strerror( err ) );
-    }
-  }
-}
 
 
 /**
@@ -375,6 +271,7 @@ send_queue_connect_timer( send_queue *sq ) {
     sq->refused_count = 0;
     sq->reconnect_interval.tv_sec = 0;
     sq->reconnect_interval.tv_nsec = 0;
+    update_server_socket( sq->job_ctrl, sq->server_socket );
     return 1;
 
   default:
@@ -440,7 +337,12 @@ create_send_queue( const char *service_name ) {
   sq->overflow = 0;
   sq->overflow_total_length = 0;
   sq->socket_buffer_size = 0;
-
+  sq->job_ctrl = xcalloc(1, sizeof( struct job_ctrl ) );
+  pthread_mutex_init( &sq->job_ctrl->mutex, NULL );
+  pthread_cond_init( &sq->job_ctrl->cond_add, NULL );
+  pthread_cond_init( &sq->job_ctrl->cond_write, NULL );
+  pthread_cond_init( &sq->job_ctrl->cond_result, NULL );
+  
   if ( send_queue_try_connect( sq ) == -1 ) {
     xfree( sq );
     error( "Failed to create a send queue for %s.", service_name );
@@ -496,23 +398,14 @@ my_push_message_to_send_queue( const char *service_name, const uint8_t message_t
 #endif
 
 
-  struct work_opt opt;
-  void *tail;
+  struct job_opt opt;
 
-  opt.sq = sq;
   opt.buffer_len = length;
   opt.buffer = get_message_buffer_tail( sq->buffer, opt.buffer_len );
-  tail = write_message_buffer_at_tail( opt.buffer, &header, sizeof( message_header ) );
-  write_message_buffer_at_tail( tail, data, len );
-  if ( sq->server_socket != -1 ) {
-debug( "about to add_work buffer %x length %d", opt.buffer, opt.buffer_len );
-    add_work( &opt );
-  } 
-  else {
-debug( "about to add_pending buffer %x length %d", opt.buffer, opt.buffer_len );
-    add_pending( &opt );
-  }
-
+  update_server_socket( sq->job_ctrl, sq->server_socket );
+  write_message_buffer_at_tail( sq->buffer, &header, sizeof( message_header ), data, len );
+debug( "about to add_job buffer %x length %d start %x tail %x", opt.buffer, opt.buffer_len, sq->buffer->start, sq->buffer->tail );
+  add_job( sq->job_ctrl, &opt );
   if ( sq->server_socket == -1 ) {
     debug( "Tried to send message on closed send queue, connecting..." );
 
@@ -763,6 +656,7 @@ delete_send_queue( send_queue *sq ) {
   else {
     error( "All send queues are already deleted or not created yet." );
   }
+  xfree( sq->job_ctrl );
   xfree( sq );
 }
 
@@ -938,7 +832,17 @@ init_messenger_send( const char *working_directory ) {
 
 void
 start_messenger_send( void ) {
-  start_threads();
+  hash_iterator iter;
+  hash_entry *e;
+
+  init_hash_iterator( send_queues, &iter );
+  while ( ( e = iterate_hash_next( &iter ) ) != NULL ) {
+    send_queue *sq = e->value;
+    if ( ( pthread_create( &sq->thread_id, NULL, run_thread, sq->job_ctrl ) != 0 ) ) {
+      die( "Failed to create thread" );
+    }
+    error( "created thread id %d", sq->thread_id);
+  }
 }
 
 

@@ -32,6 +32,7 @@
 #define MESSENGER_SEND_BUFFER 100000
 
 
+#define THREADS 2
 #define ITEM_SIZE 256
 #define ARRAY_SIZE( x ) ( int32_t ) ( sizeof( x ) / sizeof( x[ 0 ] ) )
 #define alloc_nr( x ) ( ( ( x ) + 8 ) * 3 / 2 )
@@ -116,8 +117,6 @@ typedef struct send_queue {
   uint32_t overflow;
   uint64_t overflow_total_length;
   int socket_buffer_size;
-  pthread_t thread_id;
-  struct job_ctrl *job_ctrl;
 } send_queue;
 
 

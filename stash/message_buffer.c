@@ -80,6 +80,11 @@ message_buffer_remain_bytes( message_buffer *buf ) {
 
 void
 write_message_buffer_at_tail( message_buffer *buf, const void *hdr, size_t hdr_len, const void *body, size_t body_len ) {
+  uint32_t remaining_len = ( uint32_t ) ( ( char * ) buf->end - ( char * ) buf->tail );
+
+  if ( remaining_len < ( hdr_len + body_len ) ) {
+    buf->tail = buf->start;
+  }
   memcpy( buf->tail, hdr, hdr_len );
   buf->tail = ( char * ) buf->tail + hdr_len;
   memcpy( buf->tail, body, body_len );

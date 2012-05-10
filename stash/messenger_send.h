@@ -34,6 +34,8 @@
 
 #define THREADS 2
 #define ITEM_SIZE 256
+#define MAX_TAKE 256
+
 #define ARRAY_SIZE( x ) ( int32_t ) ( sizeof( x ) / sizeof( x[ 0 ] ) )
 #define alloc_nr( x ) ( ( ( x ) + 8 ) * 3 / 2 )
 #define ALLOC_GROW( x, nr, alloc ) \
@@ -48,7 +50,10 @@
   } while ( 0 )
 
 
+
 struct job_opt {
+  char service_name[ MESSENGER_SERVICE_NAME_LENGTH ];
+  int server_socket;
   void *buffer;
   uint32_t buffer_len;
 };
@@ -76,10 +81,6 @@ struct job_ctrl {
    * signal when the result of one item is written to socket.
   */
   pthread_cond_t cond_write;
-  /* 
-   * signal when we finished with all job items.
-  */
-  pthread_cond_t cond_result;
   /*
    * incremented by one after a new job item is added to item.
   */
@@ -95,10 +96,6 @@ struct job_ctrl {
   */
   int job_done;
   /*
-   * the server socket to send this job item.
-  */
-  int server_socket;
-  /*
   * an array of job items to handle.
   * The client that is connected to the service uses adds items to this array.
   */
@@ -107,16 +104,16 @@ struct job_ctrl {
   
 
 typedef struct send_queue {
-  char service_name[ MESSENGER_SERVICE_NAME_LENGTH ];
-  int server_socket;
-  int refused_count;
   struct timespec reconnect_interval;
   struct sockaddr_un server_addr;
-  message_buffer *buffer;
-  bool running_timer;
-  uint32_t overflow;
+  char service_name[ MESSENGER_SERVICE_NAME_LENGTH ];
   uint64_t overflow_total_length;
+  message_buffer *buffer;
+  int server_socket;
+  int refused_count;
+  bool running_timer;
   int socket_buffer_size;
+  uint32_t overflow;
 } send_queue;
 
 

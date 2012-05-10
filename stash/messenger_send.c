@@ -69,45 +69,89 @@ static struct job_ctrl ctrl;
 static pthread_t threads[ THREADS ];
 
 
-#ifdef TEST
 static inline void
-job_lock( pthread_mutex_t *mutex ) {
-  pthread_mutex_lock( mutex );
+job_lock() {
+  pthread_mutex_lock( &ctrl.mutex );
 }
 
 
 static inline void
-job_unlock( pthread_mutex_t *mutex ) {
-  pthread_mutex_unlock( mutex );
+job_unlock() {
+  pthread_mutex_unlock( &ctrl.mutex );
 }
-#endif
 
 
 static void
-update_server_socket( struct job_ctrl *ctrl, const int server_socket ) {
-  ctrl->server_socket = server_socket;
+update_server_socket( struct job_ctrl *ctrl, const char *service_name, const int server_socket ) {
+  int i;
+  int end = ctrl->job_end;
+
+  for ( i = 0; i < end; i++ ) {
+    if ( ctrl->item[ i ].opt.server_socket == -1 ) {
+      if ( !strncmp( service_name, ctrl->item[ i ].opt.service_name, MESSENGER_SERVICE_NAME_LENGTH ) ) {
+        ctrl->item[ i ].opt.server_socket = server_socket;
+      }
+    }
+  }
 }
 
 
 static void 
 add_job( struct job_ctrl *ctrl, const struct job_opt *opt ) {
 
-  pthread_mutex_lock( &ctrl->mutex );
+  job_lock();
 
   while ( ( ctrl->job_end + 1 ) % ARRAY_SIZE( ctrl->item ) == ctrl->job_done ) {
     pthread_cond_wait( &ctrl->cond_write, &ctrl->mutex );  
   }
 
   ctrl->item[ ctrl->job_end ].done = 0;
-  ctrl->item[ ctrl->job_end ].opt.buffer = opt->buffer;
-  ctrl->item[ ctrl->job_end ].opt.buffer_len = opt->buffer_len;
+  memcpy( &ctrl->item[ ctrl->job_end ].opt, opt, sizeof( *opt ) );
   ctrl->job_end = ( ctrl->job_end + 1 ) % ARRAY_SIZE( ctrl->item );
 
   pthread_cond_signal( &ctrl->cond_add );
-  pthread_mutex_unlock( &ctrl->mutex );
+  job_unlock();
 }
 
 
+static void
+get_exec_job( struct job_ctrl *ctrl ) {
+  job_lock();
+  while ( ctrl->job_start == ctrl->job_end ) {
+    pthread_cond_wait( &ctrl->cond_add, &ctrl->mutex );
+  }
+  struct job_item *items[ MAX_TAKE ];
+  struct job_item *item;
+  int prev_ss = -1;
+  uint16_t count = 0;
+  uint16_t i;
+
+
+  while ( ctrl->job_start != ctrl->job_end && ctrl->item[ ctrl->job_start ].opt.server_socket != -1 && count < MAX_TAKE ) {
+    /*
+     * we only accumulate packets to the same service
+    */
+    if ( prev_ss == -1 || prev_ss == ctrl->item[ ctrl->job_start ].opt.server_socket ) {
+      item = &ctrl->item[ ctrl->job_start ];
+      items[ count++ ] = item;
+      ctrl->job_start = ( ctrl->job_start + 1 ) % ARRAY_SIZE( ctrl->item );
+    }
+  }  
+  if ( count ) {
+    ctrl->job_done = ( ctrl->job_done + count ) % ARRAY_SIZE( ctrl->item );
+    pthread_cond_signal( &ctrl->cond_write );
+  }
+  job_unlock();
+if ( count == MAX_TAKE - 1 )
+  die( "overflow %d", count);
+
+  for ( i = 0; i < count; i++ ) {
+    send( items[ i ]->opt.server_socket, items[ i ]->opt.buffer, items[ i ]->opt.buffer_len, MSG_DONTWAIT );
+  }
+}
+
+
+#ifdef TEST
 static struct job_item *
 get_job( struct job_ctrl *ctrl ) {
   struct job_item *ret = NULL;
@@ -118,11 +162,11 @@ get_job( struct job_ctrl *ctrl ) {
   while ( ctrl->job_start == ctrl->job_end ) {
     pthread_cond_wait( &ctrl->cond_add, &ctrl->mutex );
   }
-  if ( ctrl->job_start != ctrl->job_end && ctrl->server_socket != -1 ) {
+  if ( ctrl->job_start != ctrl->job_end && ctrl->item[ ctrl->job_start ].opt.server_socket != -1 ) {
     ret = &ctrl->item[ ctrl->job_start ];
     ctrl->job_start = ( ctrl->job_start + 1 ) % ARRAY_SIZE( ctrl->item );
   }
-  pthread_mutex_unlock( &ctrl->mutex );
+  job_unlock();
   return ret;
 }
   
@@ -132,42 +176,41 @@ job_exec( struct job_ctrl *ctrl, struct job_item *w ) {
   int old_done;
   ssize_t data_out_size;
 
-  pthread_mutex_lock( &ctrl->mutex );
   w->done = 1;
   old_done = ctrl->job_done;
-
-  for( ; ctrl->item[ ctrl->job_done ].done && ctrl->job_done != ctrl->job_start;
-    ctrl->job_done = ( ctrl->job_done + 1 ) % ARRAY_SIZE( ctrl->item ) ) {
-    w = &ctrl->item[ ctrl->job_done ];
-    data_out_size = send( ctrl->server_socket, w->opt.buffer, w->opt.buffer_len, MSG_DONTWAIT );
+  while ( ctrl->item[ ctrl->job_done ].done && ctrl->job_done != ctrl->job_start ) {
+    w = & ctrl->item[ ctrl->job_done ];
+    data_out_size = send( w->opt.server_socket, w->opt.buffer, w->opt.buffer_len, MSG_DONTWAIT );
     if ( data_out_size < 0 && errno != EWOULDBLOCK && errno != EAGAIN && errno != EINTR ) {
       ;
     }
+    job_lock();
+    ctrl->job_done = ( ctrl->job_done + 1 ) % ARRAY_SIZE( ctrl->item );
+    job_unlock();
   }
+
+  job_lock();
   if ( old_done != ctrl->job_done ) {
     pthread_cond_signal( &ctrl->cond_write );
   }
-#ifdef TEST
-  if ( ctrl->job_done == ctrl->job_end ) {
-    pthread_cond_signal( &ctrl->cond_result );
-  }
-#endif
-  pthread_mutex_unlock( &ctrl->mutex );
+  job_unlock();
 }
+#endif
 
 
 void 
 *run_thread( void *data ) {
   struct job_ctrl *ctrl = data;
-  struct job_item *w;
+  struct timespec req;
   int ret = 1;
+  
 
+  req.tv_sec = 0;
+  /* 10ms wait */
+  req.tv_nsec = 1000 * 10;
   while ( 1 ) {
-    w = get_job( ctrl );
-    if ( !w ) {
-      continue;
-    }
-    job_exec( ctrl, w );
+    get_exec_job( ctrl );
+    nanosleep( &req, NULL );
   }
   return ( void * ) ( intptr_t ) ret;
 }
@@ -215,6 +258,7 @@ send_queue_connect( send_queue *sq ) {
     sq->server_socket = -1;
     return 0;
   }
+  update_server_socket( &ctrl, sq->service_name, sq->server_socket );
 
   set_fd_handler( sq->server_socket, on_send_read, sq, &on_send_write, sq->service_name );
   set_readable( sq->server_socket, true );
@@ -273,7 +317,7 @@ send_queue_connect_timer( send_queue *sq ) {
     sq->refused_count = 0;
     sq->reconnect_interval.tv_sec = 0;
     sq->reconnect_interval.tv_nsec = 0;
-    update_server_socket( &ctrl, sq->server_socket );
+    update_server_socket( &ctrl, sq->service_name, sq->server_socket );
     return 1;
 
   default:
@@ -377,29 +421,35 @@ my_push_message_to_send_queue( const char *service_name, const uint8_t message_t
   uint32_t length = ( uint32_t ) ( sizeof( message_header ) + len );
   header.message_length = htonl( length );
 
-#ifdef TEST
- if ( message_buffer_remain_bytes( sq->buffer ) < length ) {
-    if ( sq->overflow == 0 ) {
-      warn( "Could not write a message to send queue due to overflow ( service_name = %s, fd = %u, length = %u ).", sq->service_name, sq->server_socket, length );
+  if ( message_buffer_overflow( sq->buffer, length ) ) {
+    char *end_address = ( char * )sq->buffer->start + length;
+    struct job_item *item = &ctrl.item[ ctrl.job_start ];
+
+    if ( item->opt.buffer_len && end_address > ( char * )item->opt.buffer ) {
+      if ( sq->overflow == 0 ) {
+        warn( "Could not write a message to send queue due to overflow ( service_name = %s, fd = %u, length = %u ).", sq->service_name, sq->server_socket, length );
+      }
+      error( "overflow %d otl =%" PRIu64"", sq->overflow, sq->overflow_total_length);
+      ++sq->overflow;
+      sq->overflow_total_length += length;
+      // send_dump_message( MESSENGER_DUMP_SEND_OVERFLOW, sq->service_name, NULL, 0 );
+      return false;
     }
-    ++sq->overflow;
-    sq->overflow_total_length += length;
-    send_dump_message( MESSENGER_DUMP_SEND_OVERFLOW, sq->service_name, NULL, 0 );
-    return false;
   }
   if ( sq->overflow > 1 ) {
+    warn( "length %d overflow %d", len, sq->overflow );
     warn( "Could not write a message to send queue due to overflow ( service_name = %s, fd = %u, count = %u, total length = %" PRIu64 " ).", sq->service_name, sq->server_socket, sq->overflow, sq->overflow_total_length );
   }
   sq->overflow = 0;
   sq->overflow_total_length = 0;
-#endif
 
 
   struct job_opt opt;
 
+  strncpy( opt.service_name, service_name, MESSENGER_SERVICE_NAME_LENGTH );
+  opt.server_socket = sq->server_socket;
   opt.buffer_len = length;
   opt.buffer = get_message_buffer_tail( sq->buffer, opt.buffer_len );
-  update_server_socket( &ctrl, sq->server_socket );
   write_message_buffer_at_tail( sq->buffer, &header, sizeof( message_header ), data, len );
 debug( "about to add_job buffer %x length %d start %x tail %x", opt.buffer, opt.buffer_len, sq->buffer->start, sq->buffer->tail );
   add_job( &ctrl, &opt );
@@ -642,7 +692,6 @@ delete_send_queue( send_queue *sq ) {
   free_message_buffer( sq->buffer );
   if ( sq->server_socket != -1 ) {
     set_readable( sq->server_socket, false );
-    set_writable( sq->server_socket, false );
     delete_fd_handler( sq->server_socket );
 
     close( sq->server_socket );
@@ -689,7 +738,6 @@ on_send_read( int fd, void *data ) {
     send_dump_message( MESSENGER_DUMP_SEND_CLOSED, sq->service_name, NULL, 0 );
 
     set_readable( sq->server_socket, false );
-    set_writable( sq->server_socket, false );
     delete_fd_handler( sq->server_socket );
 
     close( sq->server_socket );

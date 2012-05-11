@@ -129,12 +129,16 @@ get_exec_job( struct job_ctrl *ctrl ) {
 
   while ( ctrl->job_start != ctrl->job_end && ctrl->item[ ctrl->job_start ].opt.server_socket != -1 && count < MAX_TAKE ) {
     /*
-     * we only accumulate packets to the same service
+     * we only accumulate packets from the same service
     */
     if ( prev_ss == -1 || prev_ss == ctrl->item[ ctrl->job_start ].opt.server_socket ) {
       item = &ctrl->item[ ctrl->job_start ];
+      prev_ss = item->opt.server_socket;
       items[ count++ ] = item;
       ctrl->job_start = ( ctrl->job_start + 1 ) % ARRAY_SIZE( ctrl->item );
+    }
+    else {
+      break;
     }
   }  
   if ( count ) {

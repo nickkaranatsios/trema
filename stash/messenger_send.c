@@ -62,6 +62,7 @@ void on_send_write( int fd, void *data );
 void on_send_read( int fd, void *data );
 static int send_queue_connect_timeout( send_queue *sq );
 static uint32_t get_send_data( send_queue *sq, size_t offset );
+static FILE *fp = NULL;
 
 
 //static const char *debug_cnt = "";
@@ -96,6 +97,15 @@ update_server_socket( struct job_ctrl *ctrl, const char *service_name, const int
 }
 
 
+/*
+ * Adds a job item to the job pool. A job item stores the following fields:
+ * server_socket - the socket to send the message to.
+ * service_name - a string that identifies a unique service name
+ * buffer - an address in memory where the message is copied to
+ * buffer_len - the length of buffer bytes
+ *
+ * @return [void]
+ */
 static void 
 add_job( struct job_ctrl *ctrl, const struct job_opt *opt ) {
 
@@ -123,8 +133,8 @@ get_exec_job( struct job_ctrl *ctrl ) {
   struct job_item *items[ MAX_TAKE ];
   struct job_item *item;
   int prev_ss = -1;
+  uint32_t total_len = 0;
   uint16_t count = 0;
-  uint16_t i;
 
 
   while ( ctrl->job_start != ctrl->job_end && ctrl->item[ ctrl->job_start ].opt.server_socket != -1 && count < MAX_TAKE ) {
@@ -135,6 +145,7 @@ get_exec_job( struct job_ctrl *ctrl ) {
       item = &ctrl->item[ ctrl->job_start ];
       prev_ss = item->opt.server_socket;
       items[ count++ ] = item;
+      total_len += item->opt.buffer_len;
       ctrl->job_start = ( ctrl->job_start + 1 ) % ARRAY_SIZE( ctrl->item );
     }
     else {
@@ -143,15 +154,31 @@ get_exec_job( struct job_ctrl *ctrl ) {
   }  
   if ( count ) {
     ctrl->job_done = ( ctrl->job_done + count ) % ARRAY_SIZE( ctrl->item );
+    send( items[ 0 ]->opt.server_socket, items[ 0 ]->opt.buffer, total_len, MSG_DONTWAIT );
     pthread_cond_signal( &ctrl->cond_write );
   }
+  uint16_t i;
+  fprintf(fp, "start dumping\n");
+  for ( i = 0; i < count; i++ ) {
+   fprintf(fp, "server_socket %d buffer %p length %d\n", items[i]->opt.server_socket, items[i]->opt.buffer, items[i]->opt.buffer_len);
+  }
+  fprintf(fp, "end dumping\n");
+  fflush(fp);
   job_unlock();
+#ifdef TEST
+  uint16_t i;
 if ( count == MAX_TAKE - 1 )
   die( "overflow %d", count);
 
+  if ( count ) {
+    send( items[ 0 ]->opt.server_socket, items[ 0 ]->opt.buffer, total_len, MSG_DONTWAIT );
+  }
+#endif
+#ifdef TEST
   for ( i = 0; i < count; i++ ) {
     send( items[ i ]->opt.server_socket, items[ i ]->opt.buffer, items[ i ]->opt.buffer_len, MSG_DONTWAIT );
   }
+#endif
 }
 
 
@@ -300,6 +327,7 @@ send_queue_connect_timer( send_queue *sq ) {
     // queue has an error.
     sq->reconnect_interval.tv_sec = -1;
     sq->reconnect_interval.tv_nsec = 0;
+    update_server_socket( &ctrl, sq->service_name, sq->server_socket );
     return -1;
 
   case 0:
@@ -436,7 +464,7 @@ my_push_message_to_send_queue( const char *service_name, const uint8_t message_t
       error( "overflow %d otl =%" PRIu64"", sq->overflow, sq->overflow_total_length);
       ++sq->overflow;
       sq->overflow_total_length += length;
-      // send_dump_message( MESSENGER_DUMP_SEND_OVERFLOW, sq->service_name, NULL, 0 );
+      send_dump_message( MESSENGER_DUMP_SEND_OVERFLOW, sq->service_name, NULL, 0 );
       return false;
     }
   }
@@ -888,6 +916,7 @@ void
 start_messenger_send( void ) {
   int i;
 
+  fp = fopen("test.log", "w");
   for ( i = 0; i < THREADS; i++ ) {
     if ( ( pthread_create( &threads[ i ], NULL, run_thread, &ctrl ) != 0 ) ) {
       die( "Failed to create thread" );

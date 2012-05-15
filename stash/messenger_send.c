@@ -36,7 +36,6 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <poll.h>
-#include "doubly_linked_list.h"
 #include "event_handler.h"
 #include "hash_table.h"
 #include "log.h"
@@ -85,12 +84,83 @@ job_unlock() {
 static void
 update_server_socket( struct job_ctrl *ctrl, const char *service_name, const int server_socket ) {
   int i;
-  int end = ctrl->job_end;
 
-  for ( i = 0; i < end; i++ ) {
-    if ( ctrl->item[ i ].opt.server_socket == -1 ) {
+
+  /*
+   * disconnect case
+  */
+  if ( server_socket == -1 ) {
+    struct job_item *tmp[ ITEM_SIZE ];
+    int ss = 0;
+    int j = 0;
+    int pos[ 3 ];
+    int pos_cnt[ 3 ];
+
+    for ( i = 0; i < ITEM_SIZE; i++ ) {
       if ( !strncmp( service_name, ctrl->item[ i ].opt.service_name, MESSENGER_SERVICE_NAME_LENGTH ) ) {
-        ctrl->item[ i ].opt.server_socket = server_socket;
+        ss = ctrl->item[ i ].opt.server_socket;
+        break;
+      }
+    }
+    if ( ss != 0 ) {
+      pos[ 0 ] = ctrl->job_start;
+      pos[ 1 ] = ctrl->job_end;
+      pos[ 2 ] = ctrl->job_done;
+      memset( &pos_cnt, 0, sizeof( pos_cnt ) );
+
+      if ( ss != -1 ) {
+        for ( i = 0; i < ITEM_SIZE; i++ ) {
+          if ( ctrl->item[ i ].opt.server_socket != ss ) {
+            memcpy( &tmp[ j++ ], &ctrl->item[ i ], sizeof( ctrl->item[ i ] ) );
+          }
+          if ( pos[ 0 ] <= i ) {
+            pos_cnt[ 0 ]++;
+          }
+          if ( pos[ 1 ] <= i ) {
+            pos_cnt[ 1 ]++;
+          }
+          if ( pos[ 2 ] <= i ) {
+            pos_cnt[ 2 ]++;
+          }
+        }
+      }
+      else {
+        for ( i = 0; i < ITEM_SIZE; i++ ) {
+          if ( !strncmp( service_name, ctrl->item[ i ].opt.service_name, MESSENGER_SERVICE_NAME_LENGTH ) ) {
+            memcpy( &tmp[ j++ ], &ctrl->item[ i ], sizeof( ctrl->item[ i ] ) );
+            if ( pos[ 0 ] <= i ) {
+              pos_cnt[ 0 ]++;
+            }
+            if ( pos[ 1 ] <= i ) {
+              pos_cnt[ 1 ]++;
+            }
+            if ( pos[ 2 ] <= i ) {
+              pos_cnt[ 2 ]++;
+            }
+          }
+        }
+      }
+      if ( j ) {
+        job_lock();
+        memcpy( ctrl->item, tmp, ( size_t ) j *  sizeof( tmp[ 0 ] ) );
+        ctrl->job_start = ( ctrl->job_start - pos_cnt[ 0 ] ) % ARRAY_SIZE( ctrl->item );
+        ctrl->job_end = ( ctrl->job_end - pos_cnt[ 1 ] ) % ARRAY_SIZE( ctrl->item );
+        ctrl->job_done = ( ctrl->job_done - pos_cnt[ 2 ] ) % ARRAY_SIZE( ctrl->item );
+        job_unlock();
+      }
+    }
+  }
+  /*
+   * connect case
+  */
+  else {
+    int end = ctrl->job_end;
+
+    for ( i = 0; i < end; i++ ) {
+      if ( ctrl->item[ i ].opt.server_socket == -1 ) {
+        if ( !strncmp( service_name, ctrl->item[ i ].opt.service_name, MESSENGER_SERVICE_NAME_LENGTH ) ) {
+          ctrl->item[ i ].opt.server_socket = server_socket;
+        }
       }
     }
   }
@@ -124,62 +194,46 @@ add_job( struct job_ctrl *ctrl, const struct job_opt *opt ) {
 }
 
 
+
 static void
 get_exec_job( struct job_ctrl *ctrl ) {
-  job_lock();
-  while ( ctrl->job_start == ctrl->job_end ) {
-    pthread_cond_wait( &ctrl->cond_add, &ctrl->mutex );
-  }
-  struct job_item *items[ MAX_TAKE ];
   struct job_item *item;
-  int prev_ss = -1;
+  struct job_item *items[ MAX_TAKE ];
   uint32_t total_len = 0;
   uint16_t count = 0;
+  uint16_t i;
 
-
-  while ( ctrl->job_start != ctrl->job_end && ctrl->item[ ctrl->job_start ].opt.server_socket != -1 && count < MAX_TAKE ) {
-    /*
-     * we only accumulate packets from the same service
-    */
-    if ( prev_ss == -1 || prev_ss == ctrl->item[ ctrl->job_start ].opt.server_socket ) {
-      item = &ctrl->item[ ctrl->job_start ];
-      prev_ss = item->opt.server_socket;
-      items[ count++ ] = item;
-      total_len += item->opt.buffer_len;
-      ctrl->job_start = ( ctrl->job_start + 1 ) % ARRAY_SIZE( ctrl->item );
-    }
-    else {
+  job_lock();
+  while( ctrl->job_start == ctrl->job_end ) {
+    pthread_cond_wait( &ctrl->cond_add, &ctrl->mutex );
+  }
+  while ( ctrl->job_start != ctrl->job_end && ctrl->item[ ctrl->job_start ].opt.server_socket != -1 ) {
+    item = &ctrl->item[ ctrl->job_start ];
+    items[ count++ ] = item;
+    total_len += item->opt.buffer_len;
+    ctrl->job_start = ( ctrl->job_start + 1 ) % ARRAY_SIZE( ctrl->item );
+    if ( item->opt.server_socket != items[ count - 1 ]->opt.server_socket || count == MAX_TAKE ) {
       break;
     }
-  }  
-  if ( count ) {
-    ctrl->job_done = ( ctrl->job_done + count ) % ARRAY_SIZE( ctrl->item );
-    send( items[ 0 ]->opt.server_socket, items[ 0 ]->opt.buffer, total_len, MSG_DONTWAIT );
-    pthread_cond_signal( &ctrl->cond_write );
   }
-  uint16_t i;
-  fprintf(fp, "start dumping\n");
-  for ( i = 0; i < count; i++ ) {
-   fprintf(fp, "server_socket %d buffer %p length %d\n", items[i]->opt.server_socket, items[i]->opt.buffer, items[i]->opt.buffer_len);
-  }
-  fprintf(fp, "end dumping\n");
-  fflush(fp);
-  job_unlock();
-#ifdef TEST
-  uint16_t i;
-if ( count == MAX_TAKE - 1 )
-  die( "overflow %d", count);
-
-  if ( count ) {
-    send( items[ 0 ]->opt.server_socket, items[ 0 ]->opt.buffer, total_len, MSG_DONTWAIT );
-  }
-#endif
-#ifdef TEST
   for ( i = 0; i < count; i++ ) {
     send( items[ i ]->opt.server_socket, items[ i ]->opt.buffer, items[ i ]->opt.buffer_len, MSG_DONTWAIT );
   }
-#endif
+  ctrl->job_done = ( ctrl->job_done + count ) % ARRAY_SIZE( ctrl->item );
+  pthread_cond_signal( &ctrl->cond_write );
+  job_unlock();
 }
+
+
+#ifdef TEST
+    fprintf(fp, "start dumping\n");
+    for ( i = 0; i < count; i++ ) {
+      fprintf(fp, "server_socket %d buffer %p length %d\n", items[i]->opt.server_socket, items[i]->opt.buffer, items[i]->opt.buffer_len);
+    }
+    fprintf(fp, "end dumping\n");
+    fflush(fp);
+  }
+#endif
 
 
 #ifdef TEST

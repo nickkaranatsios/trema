@@ -34,7 +34,7 @@
 
 #define THREADS 2
 #define ITEM_SIZE 256
-#define MAX_TAKE 10 
+#define MAX_TAKE 10
 
 #define ARRAY_SIZE( x ) ( int32_t ) ( sizeof( x ) / sizeof( x[ 0 ] ) )
 #define alloc_nr( x ) ( ( ( x ) + 8 ) * 3 / 2 )

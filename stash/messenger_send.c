@@ -112,15 +112,16 @@ update_server_socket( struct job_ctrl *ctrl, const char *service_name, const int
         for ( i = 0; i < ITEM_SIZE; i++ ) {
           if ( ctrl->item[ i ].opt.server_socket != ss ) {
             memcpy( &tmp[ j++ ], &ctrl->item[ i ], sizeof( ctrl->item[ i ] ) );
-          }
-          if ( pos[ 0 ] <= i ) {
-            pos_cnt[ 0 ]++;
-          }
-          if ( pos[ 1 ] <= i ) {
-            pos_cnt[ 1 ]++;
-          }
-          if ( pos[ 2 ] <= i ) {
-            pos_cnt[ 2 ]++;
+          } else {
+            if ( pos[ 0 ] <= i ) {
+              pos_cnt[ 0 ]++;
+            }
+            if ( pos[ 1 ] <= i ) {
+              pos_cnt[ 1 ]++;
+            }
+            if ( pos[ 2 ] <= i ) {
+              pos_cnt[ 2 ]++;
+            }
           }
         }
       }
@@ -128,6 +129,8 @@ update_server_socket( struct job_ctrl *ctrl, const char *service_name, const int
         for ( i = 0; i < ITEM_SIZE; i++ ) {
           if ( !strncmp( service_name, ctrl->item[ i ].opt.service_name, MESSENGER_SERVICE_NAME_LENGTH ) ) {
             memcpy( &tmp[ j++ ], &ctrl->item[ i ], sizeof( ctrl->item[ i ] ) );
+          }
+          else {
             if ( pos[ 0 ] <= i ) {
               pos_cnt[ 0 ]++;
             }

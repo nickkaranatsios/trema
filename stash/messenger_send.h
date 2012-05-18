@@ -61,6 +61,7 @@ struct job_opt {
 
 struct job_item {
   struct job_opt opt;
+  pthread_t tag_id;
   uint16_t done;
 };
 
@@ -95,6 +96,10 @@ struct job_ctrl {
    * incremented by one when a job item has been processed from item.
   */
   int job_done;
+  /*
+   * used for lock-free access
+  */
+  pthread_t tag_id;
   /*
   * an array of job items to handle.
   * The client that is connected to the service uses adds items to this array.

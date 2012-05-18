@@ -17,6 +17,13 @@
 #define ITEM_SIZE 256
 #define THREADS 2
 #define ARRAY_SIZE( x ) ( int32_t ) ( sizeof( x ) / sizeof( x[ 0 ] ) )
+#define MAX_TAKE 10
+
+#if SIZEOF_LONG == SIZEOF_VOIDP
+typedef unsigned long st_data_t;
+#elif SIZEOF__LONG_LONG == SIZEOF_VOIDP
+typedef unsigned LONG_LONG st_data_t;
+#endif
 
 struct job_opt {
   char service_name[MESSENGER_SERVICE_NAME_LEN];
@@ -29,6 +36,7 @@ struct job_opt {
 struct job_item {
   struct job_opt opt;
   uint16_t done;
+  pthread_t tag_id;
 };
 
 
@@ -39,17 +47,14 @@ struct job_ctrl {
   /*
    * incremented by one after a new job item is added to item
   */
-  int job_end;
+  uint32_t job_end;
+  uint32_t job_start;
+  uint32_t job_done;
   /*
    * incremented by one after a job item has been retrieved from item for
    * processing
   */
-  int job_start;
-
-  /*
-   * incremented by one when a job item has been processed from item
-  */
-  int job_done;
+  pthread_t tag_id;
   /*
   * an array of job items to handle.
   * The client that is connected to the service uses adds items to this array.
@@ -62,14 +67,20 @@ static pthread_mutex_t work_mutex;
 
 
 static inline void
-work_lock( void ) {
+job_lock( void ) {
   pthread_mutex_lock( &work_mutex );
 }
 
 
 static inline void
-work_unlock( void ) {
+job_unlock( void ) {
   pthread_mutex_unlock( &work_mutex );
+}
+
+
+static inline pthread_t
+self( void ) {
+  return pthread_self();
 }
 
 
@@ -81,67 +92,133 @@ static pthread_cond_t cond_add;
 static pthread_cond_t cond_write;
 
 
+static int
+store_conditional_item( struct job_item *item, const struct job_opt *opt ) {
+
+  if ( item->tag_id == self() ) {
+    item->tag_id = 0;
+    item->done = 0;
+    memcpy( &item->opt, opt, sizeof( *opt ) );
+    return 1;
+  }
+  return 0;
+}
+
+
+void
+load_lock_ctrl( struct job_ctrl *ctrl ) {
+  ctrl->tag_id = self();
+}
+
+
+struct job_item *
+load_lock_item( struct job_item *item ) {
+  item->tag_id = self();
+  return item;
+}
+
+
 static void
 update_server_socket( struct job_ctrl *ctrl, const char *service_name, const int server_socket ) {
+  struct job_item *item;
   int i;
   int end = ctrl->job_end;
 
   for ( i = 0; i < end; i++ ) {
-    if ( ctrl->item[ i ].opt.server_socket == -1 ) {
-      if ( !strncmp( service_name, ctrl->item[ i ].opt.service_name, MESSENGER_SERVICE_NAME_LEN ) ) {
-        ctrl->item[ i ].opt.server_socket = server_socket;
+    item = load_lock_item( &ctrl->item[ i ] );
+    if ( item->opt.server_socket == -1 ) {
+      if ( !strncmp( service_name, item->opt.service_name, MESSENGER_SERVICE_NAME_LEN ) ) {
+        if ( item->tag_id == self() ) {
+          item->tag_id = 0;
+          item->opt.server_socket = server_socket;
+        }
       }
     }
   }
 }
 
 
-static void
+static int
 add_job( struct job_ctrl *ctrl, const struct job_opt *opt ) {
-
-  work_lock();
-
-  while ( ( ctrl->job_end + 1 ) % ARRAY_SIZE( ctrl->item ) == ctrl->job_done ) {
-    pthread_cond_wait( &cond_write, &work_mutex );
+  struct job_item *item;
+  uint32_t end;
+  uint32_t done;
+  
+  while ( 1 ) {
+    end = ctrl->job_end;
+    done = ctrl->job_done;
+    if ( ( end + 1 ) % ARRAY_SIZE( ctrl->item ) == done ) {
+      return 0; 
+    }
+    item = load_lock_item( &ctrl->item[ end ] );
+    if ( store_conditional_item( item, opt ) ) {
+      load_lock_ctrl( ctrl );
+      if ( ctrl->tag_id == self() ) {
+        ctrl->tag_id = 0;
+        ctrl->job_end = ( ctrl->job_end + 1 ) % ARRAY_SIZE( ctrl->item );
+        return 1;
+      }
+    }
   }
-
-  ctrl->item[ ctrl->job_end ].done = 0;
-  memcpy( &ctrl->item[ ctrl->job_end ].opt, opt, sizeof( *opt ) );
-  ctrl->job_end = ( ctrl->job_end + 1 ) % ARRAY_SIZE( ctrl->item );
-
-  pthread_cond_signal( &cond_add );
-  work_unlock();
 }
 
 
-static void
+static int
 get_exec_job( struct job_ctrl *ctrl ) {
-#define MAX_TAKE 10
-  struct job_item *ret[ MAX_TAKE ];
+  struct job_item *items[ MAX_TAKE ];
+  struct job_item *item;
+  int start;
+  int end;
+  uint32_t total_len = 0;
+  uint16_t count = 0;
+  uint16_t i;
 
-  work_lock();
-  while ( ctrl->job_start == ctrl->job_end ) {
-    pthread_cond_wait( &cond_add, &work_mutex );
-  }
-  /* previous server socket inside the loop */
-  int prev_ss = -1;
-  int count = 0;
-  int i;
-  while ( ctrl->job_start != ctrl->job_end && ctrl->item[ ctrl->job_start].opt.server_socket != -1 && count < MAX_TAKE ) {
-    if ( prev_ss == -1 || prev_ss == ctrl->item[ ctrl->job_start ].opt.server_socket ) {
-      ret[ count++ ] = &ctrl->item[ ctrl->job_start ];
-      ctrl->job_start = ( ctrl->job_start + 1 ) % ARRAY_SIZE( ctrl->item );
+
+  start = ctrl->job_start;
+  while ( 1 ) {
+    load_lock_ctrl( ctrl );
+    if ( ctrl->tag_id == self() ) {
+      ctrl->tag_id = 0;
+      end = ctrl->job_end;
+      break;
     }
-    prev_ss = ctrl->item[ ctrl->job_start ].opt.server_socket;
+  }
+
+  if ( start == end ) {
+    return 0;
+  }
+  while ( start != end ) {
+    item = load_lock_item( &ctrl->item[ start ] );
+    if ( item->opt.server_socket != -1 ) {
+      items[ count ] = item;
+      total_len += items[ count++ ]->opt.buffer_len;
+      if ( item->opt.server_socket != items[ count - 1 ]->opt.server_socket || count == MAX_TAKE ) {
+        break;
+      }
+    }
+    while ( 1 ) {
+      load_lock_ctrl( ctrl );
+      if ( ctrl->tag_id == self() ) {
+        ctrl->job_start = ( ctrl->job_start + 1 ) % ARRAY_SIZE( ctrl->item );
+        start = ctrl->job_start;
+        ctrl->tag_id = 0;
+        break;
+      }
+    }
   }
   for ( i = 0; i < count; i++ ) {
-    printf( "processing %s count %d\n", ( char * )ret[ i ]->opt.buffer, count );
+    printf( "processing %s count %d thread_id %ld\n", ( char * )items[ i ]->opt.buffer, count, self() );
   }
   if ( count ) {
-    ctrl->job_done += count % ARRAY_SIZE( ctrl->item );
-    pthread_cond_signal( &cond_write );
+    while ( 1 ) {
+      load_lock_ctrl( ctrl );
+      if ( ctrl->tag_id == self() ) {
+        ctrl->tag_id = 0;
+        ctrl->job_done = ( ctrl->job_done + count ) % ARRAY_SIZE( ctrl->item );
+        break;
+      }
+    } 
   }
-  work_unlock();
 }
 
 
@@ -176,7 +253,6 @@ init_mutexes( void ) {
   pthread_mutex_init( &work_mutex, NULL );
   pthread_cond_init( &cond_add, NULL );
   pthread_cond_init( &cond_write, NULL );
-
 }
 
 
@@ -184,9 +260,12 @@ void
 *run_thread( void *data ) {
   struct job_ctrl *ctrl = data;
   int ret = 1;
+  int i = 1;
 
   while ( 1 ) {
     get_exec_job( ctrl );
+    sleep( i );
+    i = ( i + 1 ) % 10;
   }
   return ( void * ) ( intptr_t ) ret;
 }
@@ -237,6 +316,7 @@ main()
   struct job_ctrl *ctrl;
 
 
+  printf("sizeof st_data_t %u\n", sizeof(st_data_t));
   init_mutexes();
   strncpy( service_name, "repeater_hub", MESSENGER_SERVICE_NAME_LEN );
   ctrl = ( struct job_ctrl * ) malloc( sizeof( *ctrl ) );
@@ -258,6 +338,7 @@ main()
     opt.server_socket = server_socket;
     opt.buffer_len = buffer_len;
     strncpy(opt.service_name, service_name, MESSENGER_SERVICE_NAME_LEN );
+printf("adding job %d\n", i);
     add_job( ctrl, &opt );
     sleep( 2 );
   }

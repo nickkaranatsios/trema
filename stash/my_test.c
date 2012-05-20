@@ -14,7 +14,7 @@
 #include <pthread.h>
 
 #define MESSENGER_SERVICE_NAME_LEN 32
-#define ITEM_SIZE 256
+#define ITEM_SIZE 32
 #define THREADS 2
 #define ARRAY_SIZE( x ) ( int32_t ) ( sizeof( x ) / sizeof( x[ 0 ] ) )
 #define MAX_TAKE 10
@@ -35,8 +35,8 @@ struct job_opt {
 
 struct job_item {
   struct job_opt opt;
+  pthread_t ref;
   uint16_t done;
-  pthread_t tag_id;
 };
 
 
@@ -92,29 +92,17 @@ static pthread_cond_t cond_add;
 static pthread_cond_t cond_write;
 
 
-static int
-store_conditional_item( struct job_item *item, const struct job_opt *opt ) {
+int
+CAS( void *address, const void *oldvalue, const void *newvalue, size_t len ) {
+  int ret = 0;
 
-  if ( item->tag_id == self() ) {
-    item->tag_id = 0;
-    item->done = 0;
-    memcpy( &item->opt, opt, sizeof( *opt ) );
-    return 1;
+  job_lock();
+  if ( !memcmp(address, oldvalue, len ) ) {
+    memcpy( address, newvalue, len );
+    ret = 1;
   }
-  return 0;
-}
-
-
-void
-load_lock_ctrl( struct job_ctrl *ctrl ) {
-  ctrl->tag_id = self();
-}
-
-
-struct job_item *
-load_lock_item( struct job_item *item ) {
-  item->tag_id = self();
-  return item;
+  job_unlock();
+  return ret;
 }
 
 
@@ -125,11 +113,10 @@ update_server_socket( struct job_ctrl *ctrl, const char *service_name, const int
   int end = ctrl->job_end;
 
   for ( i = 0; i < end; i++ ) {
-    item = load_lock_item( &ctrl->item[ i ] );
+    item = &ctrl->item[ i ];
     if ( item->opt.server_socket == -1 ) {
       if ( !strncmp( service_name, item->opt.service_name, MESSENGER_SERVICE_NAME_LEN ) ) {
-        if ( item->tag_id == self() ) {
-          item->tag_id = 0;
+        if ( CAS( &ctrl->item[ i ], item, item, sizeof( *item ) ) ) {
           item->opt.server_socket = server_socket;
         }
       }
@@ -138,86 +125,65 @@ update_server_socket( struct job_ctrl *ctrl, const char *service_name, const int
 }
 
 
+
+
 static int
-add_job( struct job_ctrl *ctrl, const struct job_opt *opt ) {
+add_job( struct job_ctrl *ctrl, struct job_item *input_item ) {
   struct job_item *item;
   uint32_t end;
-  uint32_t done;
+  uint32_t start;
+  uint32_t tmp;
   
   while ( 1 ) {
     end = ctrl->job_end;
-    done = ctrl->job_done;
-    if ( ( end + 1 ) % ARRAY_SIZE( ctrl->item ) == done ) {
+    item = &ctrl->item[ end ];
+    if ( end != ctrl->job_end ) {
+      continue;
+    }
+    start = ctrl->job_start;
+    if ( ( end + 1 ) % ARRAY_SIZE( ctrl->item ) == start ) {
       return 0; 
     }
-    item = load_lock_item( &ctrl->item[ end ] );
-    if ( store_conditional_item( item, opt ) ) {
-      load_lock_ctrl( ctrl );
-      if ( ctrl->tag_id == self() ) {
-        ctrl->tag_id = 0;
-        ctrl->job_end = ( ctrl->job_end + 1 ) % ARRAY_SIZE( ctrl->item );
-        return 1;
-      }
+    if ( !item->done ) {
+      input_item->ref = self();
+      if ( CAS( &ctrl->item[ end ], item, input_item, sizeof( *item ) ) ) {
+        tmp = ( end + 1 ) % ARRAY_SIZE( ctrl->item );
+        if ( CAS( &ctrl->job_end, &end, &tmp, sizeof( tmp ) ) ) {
+          return;
+        }
+      } 
     }
   }
 }
 
 
-static int
+static struct job_item *
 get_exec_job( struct job_ctrl *ctrl ) {
-  struct job_item *items[ MAX_TAKE ];
   struct job_item *item;
-  int start;
-  int end;
-  uint32_t total_len = 0;
-  uint16_t count = 0;
-  uint16_t i;
+  struct job_item ref;
+  int tmp;
+  uint32_t start;
 
-
-  start = ctrl->job_start;
   while ( 1 ) {
-    load_lock_ctrl( ctrl );
-    if ( ctrl->tag_id == self() ) {
-      ctrl->tag_id = 0;
-      end = ctrl->job_end;
-      break;
+    start = ctrl->job_start;
+    item = &ctrl->item[ start ];   
+    if ( start != ctrl->job_start ) {
+      continue;
     }
-  }
-
-  if ( start == end ) {
-    return 0;
-  }
-  while ( start != end ) {
-    item = load_lock_item( &ctrl->item[ start ] );
-    if ( item->opt.server_socket != -1 ) {
-      items[ count ] = item;
-      total_len += items[ count++ ]->opt.buffer_len;
-      if ( item->opt.server_socket != items[ count - 1 ]->opt.server_socket || count == MAX_TAKE ) {
-        break;
+    if ( start == ctrl->job_end ) {
+      continue;
+    }
+    if ( item->opt.server_socket != -1 && !item->done ) {
+      memcpy( &ref, item, sizeof( ref ) ); 
+      ref.done = 1;
+      ref.ref = self();
+      if ( CAS( &ctrl->item[ start ], item, &ref, sizeof( ref ) ) ) {
+        tmp = ( start + 1 ) % ARRAY_SIZE( ctrl->item ); 
+        if ( CAS( &ctrl->job_start, &start, &tmp, sizeof( tmp ) ) ) {
+          return item;
+        }
       }
     }
-    while ( 1 ) {
-      load_lock_ctrl( ctrl );
-      if ( ctrl->tag_id == self() ) {
-        ctrl->job_start = ( ctrl->job_start + 1 ) % ARRAY_SIZE( ctrl->item );
-        start = ctrl->job_start;
-        ctrl->tag_id = 0;
-        break;
-      }
-    }
-  }
-  for ( i = 0; i < count; i++ ) {
-    printf( "processing %s count %d thread_id %ld\n", ( char * )items[ i ]->opt.buffer, count, self() );
-  }
-  if ( count ) {
-    while ( 1 ) {
-      load_lock_ctrl( ctrl );
-      if ( ctrl->tag_id == self() ) {
-        ctrl->tag_id = 0;
-        ctrl->job_done = ( ctrl->job_done + count ) % ARRAY_SIZE( ctrl->item );
-        break;
-      }
-    } 
   }
 }
 
@@ -259,13 +225,19 @@ init_mutexes( void ) {
 void
 *run_thread( void *data ) {
   struct job_ctrl *ctrl = data;
+  struct job_item *item;
   int ret = 1;
-  int i = 1;
 
   while ( 1 ) {
-    get_exec_job( ctrl );
-    sleep( i );
-    i = ( i + 1 ) % 10;
+    item = get_exec_job( ctrl );
+    if ( item != NULL ) {
+      printf( "data %s address %p %lu\n", ( char * )item->opt.buffer, ( char * )item->opt.buffer, pthread_self() );
+      free( item->opt.buffer );
+      item->done = 0;
+      item->opt.buffer = NULL;
+      item->opt.buffer_len = 0;
+    }
+    sleep( 1 );
   }
   return ( void * ) ( intptr_t ) ret;
 }
@@ -306,13 +278,12 @@ main()
     socket_buffer_size = 0;
   }
 #endif
-  char buffer[ 128 ];
   char service_name[ MESSENGER_SERVICE_NAME_LEN ];
   uint32_t buffer_len;
   uint32_t i = 0;
   int server_socket = -1;
   pthread_t thread_id[ THREADS ];
-  struct job_opt opt;
+  struct job_item item;
   struct job_ctrl *ctrl;
 
 
@@ -322,24 +293,26 @@ main()
   ctrl = ( struct job_ctrl * ) malloc( sizeof( *ctrl ) );
   memset( ctrl, 0, sizeof( *ctrl ) );
   for ( i = 0; i < THREADS; i++ ) {
-    if ( ( pthread_create( &thread_id[ THREADS ], NULL, run_thread, ctrl ) != 0 ) ) {
+    if ( ( pthread_create( &thread_id[ i ], NULL, run_thread, ctrl ) != 0 ) ) {
       printf( "Failed to create thread\n" );
       exit;
     }
   }
   
+  i = 0;
   while ( 1 ) {
-    buffer_len = sprintf( buffer, "header - body %d", i++  );
-    opt.buffer = buffer;
+    item.opt.buffer = malloc( 64 );
+    buffer_len = sprintf( item.opt.buffer, "header - body %d", i++  );
+    item.opt.buffer_len = buffer_len;
+    item.ref = 0;
     if ( i == 10 ) {
       server_socket = 8;
       update_server_socket( ctrl, service_name, server_socket );
     }
-    opt.server_socket = server_socket;
-    opt.buffer_len = buffer_len;
-    strncpy(opt.service_name, service_name, MESSENGER_SERVICE_NAME_LEN );
-printf("adding job %d\n", i);
-    add_job( ctrl, &opt );
+    item.opt.server_socket = server_socket;
+    item.done = 0;
+    strncpy(item.opt.service_name, service_name, MESSENGER_SERVICE_NAME_LEN );
+    add_job( ctrl, &item );
     sleep( 2 );
   }
   

@@ -129,7 +129,6 @@ truncate_message_buffer( message_buffer *buf, size_t len ) {
   assert( buf != NULL );
 
   if ( len == 0 || buf->data_length == 0 ) {
-error( "truncate_message_buffer len %d data length %d", len, buf->data_length );
     return;
   }
 

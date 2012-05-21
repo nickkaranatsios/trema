@@ -96,12 +96,10 @@ int
 CAS( void *address, const void *oldvalue, const void *newvalue, size_t len ) {
   int ret = 0;
 
-  job_lock();
   if ( !memcmp(address, oldvalue, len ) ) {
     memcpy( address, newvalue, len );
     ret = 1;
   }
-  job_unlock();
   return ret;
 }
 

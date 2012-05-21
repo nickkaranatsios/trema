@@ -64,9 +64,9 @@ static uint32_t get_send_data( send_queue *sq, size_t offset );
 static FILE *fp = NULL;
 
 
-//static const char *debug_cnt = "";
 static struct job_ctrl ctrl;
 static pthread_t threads[ THREADS ];
+static pthread_t main_thread;
 
 
 static inline void
@@ -100,21 +100,21 @@ load_lock_ctrl( struct job_ctrl *ctrl ) {
 }
 
 
-static int
-store_conditional_item( struct job_item *item, const struct job_opt *opt ) {
+int
+CAS( void *address, const void *oldvalue, const void *newvalue, size_t len ) {
+  int ret = 0;
 
-  if ( item->tag_id == self() ) {
-    item->tag_id = 0;
-    item->done = 0;
-    memcpy( &item->opt, opt, sizeof( *opt ) );
-    return 1;
+  if ( !memcmp( address, oldvalue, len ) ) {
+    memcpy( address, newvalue, len );
+    ret = 1;
   }
-  return 0;
+  return ret;
 }
 
 
 static void
 update_server_socket( struct job_ctrl *ctrl, const char *service_name, const int server_socket ) {
+  struct job_item *item;
   int i;
 
 
@@ -192,9 +192,12 @@ update_server_socket( struct job_ctrl *ctrl, const char *service_name, const int
     int end = ctrl->job_end;
 
     for ( i = 0; i < end; i++ ) {
-      if ( ctrl->item[ i ].opt.server_socket == -1 ) {
-        if ( !strncmp( service_name, ctrl->item[ i ].opt.service_name, MESSENGER_SERVICE_NAME_LENGTH ) ) {
-          ctrl->item[ i ].opt.server_socket = server_socket;
+      item = &ctrl->item[ i ];
+      if ( item->opt.server_socket == -1 ) {
+        if ( !strncmp( service_name, item->opt.service_name, MESSENGER_SERVICE_NAME_LENGTH ) ) {
+          if ( CAS( &ctrl->item[ i ] , item, item, sizeof( *item ) ) ) {
+            item->opt.server_socket = server_socket;
+          }
         }
       }
     }
@@ -202,25 +205,34 @@ update_server_socket( struct job_ctrl *ctrl, const char *service_name, const int
 }
 
 
-static void
-add_lock_free_job( struct job_ctrl *ctrl, const struct job_opt *opt ) {
-  struct job_item *item;
+static int
+add_lock_free_job( struct job_ctrl *ctrl, struct job_item *item ) {
+  struct job_item *end_item;
   int end;
-  int done;
+  int start;
+  int tmp;
 
   while ( true ) {
     end = ctrl->job_end;
-    done = ctrl->job_done;
-    if ( ( end + 1 ) % ARRAY_SIZE( ctrl->item ) == done ) {
-      return;
+    end_item = &ctrl->item[ end ];
+    if ( end != ctrl->job_end ) {
+      continue;
     }
-    item = load_lock_item( &ctrl->item[ end ] );
-    if ( store_conditional_item( item, opt ) ) {
-      load_lock_ctrl( ctrl );
-      if ( ctrl->tag_id == self() ) {
-        ctrl->tag_id = 0;
-        ctrl->job_end = ( ctrl->job_end + 1 ) % ARRAY_SIZE( ctrl->item );
-        return;
+    start = ctrl->job_start;
+    if ( ( end + 1 ) % ARRAY_SIZE( ctrl->item ) == start ) {
+      return 0;
+    }
+    if ( !item->done ) {
+      if ( end_item->opt.buffer != NULL ) {
+        xfree( end_item->opt.buffer );
+        end_item->opt.buffer = NULL;
+      }
+      item->tag_id = main_thread;
+      if ( CAS( &ctrl->item[ end ], end_item, item, sizeof( *item ) ) ) {
+        tmp = ( end + 1 ) % ARRAY_SIZE( ctrl->item );
+        if ( CAS( &ctrl->job_end, &end, &tmp, sizeof( tmp ) ) ) {
+          return 1;
+        }
       }
     }
   }
@@ -258,22 +270,33 @@ add_job( struct job_ctrl *ctrl, const struct job_opt *opt ) {
 
 static struct job_item *
 get_lock_free_job( struct job_ctrl *ctrl ) {
-  int s, start;
   struct job_item *item;
+  struct job_item ref;
+  struct timespec req;
+  int tmp;
+  int start;
 
+  req.tv_sec = 0;
+  req.tv_nsec = 1;
   while ( true ) {
-    s = ctrl->job_start;
-    if ( s == ctrl->job_end ) {
-      return NULL;
+    start = ctrl->job_start;
+    item = &ctrl->item[ start ];
+    if ( start != ctrl->job_start ) {
+      continue;
     }
-    start = s;
-    item = load_lock_item( &ctrl->item[ start ] );
-    if ( s == ctrl->job_start ) {
-      load_lock_ctrl( ctrl );
-      if ( ctrl->tag_id == self() ) {
-        ctrl->tag_id = 0;
-        ctrl->job_start = ( ctrl->job_start + 1 ) % ARRAY_SIZE( ctrl->item );
-        return item;
+    if ( start == ctrl->job_end ) {
+      nanosleep( &req, NULL );
+      continue;
+    }
+    tmp = ( start + 1 ) % ARRAY_SIZE( ctrl->item );
+    if ( CAS( &ctrl->job_start, &start, &tmp, sizeof( tmp ) ) ) {
+      if ( item->opt.server_socket != -1 && item->opt.buffer != NULL ) {
+        memcpy( &ref, item, sizeof( ref ) );
+        ref.done = 1;
+        ref.tag_id = self();
+        if ( CAS( &ctrl->item[ start ], item, &ref, sizeof( ref ) ) ) {
+          return item;
+        }
       }
     }
   }
@@ -432,25 +455,18 @@ void
 *run_thread( void *data ) {
   struct job_ctrl *ctrl = data;
   struct job_item *item;
-  struct timespec req;
+  void *buffer;
   int ret = 1;
   
 
-  req.tv_sec = 0;
-  /* 10ms wait */
-  req.tv_nsec = 1000 * 1;
   while ( 1 ) {
     item = get_lock_free_job( ctrl );
-    if ( item != NULL ) {
-      send( item->opt.server_socket, item->opt.buffer, item->opt.buffer_len, MSG_DONTWAIT );
-      xfree( item->opt.buffer );
-      load_lock_ctrl( ctrl );
-      if ( ctrl->tag_id == self() ) {
-        ctrl->tag_id = 0;
-        ctrl->job_end = ( ctrl->job_end + 1 ) % ARRAY_SIZE( ctrl->item );
-      }
+    buffer = item->opt.buffer;
+    send( item->opt.server_socket, item->opt.buffer, item->opt.buffer_len, MSG_DONTWAIT );
+    if ( buffer == item->opt.buffer ) {
+      item->done = 0;
+      item->opt.buffer_len = 0;
     }
-    nanosleep( &req, NULL );
   }
   return ( void * ) ( intptr_t ) ret;
 }
@@ -685,18 +701,29 @@ my_push_message_to_send_queue( const char *service_name, const uint8_t message_t
   sq->overflow_total_length = 0;
 
 
-  struct job_opt opt;
+  struct job_item item;
 
-  strncpy( opt.service_name, service_name, MESSENGER_SERVICE_NAME_LENGTH );
-  opt.server_socket = sq->server_socket;
-  opt.buffer_len = length;
+  memset( &item, 0, sizeof( item ) );
+  strncpy( item.opt.service_name, service_name, MESSENGER_SERVICE_NAME_LENGTH );
+  item.opt.server_socket = sq->server_socket;
+  item.opt.buffer_len = length;
+#ifdef TEST
+  item.opt.buffer = get_message_buffer_tail( sq->buffer, item.opt.buffer_len );
+  write_message_buffer_at_tail( sq->buffer, &header, sizeof( message_header ), data, len );
+#endif
 //  opt.buffer = get_message_buffer_tail( sq->buffer, opt.buffer_len );
-  opt.buffer = xmalloc( opt.buffer_len );
-  memcpy( opt.buffer, &header, sizeof( message_header ) );
-  memcpy( ( char * )opt.buffer + sizeof( message_header ), data, len );
-//  write_message_buffer_at_tail( sq->buffer, &header, sizeof( message_header ), data, len );
-debug( "about to add_job buffer %x length %d start %x tail %x", opt.buffer, opt.buffer_len, sq->buffer->start, sq->buffer->tail );
-  add_lock_free_job( &ctrl, &opt );
+  item.opt.buffer = xmalloc( item.opt.buffer_len );
+  memcpy( item.opt.buffer, &header, sizeof( message_header ) );
+  memcpy( ( char * )item.opt.buffer + sizeof( message_header ), data, len );
+debug( "about to add_job buffer %x length %d start %x tail %x", item.opt.buffer, item.opt.buffer_len, sq->buffer->start, sq->buffer->tail );
+  if ( !main_thread ) {
+    main_thread = self();
+  }
+  if ( !add_lock_free_job( &ctrl, &item ) ) {
+//    xfree ( item.opt.buffer );
+    error( "queue is full" );
+  }
+
   if ( sq->server_socket == -1 ) {
     debug( "Tried to send message on closed send queue, connecting..." );
 

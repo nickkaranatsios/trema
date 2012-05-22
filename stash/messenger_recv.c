@@ -499,8 +499,8 @@ pull_from_recv_queue( receive_queue *rq, uint8_t *message_type, uint16_t *tag, v
   memcpy( data, header->value, *len > maxlen ? maxlen : *len );
   truncate_message_buffer( rq->buffer, length );
 
-  debug( "A message is retrieved from receive queue ( message_type = %#x, tag = %#x, len = %u, data = %p ).",
-         *message_type, *tag, *len, data );
+  error( "A message is retrieved from receive queue ( message_type = %#x, tag = %#x, len = %u, data = %p ).",
+         *message_type, *tag, *len + sizeof( message_header), header );
 
   return 1;
 }
@@ -602,6 +602,7 @@ on_recv( int fd, void *data ) {
   uint8_t message_type;
   uint16_t tag;
 
+error("entering");
   while ( ( buf_len = message_buffer_remain_bytes( rq->buffer ) ) > messenger_recv_queue_reserved ) {
     if ( buf_len > sizeof( buf ) ) {
       buf_len = sizeof( buf );
@@ -626,7 +627,10 @@ on_recv( int fd, void *data ) {
       close( fd );
       break;
     }
-
+    error( "recv_len = %d data length %u head offset %u", recv_len, rq->buffer->data_length, rq->buffer->head_offset );
+#ifdef TEST
+#endif
+    
     if ( !write_message_buffer( rq->buffer, buf, ( size_t ) recv_len ) ) {
       warn( "Could not write a message to receive queue due to overflow ( service_name = %s, len = %u ).", rq->service_name, recv_len );
       send_dump_message( MESSENGER_DUMP_RECV_OVERFLOW, rq->service_name, buf, ( uint32_t ) recv_len );
@@ -635,7 +639,14 @@ on_recv( int fd, void *data ) {
       debug( "Pushing a message to receive queue ( service_name = %s, len = %u ).", rq->service_name, recv_len );
       send_dump_message( MESSENGER_DUMP_RECEIVED, rq->service_name, buf, ( uint32_t ) recv_len );
     }
+#ifdef TEST
+  uint16_t count = 0;
+    if ( count++ == 2 ) {
+      break;
+    }
+#endif
   }
+error("exiting");
 
   while ( pull_from_recv_queue( rq, &message_type, &tag, buf, &buf_len, sizeof( buf ) ) == 1 ) {
     call_message_callbacks( rq, message_type, tag, buf, buf_len );

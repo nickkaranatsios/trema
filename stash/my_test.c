@@ -240,6 +240,122 @@ void
   return ( void * ) ( intptr_t ) ret;
 }
 
+#define EQUAL( table, x, y ) ( ( x ) == ( y ) || ( *table->type->compare )( ( x ), ( y ) ) == 0 )
+
+#define PTR_NOT_EQUAL( table, ptr, hash_val, key ) \
+  ( ( ptr ) != 0 && ( ptr->hash != ( hash_val ) || !EQUAL( ( table ), ( key ), ( ptr )->key ) ) 
+
+
+#define ADD_DIRECT( table, key, value, hash_val, bin_pos ) do { \
+  st_table_entry *entry; \
+  if ( table->nr_entries > ST_DEFAULT_MAX_DENSITY * table->nr_bins ) { \
+    rehash( table ); \
+    bin_pos = hash_val % table->nr_bins; \
+  } \
+  entry = malloc( st_table_entry ); \
+  entry->hash = hash_val; \
+  entry->key = key; \
+  entry->record = value; \
+  entry->next = table->bins[ bin_pos ]; \
+  if ( table->head != 0 ) { \
+    entry->before = 0; \
+    ( entry->back = entry->tail )->before = entry; \
+    table->tail = entry; \
+  } \
+  else { \
+    table->head = table->tail = entry; \
+    entry->before = entry->back = 0; \
+  } \
+  table->bins[ bin_pos ] = entry; \
+  table->nr_entries++; \
+} while ( 0 )
+    
+ 
+
+#define FIND_ENTRY( table, ptr, hash_val, bin_pos ) do { \
+  bin_pos = hash_val % ( table )->nr_bins; \
+  ptr = ( table )->bins[ bin_pos ]; \
+  if ( PTR_NOT_EQUAL( table, ptr, hash_val, key ) ) { \
+    while ( PTR_NOT_EQUAL( table, ptr->next, hash_val, key ) ) { \
+      ptr = ptr->next; \
+    } \
+    ptr = ptr->next; \
+  } \
+} while ( 0 )
+
+typedef struct st_table st_table;
+
+struct st_table {
+  int32_t nr_bins;
+  int32_t nr_entries : ST_INDEX_BITS - 1;
+  struct st_table_entry **bins;
+  struct st_table_entry *head;
+  struct st_table_entry *tail;
+};
+
+
+typedef struct st_table_entry st_table_entry;
+
+struct st_table_entry {
+  int32_t hash;
+  int32_t key;
+  st_table_entry *next;
+  st_table_entry *before;
+  st_table_entry *back;
+};
+
+st_table *
+init_table() {
+  st_table *tbl;
+  tbl->malloc( sizeof( st_table ) );
+  tbl->nr_entries = 0;
+  tbl->nr_bins = size;
+  tbl->bins = ( st_table_entry ** )xcalloc( size, sizeof( st_table_entry * ) );
+  tbl->head = 0;
+  tbl->tail = 0;
+  return tbl;
+}
+
+
+int
+st_insert( st_table *table, st_data_t key, st_data_t value ) {
+  st_table_entry *ptr;
+  st_index_t hash_val, bin_pos;
+
+  hash_val = key << 1 | 1;
+  FIND_ENTRY( table, ptr, hash_val, bin_pos );
+  if ( ptr == 0 ) {
+    ADD_DIRECT( table, key, value, hash_val, bin_pos );
+    return 0;
+  }
+  else {
+    ptr->record = value;
+    return 1;
+  }
+}
+
+
+int
+st_lookup( st_table *table, st_data_t key, st_data_t *value ) {
+  st_table_entry *ptr;
+  st_index_t hash_val, bin_pos;
+
+  hash_val = key << 1 | 1;
+  FIND_ENTRY( table, ptr, hash_val, bin_pos );
+  if ( ptr == 0 ) {
+    return 0;
+  }
+  else {
+    if ( value != 0 ) {
+      *value = ptr->record;
+    }
+    return 1;
+ }
+}
+
+  
+
+  
 
 int
 main()

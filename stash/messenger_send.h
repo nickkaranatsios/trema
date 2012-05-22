@@ -32,7 +32,7 @@
 #define MESSENGER_SEND_BUFFER 100000
 
 
-#define THREADS 2
+#define THREADS 1
 #define ITEM_SIZE 256
 #define MAX_TAKE 10
 
@@ -91,11 +91,6 @@ struct job_ctrl {
    * processing.
   */
   int job_start;
-
-  /*
-   * incremented by one when a job item has been processed from item.
-  */
-  int job_done;
   /*
    * used for lock-free access
   */

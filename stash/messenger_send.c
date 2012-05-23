@@ -206,38 +206,51 @@ get_lock_free_job( struct job_ctrl *ctrl ) {
 static void
 get_multiple_jobs( struct job_ctrl *ctrl ) {
   struct job_item *items[ MAX_TAKE ];
+  struct job_item *first;
+  struct job_item *last_item;
   uint32_t total_len = 0;
-  bool last_item;
+  uint32_t tmp;
+  bool last;
   ssize_t sent;
   int i;
 
-  last_item = false;
+  last = false;
   for ( i = 0; i < MAX_TAKE; i++ ) {
     items[ i ] = get_lock_free_job( ctrl );
+    first = items[ 0 ];
     if ( items[ i ] == NULL ) {
       break;
     }
     if ( i > 0 && items[ i - 1 ]->opt.server_socket != items[ i ]->opt.server_socket ) {
-      last_item = true;
+      last_item = items[ i - 1 ];
+      last = true;
       break;
     }
     if ( i > 0 && ( char * )( items[ i - 1 ]->opt.buffer ) + items[ i - 1 ]->opt.buffer_len != items[ i ]->opt.buffer ) {
-      last_item = true;
+      last_item = items[ i - 1 ];
+      last = true;
       break;
     }
     total_len += items[ i ]->opt.buffer_len;
+    tmp = total_len;
   }
   if ( items[ 0 ] != NULL ) {
+    if ( CAS( items[ 0 ], first, first, sizeof( *first ) ) ) {
+    if ( CAS( &total_len, &tmp, &tmp, sizeof( tmp ) ) ) {
     sent = send( items[ 0 ]->opt.server_socket, items[ 0 ]->opt.buffer, total_len, MSG_DONTWAIT );
     if ( sent != ( int32_t ) total_len && sent != -1 ) {
       die( "failed to send %d sent %u errno %s %d", sent, total_len, strerror( errno ), errno );
     }
+    } else { die("total len inconsistent"); }
+    } else { die("first item inconsistent"); }
   }
-  if ( last_item == true ) {
+  if ( last == true ) {
+    if ( CAS( items[ i - 1 ], last_item, last_item, sizeof( *last_item ) ) ) {
     sent = send( items[ i - 1 ]->opt.server_socket, items[ i - 1 ]->opt.buffer, items[ i - 1 ]->opt.buffer_len, MSG_DONTWAIT );
     if ( sent != ( int32_t ) items[ i - 1]->opt.buffer_len && sent != -1 ) {
       die( "failed to send %d sent %u errno %s %d", sent, total_len, strerror( errno ), errno );
     }
+    } else { die("last item inconsistent"); }
   }
 }
 

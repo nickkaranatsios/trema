@@ -603,6 +603,7 @@ on_recv( int fd, void *data ) {
   uint16_t tag;
 
 #ifdef TEST
+  uint16_t count = 0;
 error("entering");
 #endif
   while ( ( buf_len = message_buffer_remain_bytes( rq->buffer ) ) > messenger_recv_queue_reserved ) {
@@ -642,15 +643,12 @@ error("entering");
       send_dump_message( MESSENGER_DUMP_RECEIVED, rq->service_name, buf, ( uint32_t ) recv_len );
     }
 #ifdef TEST
-  uint16_t count = 0;
-    if ( count++ == 2 ) {
-      break;
-    }
+    if ( count++ == 10 ) { break; }
 #endif
   }
 #ifdef TEST
-error("exiting");
 #endif
+error("exiting");
 
   while ( pull_from_recv_queue( rq, &message_type, &tag, buf, &buf_len, sizeof( buf ) ) == 1 ) {
     call_message_callbacks( rq, message_type, tag, buf, buf_len );

@@ -118,87 +118,14 @@ static void
 update_server_socket( struct job_ctrl *ctrl, const char *service_name, const int server_socket ) {
   struct job_item *item;
   int i;
+  int end;
 
-
-  /*
-   * disconnect case
-  */
-  if ( server_socket == -1 ) {
-    struct job_item *tmp[ ITEM_SIZE ];
-    int ss = 0;
-    int j = 0;
-    int pos[ 3 ];
-    int pos_cnt[ 3 ];
-
-    for ( i = 0; i < ITEM_SIZE; i++ ) {
-      if ( !strncmp( service_name, ctrl->item[ i ].opt.service_name, MESSENGER_SERVICE_NAME_LENGTH ) ) {
-        ss = ctrl->item[ i ].opt.server_socket;
-        break;
-      }
-    }
-    if ( ss != 0 ) {
-      pos[ 0 ] = ctrl->job_start;
-      pos[ 1 ] = ctrl->job_end;
-      memset( &pos_cnt, 0, sizeof( pos_cnt ) );
-
-      if ( ss != -1 ) {
-        for ( i = 0; i < ITEM_SIZE; i++ ) {
-          if ( ctrl->item[ i ].opt.server_socket != ss ) {
-            memcpy( &tmp[ j++ ], &ctrl->item[ i ], sizeof( ctrl->item[ i ] ) );
-          } else {
-            if ( pos[ 0 ] <= i ) {
-              pos_cnt[ 0 ]++;
-            }
-            if ( pos[ 1 ] <= i ) {
-              pos_cnt[ 1 ]++;
-            }
-            if ( pos[ 2 ] <= i ) {
-              pos_cnt[ 2 ]++;
-            }
-          }
-        }
-      }
-      else {
-        for ( i = 0; i < ITEM_SIZE; i++ ) {
-          if ( !strncmp( service_name, ctrl->item[ i ].opt.service_name, MESSENGER_SERVICE_NAME_LENGTH ) ) {
-            memcpy( &tmp[ j++ ], &ctrl->item[ i ], sizeof( ctrl->item[ i ] ) );
-          }
-          else {
-            if ( pos[ 0 ] <= i ) {
-              pos_cnt[ 0 ]++;
-            }
-            if ( pos[ 1 ] <= i ) {
-              pos_cnt[ 1 ]++;
-            }
-            if ( pos[ 2 ] <= i ) {
-              pos_cnt[ 2 ]++;
-            }
-          }
-        }
-      }
-      if ( j ) {
-        job_lock();
-        memcpy( ctrl->item, tmp, ( size_t ) j *  sizeof( tmp[ 0 ] ) );
-        ctrl->job_start = ( ctrl->job_start - pos_cnt[ 0 ] ) % ARRAY_SIZE( ctrl->item );
-        ctrl->job_end = ( ctrl->job_end - pos_cnt[ 1 ] ) % ARRAY_SIZE( ctrl->item );
-        job_unlock();
-      }
-    }
-  }
-  /*
-   * connect case
-  */
-  else {
-    int end = ctrl->job_end;
-
-    for ( i = 0; i < end; i++ ) {
-      item = &ctrl->item[ i ];
-      if ( item->opt.server_socket == -1 ) {
-        if ( !strncmp( service_name, item->opt.service_name, MESSENGER_SERVICE_NAME_LENGTH ) ) {
-          if ( CAS( &ctrl->item[ i ] , item, item, sizeof( *item ) ) ) {
-            item->opt.server_socket = server_socket;
-          }
-        }
+  end = ctrl->job_end;
+  for ( i = 0; i < end; i++ ) {
+    item = &ctrl->item[ i ];
+    if ( !strncmp( service_name, item->opt.service_name, MESSENGER_SERVICE_NAME_LENGTH ) ) {
+      if ( CAS( &ctrl->item[ i ] , item, item, sizeof( *item ) ) ) {
+        item->opt.server_socket = server_socket;
       }
     }
   }
@@ -231,13 +158,6 @@ add_lock_free_job( struct job_ctrl *ctrl, struct job_item *item ) {
     if ( ( end + 1 ) % ARRAY_SIZE( ctrl->item ) == start ) {
       return 0;
     }
-#ifdef TEST
-    if ( end_item->opt.buffer != NULL && !end_item->done ) {
-      xfree( end_item->opt.buffer );
-      end_item->opt.buffer = NULL;
-    }
-#endif
-    item->tag_id = main_thread;
     if ( CAS( &ctrl->item[ end ], end_item, item, sizeof( *item ) ) ) {
       tmp = ( end + 1 ) % ARRAY_SIZE( ctrl->item );
       if ( CAS( &ctrl->job_end, &end, &tmp, sizeof( tmp ) ) ) {
@@ -246,9 +166,6 @@ add_lock_free_job( struct job_ctrl *ctrl, struct job_item *item ) {
     }
   }
 }
-
-
-
 
 
 static struct job_item *
@@ -286,7 +203,6 @@ get_lock_free_job( struct job_ctrl *ctrl ) {
 }
 
 
-
 static void
 get_multiple_jobs( struct job_ctrl *ctrl ) {
   struct job_item *items[ MAX_TAKE ];
@@ -301,8 +217,11 @@ get_multiple_jobs( struct job_ctrl *ctrl ) {
     if ( items[ i ] == NULL ) {
       break;
     }
-    if ( i > 0 && items[ i - 1 ]->opt.server_socket != items[ i ]->opt.server_socket 
-      && ( char * )( items[ i - 1 ]->opt.buffer )+ items[ i - 1 ]->opt.buffer_len != items[ i ]->opt.buffer ) {
+    if ( i > 0 && items[ i - 1 ]->opt.server_socket != items[ i ]->opt.server_socket ) {
+      last_item = true;
+      break;
+    }
+    if ( i > 0 && ( char * )( items[ i - 1 ]->opt.buffer ) + items[ i - 1 ]->opt.buffer_len != items[ i ]->opt.buffer ) {
       last_item = true;
       break;
     }
@@ -316,7 +235,7 @@ get_multiple_jobs( struct job_ctrl *ctrl ) {
   }
   if ( last_item == true ) {
     sent = send( items[ i - 1 ]->opt.server_socket, items[ i - 1 ]->opt.buffer, items[ i - 1 ]->opt.buffer_len, MSG_DONTWAIT );
-    if ( sent != ( int32_t ) total_len && sent != -1 ) {
+    if ( sent != ( int32_t ) items[ i - 1]->opt.buffer_len && sent != -1 ) {
       die( "failed to send %d sent %u errno %s %d", sent, total_len, strerror( errno ), errno );
     }
   }
@@ -339,12 +258,34 @@ void
   struct job_ctrl *ctrl = data;
   int ret = 1;
   
-
   while ( 1 ) {
     get_multiple_jobs( ctrl );
   }
   return ( void * ) ( intptr_t ) ret;
 }
+
+
+#ifdef TEST
+void
+*run_thread( void *data ) {
+  struct job_ctrl *ctrl = data;
+  struct job_item *item;
+  int ret = 1;
+
+
+  while ( 1 ) {
+    item = get_lock_free_job( ctrl );
+    send( item->opt.server_socket, item->opt.buffer, item->opt.buffer_len, MSG_DONTWAIT );
+    if ( CAS( &ctrl->item[ ctrl->job_start - 1 ], item, item, sizeof( *item ) ) ) {
+      xfree( item->opt.buffer );
+      item->opt.buffer = NULL;
+      item->opt.buffer_len = 0;
+      item->done = 0;
+    }
+  }
+  return ( void * ) ( intptr_t ) ret;
+}
+#endif
 
 
 
@@ -372,7 +313,6 @@ send_queue_connect( send_queue *sq ) {
       return -1;
     }
   }
-#ifdef TEST
   int ret = fcntl( sq->server_socket, F_SETFL, O_NONBLOCK );
   if ( ret < 0 ) {
     error( "Failed to set O_NONBLOCK ( %s [%d] ).", strerror( errno ), errno );
@@ -380,7 +320,6 @@ send_queue_connect( send_queue *sq ) {
     sq->server_socket = -1;
     return -1;
   }
-#endif
 
   if ( connect( sq->server_socket, ( struct sockaddr * ) &sq->server_addr, sizeof( struct sockaddr_un ) ) == -1 ) {
     error( "Connection refused ( service_name = %s, sun_path = %s, fd = %d, errno = %s [%d] ).",
@@ -595,8 +534,8 @@ debug( "about to add_lock_free_job buffer %x length %d start %x tail %x", item.o
   if ( !main_thread ) {
     main_thread = self();
   }
+  item.tag_id = main_thread;
   if ( !add_lock_free_job( &ctrl, &item ) ) {
-//    xfree ( item.opt.buffer );
     error( "queue is full" );
   }
 

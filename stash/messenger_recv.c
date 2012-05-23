@@ -499,7 +499,7 @@ pull_from_recv_queue( receive_queue *rq, uint8_t *message_type, uint16_t *tag, v
   memcpy( data, header->value, *len > maxlen ? maxlen : *len );
   truncate_message_buffer( rq->buffer, length );
 
-  error( "A message is retrieved from receive queue ( message_type = %#x, tag = %#x, len = %u, data = %p ).",
+  debug( "A message is retrieved from receive queue ( message_type = %#x, tag = %#x, len = %u, data = %p ).",
          *message_type, *tag, *len + sizeof( message_header), header );
 
   return 1;
@@ -602,7 +602,9 @@ on_recv( int fd, void *data ) {
   uint8_t message_type;
   uint16_t tag;
 
+#ifdef TEST
 error("entering");
+#endif
   while ( ( buf_len = message_buffer_remain_bytes( rq->buffer ) ) > messenger_recv_queue_reserved ) {
     if ( buf_len > sizeof( buf ) ) {
       buf_len = sizeof( buf );
@@ -627,8 +629,8 @@ error("entering");
       close( fd );
       break;
     }
-    error( "recv_len = %d data length %u head offset %u", recv_len, rq->buffer->data_length, rq->buffer->head_offset );
 #ifdef TEST
+    error( "recv_len = %d data length %u head offset %u", recv_len, rq->buffer->data_length, rq->buffer->head_offset );
 #endif
     
     if ( !write_message_buffer( rq->buffer, buf, ( size_t ) recv_len ) ) {
@@ -646,7 +648,9 @@ error("entering");
     }
 #endif
   }
+#ifdef TEST
 error("exiting");
+#endif
 
   while ( pull_from_recv_queue( rq, &message_type, &tag, buf, &buf_len, sizeof( buf ) ) == 1 ) {
     call_message_callbacks( rq, message_type, tag, buf, buf_len );

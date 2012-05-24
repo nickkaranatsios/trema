@@ -123,8 +123,6 @@ update_server_socket( struct job_ctrl *ctrl, const char *service_name, const int
 }
 
 
-
-
 static int
 add_job( struct job_ctrl *ctrl, struct job_item *input_item ) {
   struct job_item *item;
@@ -229,17 +227,17 @@ void
   while ( 1 ) {
     item = get_exec_job( ctrl );
     if ( item != NULL ) {
-      printf( "data %s address %p %lu\n", ( char * )item->opt.buffer, ( char * )item->opt.buffer, pthread_self() );
-      free( item->opt.buffer );
       item->done = 0;
       item->opt.buffer = NULL;
       item->opt.buffer_len = 0;
+//      printf( "data %s address %p %lu\n", ( char * )item->opt.buffer, ( char * )item->opt.buffer, pthread_self() );
     }
     sleep( 1 );
   }
   return ( void * ) ( intptr_t ) ret;
 }
 
+#ifdef NOT_USED
 #define EQUAL( table, x, y ) ( ( x ) == ( y ) || ( *table->type->compare )( ( x ), ( y ) ) == 0 )
 
 #define PTR_NOT_EQUAL( table, ptr, hash_val, key ) \
@@ -353,10 +351,85 @@ st_lookup( st_table *table, st_data_t key, st_data_t *value ) {
  }
 }
 
-  
+#endif
+
+typedef struct memory_region memory_region;
+struct memory_region {
+  void *tail;
+  void *head;
+  uint32_t start;
+  uint32_t end;
+  uint32_t left;
+  uint32_t size;
+};
+
+typedef struct memory_desc memory_desc;
+struct memory_desc {
+  memory_region *mregion;
+};
+
+
+static memory_desc desc[ 5 ];
+
+
+void
+init_desc() {
+  memory_region *ptr;
+  int i;
+  uint32_t mult = 0;
+  uint32_t next_mult;
+
+  for ( i = 0; i < ARRAY_SIZE( desc ); i++ ) {
+    ptr = ( memory_region * )malloc( sizeof( memory_region ) );
+    if ( ptr != NULL ) {
+      ptr->start = mult * 1024;
+      next_mult = !mult ? mult + 2 : mult + mult;
+      ptr->end =  next_mult * 1024;
+      ptr->left = ptr->end - ptr->start;
+      ptr->size = ptr->left;
+      ptr->head = ptr->tail = malloc( ptr->size );
+      desc[ i ].mregion = ptr;
+      if ( !mult ) {
+        mult += 2;
+      }
+      else {
+        mult += mult;
+      }
+    }
+  }
+}
 
   
+void *
+get_memory( uint32_t requested_size ) {
+  void *address = NULL;
+  int i;
 
+  for ( i = 0; i < ARRAY_SIZE( desc ); i++ ) {
+    if ( requested_size < desc[ i ].mregion->size && requested_size < desc[ i ].mregion->left ) {
+      address = desc[ i ].mregion->tail;  
+      desc[ i ].mregion->left -= requested_size;
+      desc[ i ].mregion->tail = ( char * ) desc[ i ].mregion->tail + requested_size;
+      break;
+    }
+  }
+  // reset tail pointer from mregion until found requested size
+  if ( address == NULL ) {
+    for ( i = 0; i < ARRAY_SIZE( desc ); i++ ) {
+      desc[ i ].mregion->tail = desc[ i ].mregion->head;
+      desc[ i ].mregion->left = desc[ i ].mregion->size;
+      if ( requested_size < desc[ i ].mregion->size && requested_size < desc[ i ].mregion->left ) {
+        address = desc[ i ].mregion->tail;
+        desc[ i ].mregion->left -= requested_size;
+        desc[ i ].mregion->tail = ( char * ) desc[ i ].mregion->tail + requested_size;
+        break;
+      }
+    }
+  }
+  return address;
+}
+
+  
 int
 main()
 {
@@ -401,6 +474,7 @@ main()
   struct job_ctrl *ctrl;
 
 
+  init_desc();
   printf("sizeof st_data_t %u\n", sizeof(st_data_t));
   init_mutexes();
   strncpy( service_name, "repeater_hub", MESSENGER_SERVICE_NAME_LEN );
@@ -415,7 +489,7 @@ main()
   
   i = 0;
   while ( 1 ) {
-    item.opt.buffer = malloc( 64 );
+    item.opt.buffer = get_memory( 64 );
     buffer_len = sprintf( item.opt.buffer, "header - body %d", i++  );
     item.opt.buffer_len = buffer_len;
     item.ref = 0;

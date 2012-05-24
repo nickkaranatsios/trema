@@ -34,7 +34,7 @@
 
 #define THREADS 2
 #define ITEM_SIZE 512
-#define MAX_TAKE 1
+#define MAX_TAKE 32
 
 #define ARRAY_SIZE( x ) ( int32_t ) ( sizeof( x ) / sizeof( x[ 0 ] ) )
 #define alloc_nr( x ) ( ( ( x ) + 8 ) * 3 / 2 )
@@ -49,6 +49,29 @@
     } \
   } while ( 0 )
 
+
+
+#define MEM_BLOCK 4096
+typedef struct memory_region memory_region;
+
+
+struct memory_region {
+  void *tail;
+  void *head;
+  void *last_accessed;
+  uint32_t start;
+  uint32_t end;
+  uint32_t left;
+  uint32_t size;
+};
+
+
+typedef struct memory_desc memory_desc;
+
+
+struct memory_desc {
+  memory_region *mregion;
+};
 
 
 struct job_opt {
@@ -74,14 +97,6 @@ struct job_ctrl {
    * protect shared job item variables.
   */
   pthread_mutex_t mutex;
-  /* 
-   * used to signal when a new job item is added.
-  */
-  pthread_cond_t cond_add;
-  /* 
-   * signal when the result of one item is written to socket.
-  */
-  pthread_cond_t cond_write;
   /*
    * incremented by one after a new job item is added to item.
   */
@@ -91,6 +106,11 @@ struct job_ctrl {
    * processing.
   */
   int job_start;
+  /*
+   * incremented by one when a message has been transmitted completed 
+   * processing.
+  */
+  int job_done;
   /*
    * used for lock-free access
   */

@@ -647,8 +647,8 @@ error("entering");
 #endif
   }
 #ifdef TEST
-#endif
 error("exiting");
+#endif
 
   while ( pull_from_recv_queue( rq, &message_type, &tag, buf, &buf_len, sizeof( buf ) ) == 1 ) {
     call_message_callbacks( rq, message_type, tag, buf, buf_len );

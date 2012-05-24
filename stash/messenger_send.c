@@ -55,6 +55,7 @@ static const uint32_t messenger_recv_queue_length = MESSENGER_SEND_BUFFER * 2;
 static hash_table *send_queues = NULL;
 static char socket_directory[ PATH_MAX ];
 static const uint32_t messenger_bucket_size = MESSENGER_SEND_BUFFER;
+static memory_desc desc[ 5 ];
 
 
 void on_send_write( int fd, void *data );
@@ -100,6 +101,79 @@ load_lock_ctrl( struct job_ctrl *ctrl ) {
 }
 
 
+void
+init_desc() {
+  memory_region *ptr;
+  int i;
+  uint32_t mult = 0;
+  uint32_t next_mult;
+
+  for ( i = 0; i < ARRAY_SIZE( desc ); i++ ) {
+    ptr = ( memory_region * )xmalloc( sizeof( memory_region ) );
+    if ( ptr != NULL ) {
+      ptr->start = mult * MEM_BLOCK;
+      next_mult = !mult ? mult + 2 : mult + mult;
+      ptr->end =  next_mult * MEM_BLOCK;
+      ptr->left = ptr->end - ptr->start;
+      ptr->size = ptr->left;
+      ptr->head = ptr->tail = xmalloc( ptr->size );
+      desc[ i ].mregion = ptr;
+      if ( !mult ) {
+        mult += 2;
+      }
+      else {
+        mult += mult;
+      }
+    }
+  }
+}
+
+
+void *
+get_memory( uint32_t requested_size ) {
+  void *address = NULL;
+  int i;
+
+  for ( i = 0; i < ARRAY_SIZE( desc ); i++ ) {
+    if ( requested_size < desc[ i ].mregion->size && requested_size < desc[ i ].mregion->left ) {
+      address = desc[ i ].mregion->tail;
+      desc[ i ].mregion->left -= requested_size;
+      desc[ i ].mregion->tail = ( char * ) desc[ i ].mregion->tail + requested_size;
+      desc[ i ].mregion->last_accessed = desc[ i ].mregion->tail;
+      break;
+    }
+  }
+  // reset tail pointer from mregion until found requested size
+  if ( address == NULL ) {
+    for ( i = 0; i < ARRAY_SIZE( desc ); i++ ) {
+      desc[ i ].mregion->tail = desc[ i ].mregion->head;
+      desc[ i ].mregion->left = desc[ i ].mregion->size;
+      if ( requested_size < desc[ i ].mregion->size && requested_size < desc[ i ].mregion->left ) {
+        address = desc[ i ].mregion->tail;
+        desc[ i ].mregion->left -= requested_size;
+        desc[ i ].mregion->tail = ( char * ) desc[ i ].mregion->tail + requested_size;
+        desc[ i ].mregion->last_accessed = desc[ i ].mregion->tail;
+        break;
+      }
+    }
+  }
+  return address;
+}
+
+
+void release_memory( void *address, uint32_t release_size ) {
+  int i;
+
+  for ( i = 0; i < ARRAY_SIZE( desc ); i++ ) {
+    if ( desc[ i ].mregion->last_accessed == address ) {
+      desc[ i ].mregion->left += release_size;
+      desc[ i ].mregion->tail = ( char * ) desc[ i ].mregion->tail - release_size;
+      break;
+    }
+  }
+}
+
+      
 int
 CAS( void *address, const void *oldvalue, const void *newvalue, size_t len ) {
   int ret = 0;
@@ -145,7 +219,7 @@ static int
 add_lock_free_job( struct job_ctrl *ctrl, struct job_item *item ) {
   struct job_item *end_item;
   int end;
-  int start;
+  int done;
   int tmp;
 
   while ( true ) {
@@ -154,8 +228,8 @@ add_lock_free_job( struct job_ctrl *ctrl, struct job_item *item ) {
     if ( end != ctrl->job_end ) {
       continue;
     }
-    start = ctrl->job_start;
-    if ( ( end + 1 ) % ARRAY_SIZE( ctrl->item ) == start ) {
+    done = ctrl->job_done;
+    if ( ( end + 1 ) % ARRAY_SIZE( ctrl->item ) == done ) {
       return 0;
     }
     if ( CAS( &ctrl->item[ end ], end_item, item, sizeof( *item ) ) ) {
@@ -213,6 +287,7 @@ get_multiple_jobs( struct job_ctrl *ctrl ) {
   bool last;
   ssize_t sent;
   int i;
+  int done, done_tmp;
 
   last = false;
   for ( i = 0; i < MAX_TAKE; i++ ) {
@@ -241,8 +316,11 @@ get_multiple_jobs( struct job_ctrl *ctrl ) {
     if ( sent != ( int32_t ) total_len && sent != -1 ) {
       die( "failed to send %d sent %u errno %s %d", sent, total_len, strerror( errno ), errno );
     }
-    } else { die("total len inconsistent"); }
-    } else { die("first item inconsistent"); }
+    done = ctrl->job_done;
+    done_tmp = ( done + i ) % ARRAY_SIZE( ctrl->item );
+    CAS( &ctrl->job_done, &done, &done_tmp, sizeof( done_tmp ) );
+    } else { die( "total len inconsistent" ); }
+    } else { die( "first item inconsistent" ); }
   }
   if ( last == true ) {
     if ( CAS( items[ i - 1 ], last_item, last_item, sizeof( *last_item ) ) ) {
@@ -250,7 +328,10 @@ get_multiple_jobs( struct job_ctrl *ctrl ) {
     if ( sent != ( int32_t ) items[ i - 1]->opt.buffer_len && sent != -1 ) {
       die( "failed to send %d sent %u errno %s %d", sent, total_len, strerror( errno ), errno );
     }
-    } else { die("last item inconsistent"); }
+    done = ctrl->job_done;
+    done_tmp = ( done + 1 ) % ARRAY_SIZE( ctrl->item );
+    CAS( &ctrl->job_done, &done, &done_tmp, sizeof( done_tmp ) );
+    } else { die( "last item inconsistent" ); }
   }
 }
 
@@ -536,19 +617,24 @@ my_push_message_to_send_queue( const char *service_name, const uint8_t message_t
   strncpy( item.opt.service_name, service_name, MESSENGER_SERVICE_NAME_LENGTH );
   item.opt.server_socket = sq->server_socket;
   item.opt.buffer_len = length;
+#ifdef TEST
   item.opt.buffer = get_message_buffer_tail( sq->buffer, item.opt.buffer_len );
   write_message_buffer_at_tail( sq->buffer, &header, sizeof( message_header ), data, len );
-#ifdef TEST
   item.opt.buffer = xmalloc( item.opt.buffer_len );
   memcpy( item.opt.buffer, &header, sizeof( message_header ) );
   memcpy( ( char * )item.opt.buffer + sizeof( message_header ), data, len );
 #endif
+  item.opt.buffer = get_memory( item.opt.buffer_len );
+  memcpy( item.opt.buffer, &header, sizeof( message_header ) );
+  memcpy( ( char * )item.opt.buffer + sizeof( message_header ), data, len );
+
 debug( "about to add_lock_free_job buffer %x length %d start %x tail %x", item.opt.buffer, item.opt.buffer_len, sq->buffer->start, sq->buffer->tail );
   if ( !main_thread ) {
     main_thread = self();
   }
   item.tag_id = main_thread;
   if ( !add_lock_free_job( &ctrl, &item ) ) {
+    release_memory( item.opt.buffer, item.opt.buffer_len );
     error( "queue is full" );
   }
 
@@ -806,6 +892,21 @@ delete_send_queue( send_queue *sq ) {
 
 
 void
+cancel_threads() {
+  void *ret = ( void * ) ( intptr_t ) ( - 1 );
+  int i;
+
+  for ( i = 0; i < THREADS; i++ ) {
+    pthread_join( threads[ i ], &ret );
+  }
+  pthread_mutex_destroy( &ctrl.mutex );
+  for ( i = 0; i < ARRAY_SIZE( desc ); i++ ) {
+    xfree( desc[ i ].mregion->head );
+  }
+}
+
+
+void
 delete_all_send_queues() {
   hash_iterator iter;
   hash_entry *e;
@@ -823,6 +924,7 @@ delete_all_send_queues() {
   else {
     error( "All send queues are already deleted or not created yet." );
   }
+  cancel_threads();
 }
 
 
@@ -974,21 +1076,24 @@ init_messenger_send( const char *working_directory ) {
   pthread_mutexattr_init( &attr );
   pthread_mutexattr_settype( &attr, PTHREAD_MUTEX_NORMAL );
   pthread_mutex_init( &ctrl.mutex, &attr );
-  pthread_cond_init( &ctrl.cond_add, NULL );
-  pthread_cond_init( &ctrl.cond_write, NULL );
+  init_desc();
 }
 
 
 void
 start_messenger_send( void ) {
+  pthread_attr_t attr;
   int i;
 
+  pthread_attr_init( &attr ) ;
+  pthread_attr_setdetachstate( &attr, PTHREAD_CREATE_DETACHED );
   fp = fopen("test.log", "w");
   for ( i = 0; i < THREADS; i++ ) {
-    if ( ( pthread_create( &threads[ i ], NULL, run_thread, &ctrl ) != 0 ) ) {
+    if ( ( pthread_create( &threads[ i ], &attr, run_thread, &ctrl ) != 0 ) ) {
       die( "Failed to create thread" );
     }
   }
+  pthread_attr_destroy( &attr );
 }
 
 

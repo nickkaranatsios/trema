@@ -34,21 +34,9 @@
 
 #define THREADS 2
 #define ITEM_SIZE 512
-#define MAX_TAKE 32
+#define MAX_TAKE 2
 
 #define ARRAY_SIZE( x ) ( int32_t ) ( sizeof( x ) / sizeof( x[ 0 ] ) )
-#define alloc_nr( x ) ( ( ( x ) + 8 ) * 3 / 2 )
-#define ALLOC_GROW( x, nr, alloc ) \
- do { \
-    if ( ( nr ) > alloc ) { \
-      if ( alloc_nr( alloc ) < ( nr ) ) \
-        alloc = ( nr ); \
-      else \
-        alloc = alloc_nr( alloc ); \
-      x = realloc( ( x ), alloc * sizeof( *( x ) ) ); \
-    } \
-  } while ( 0 )
-
 
 
 #define MEM_BLOCK 4096
@@ -82,6 +70,9 @@ struct job_opt {
 };
 
 
+typedef struct job_item job_item;
+
+
 struct job_item {
   struct job_opt opt;
   pthread_t tag_id;
@@ -89,6 +80,7 @@ struct job_item {
 };
 
 
+typedef struct job_ctrl job_ctrl;
 /*
  * one job control structure for each service for all job items
  */
@@ -119,9 +111,9 @@ struct job_ctrl {
   * an array of job items to handle.
   * The client that is connected to the service uses adds items to this array.
   */
-  struct job_item item[ ITEM_SIZE ];
+  job_item item[ ITEM_SIZE ];
 };
-  
+
 
 typedef struct send_queue {
   struct timespec reconnect_interval;

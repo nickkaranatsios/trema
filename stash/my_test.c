@@ -62,6 +62,9 @@ struct job_ctrl {
   struct job_item item[ ITEM_SIZE ];
 };
 
+#define ITEM_ARRAY_SIZE ARRAY_SIZE( ctrl->item )
+
+
 /* this lock protects all the variables above */
 static pthread_mutex_t work_mutex;
 
@@ -124,32 +127,25 @@ update_server_socket( struct job_ctrl *ctrl, const char *service_name, const int
 
 
 static int
-add_job( struct job_ctrl *ctrl, struct job_item *input_item ) {
-  struct job_item *item;
-  uint32_t end;
-  uint32_t start;
-  uint32_t tmp;
-  
-  while ( 1 ) {
-    end = ctrl->job_end;
-    item = &ctrl->item[ end ];
-    if ( end != ctrl->job_end ) {
-      continue;
-    }
-    start = ctrl->job_start;
-    if ( ( end + 1 ) % ARRAY_SIZE( ctrl->item ) == start ) {
-      return 0; 
-    }
-    if ( !item->done ) {
-      input_item->ref = self();
-      if ( CAS( &ctrl->item[ end ], item, input_item, sizeof( *item ) ) ) {
-        tmp = ( end + 1 ) % ARRAY_SIZE( ctrl->item );
-        if ( CAS( &ctrl->job_end, &end, &tmp, sizeof( tmp ) ) ) {
-          return;
-        }
-      } 
-    }
+add_lock_free_job( struct job_ctrl *ctrl, struct job_item *item ) {
+  struct job_item *end_item;
+  int end;
+  int done;
+  int tmp;
+
+  end = ctrl->job_end;
+  done = ctrl->job_done;
+  if ( ( end + 1 ) % ITEM_ARRAY_SIZE == done ) {
+    return 0;
   }
+  do {
+    end_item = &ctrl->item[ end ];
+  } while ( !CAS ( &ctrl->item[ end ], end_item, item, sizeof( *item ) ) );
+  do {
+    end = ctrl->job_end;
+    tmp = ( end + 1 ) % ITEM_ARRAY_SIZE;
+  } while ( !CAS( &ctrl->job_end, &end, &tmp, sizeof( tmp ) ) );
+  return 1;
 }
 
 
@@ -500,7 +496,7 @@ main()
     item.opt.server_socket = server_socket;
     item.done = 0;
     strncpy(item.opt.service_name, service_name, MESSENGER_SERVICE_NAME_LEN );
-    add_job( ctrl, &item );
+    add_lock_free_job( ctrl, &item );
     sleep( 2 );
   }
   

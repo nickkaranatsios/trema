@@ -65,9 +65,10 @@ static uint32_t get_send_data( send_queue *sq, size_t offset );
 static FILE *fp = NULL;
 
 
-static struct job_ctrl ctrl;
+static job_ctrl ctrl;
 static pthread_t threads[ THREADS ];
 static pthread_t main_thread;
+#define ITEM_ARRAY_SIZE ARRAY_SIZE( ctrl->item )
 
 
 static inline void
@@ -88,15 +89,15 @@ self() {
 }
 
 
-static inline struct job_item *
-load_lock_item( struct job_item *item ) {
+static inline job_item *
+load_lock_item( job_item *item ) {
   item->tag_id = self();
   return item;
 }
 
 
 static inline void
-load_lock_ctrl( struct job_ctrl *ctrl ) {
+load_lock_ctrl( job_ctrl *ctrl ) {
   ctrl->tag_id = self();
 }
 
@@ -132,20 +133,21 @@ init_desc() {
 void *
 get_memory( uint32_t requested_size ) {
   void *address = NULL;
+  bool found = false;
   int i;
 
-  for ( i = 0; i < ARRAY_SIZE( desc ); i++ ) {
+  for ( i = 0; i < ARRAY_SIZE( desc ) && found == false; i++ ) {
     if ( requested_size < desc[ i ].mregion->size && requested_size < desc[ i ].mregion->left ) {
       address = desc[ i ].mregion->tail;
       desc[ i ].mregion->left -= requested_size;
       desc[ i ].mregion->tail = ( char * ) desc[ i ].mregion->tail + requested_size;
       desc[ i ].mregion->last_accessed = desc[ i ].mregion->tail;
-      break;
+      found = true;
     }
   }
   // reset tail pointer from mregion until found requested size
   if ( address == NULL ) {
-    for ( i = 0; i < ARRAY_SIZE( desc ); i++ ) {
+    for ( i = 0; i < ARRAY_SIZE( desc ) && found == false; i++ ) {
       desc[ i ].mregion->tail = desc[ i ].mregion->head;
       desc[ i ].mregion->left = desc[ i ].mregion->size;
       if ( requested_size < desc[ i ].mregion->size && requested_size < desc[ i ].mregion->left ) {
@@ -153,7 +155,7 @@ get_memory( uint32_t requested_size ) {
         desc[ i ].mregion->left -= requested_size;
         desc[ i ].mregion->tail = ( char * ) desc[ i ].mregion->tail + requested_size;
         desc[ i ].mregion->last_accessed = desc[ i ].mregion->tail;
-        break;
+        found = true;
       }
     }
   }
@@ -163,12 +165,13 @@ get_memory( uint32_t requested_size ) {
 
 void release_memory( void *address, uint32_t release_size ) {
   int i;
+  bool found = false;
 
-  for ( i = 0; i < ARRAY_SIZE( desc ); i++ ) {
+  for ( i = 0; i < ARRAY_SIZE( desc ) && found == false; i++ ) {
     if ( desc[ i ].mregion->last_accessed == address ) {
       desc[ i ].mregion->left += release_size;
       desc[ i ].mregion->tail = ( char * ) desc[ i ].mregion->tail - release_size;
-      break;
+      found = true;
     }
   }
 }
@@ -189,8 +192,8 @@ CAS( void *address, const void *oldvalue, const void *newvalue, size_t len ) {
 
 
 static void
-update_server_socket( struct job_ctrl *ctrl, const char *service_name, const int server_socket ) {
-  struct job_item *item;
+update_server_socket( job_ctrl *ctrl, const char *service_name, const int server_socket ) {
+  job_item *item;
   int i;
   int end;
 
@@ -198,7 +201,7 @@ update_server_socket( struct job_ctrl *ctrl, const char *service_name, const int
   for ( i = 0; i < end; i++ ) {
     item = &ctrl->item[ i ];
     if ( !strncmp( service_name, item->opt.service_name, MESSENGER_SERVICE_NAME_LENGTH ) ) {
-      if ( CAS( &ctrl->item[ i ] , item, item, sizeof( *item ) ) ) {
+      if ( CAS( &ctrl->item[ i ], item, item, sizeof( *item ) ) ) {
         item->opt.server_socket = server_socket;
       }
     }
@@ -216,36 +219,32 @@ update_server_socket( struct job_ctrl *ctrl, const char *service_name, const int
  * @return [void]
  */
 static int
-add_lock_free_job( struct job_ctrl *ctrl, struct job_item *item ) {
-  struct job_item *end_item;
+add_lock_free_job( job_ctrl *ctrl, job_item *item ) {
+  job_item *end_item;
   int end;
-  int done;
   int tmp;
+  bool added = false;
 
-  while ( true ) {
+  end = ctrl->job_end;
+  if ( ( end + 1 ) % ITEM_ARRAY_SIZE == ctrl->job_done ) {
+    return 0;
+  }
+  while ( added == false ) {
     end = ctrl->job_end;
+    tmp = ( end + 1 ) % ITEM_ARRAY_SIZE;
     end_item = &ctrl->item[ end ];
-    if ( end != ctrl->job_end ) {
-      continue;
-    }
-    done = ctrl->job_done;
-    if ( ( end + 1 ) % ARRAY_SIZE( ctrl->item ) == done ) {
-      return 0;
-    }
-    if ( CAS( &ctrl->item[ end ], end_item, item, sizeof( *item ) ) ) {
-      tmp = ( end + 1 ) % ARRAY_SIZE( ctrl->item );
-      if ( CAS( &ctrl->job_end, &end, &tmp, sizeof( tmp ) ) ) {
-        return 1;
-      }
+    if ( CAS( &ctrl->job_end, &end, &tmp, sizeof( tmp ) ) ) {
+      memcpy( end_item, item, sizeof( *item ) );
+      added = true;
     }
   }
+  return 1;
 }
 
 
-static struct job_item *
-get_lock_free_job( struct job_ctrl *ctrl ) {
-  struct job_item *item;
-  struct job_item ref;
+static job_item *
+get_lock_free_job( job_ctrl *ctrl ) {
+  job_item *item;
   struct timespec req;
   int tmp;
   int start;
@@ -261,35 +260,61 @@ get_lock_free_job( struct job_ctrl *ctrl ) {
     if ( start == ctrl->job_end ) {
       nanosleep( &req, NULL );
       return NULL;
+#ifdef TEST
+      continue;
+#endif
     }
-    tmp = ( start + 1 ) % ARRAY_SIZE( ctrl->item );
-    if ( CAS( &ctrl->job_start, &start, &tmp, sizeof( tmp ) ) ) {
+    tmp = ( start + 1 ) % ITEM_ARRAY_SIZE;
+    if ( CAS( &ctrl->job_start, &start, &tmp, sizeof( tmp ) ) ) { 
       if ( item->opt.server_socket != -1 && item->opt.buffer != NULL ) {
-        memcpy( &ref, item, sizeof( ref ) );
-        ref.done = 1;
-        ref.tag_id = self();
-        if ( CAS( &ctrl->item[ start ], item, &ref, sizeof( ref ) ) ) {
-          return item;
-        }
+        return item;
       }
     }
   }
 }
 
 
+ssize_t xwrite( int fd, const void *buf, size_t len ) {
+  ssize_t nw;
+
+  while ( true ) {
+    nw = write( fd, buf, len );
+    if ( ( nw < 0 ) && ( errno == EAGAIN || errno == EINTR ) ) {
+      continue;
+    }
+    return nw;
+  }
+}
+
+ 
+ssize_t packet_write( int fd, void *buf, size_t len ) {
+  uint8_t *p = buf;
+  ssize_t nw = -1;
+
+  while ( len ) {
+    nw = xwrite( fd, p, len );
+    if ( nw > 0 ) {
+      p += nw;
+      len -= ( uint32_t ) nw;
+      continue;
+    }
+    if ( !nw ) {
+      len = 0;
+    }
+  }
+  return nw;
+}
+
+
 static void
-get_multiple_jobs( struct job_ctrl *ctrl ) {
-  struct job_item *items[ MAX_TAKE ];
-  struct job_item *first;
-  struct job_item *last_item;
+get_multiple_jobs( job_ctrl *ctrl ) {
+  job_item *items[ MAX_TAKE ];
+  job_item *first = NULL;
+  job_item *last_item = NULL;
   uint32_t total_len = 0;
-  uint32_t tmp;
-  bool last;
-  ssize_t sent;
   int i;
   int done, done_tmp;
 
-  last = false;
   for ( i = 0; i < MAX_TAKE; i++ ) {
     items[ i ] = get_lock_free_job( ctrl );
     first = items[ 0 ];
@@ -298,45 +323,58 @@ get_multiple_jobs( struct job_ctrl *ctrl ) {
     }
     if ( i > 0 && items[ i - 1 ]->opt.server_socket != items[ i ]->opt.server_socket ) {
       last_item = items[ i - 1 ];
-      last = true;
       break;
     }
     if ( i > 0 && ( char * )( items[ i - 1 ]->opt.buffer ) + items[ i - 1 ]->opt.buffer_len != items[ i ]->opt.buffer ) {
       last_item = items[ i - 1 ];
-      last = true;
       break;
     }
     total_len += items[ i ]->opt.buffer_len;
-    tmp = total_len;
   }
+  if ( first != NULL ) {
+    packet_write( first->opt.server_socket, first->opt.buffer, total_len );
+  }
+  if ( last_item != NULL ) {
+    packet_write( last_item->opt.server_socket, last_item->opt.buffer, last_item->opt.buffer_len );
+  }
+  while ( true ) {
+    done = ctrl->job_done;
+    done_tmp = ( done + i ) % ITEM_ARRAY_SIZE;
+    if ( last_item != NULL ) {
+      done_tmp = ( done + 1 ) % ITEM_ARRAY_SIZE;
+    }
+    if ( CAS( &ctrl->job_done, &done, &done_tmp, sizeof( done_tmp ) ) ) {
+      break;
+    }
+  }
+
+
+
+#ifdef TEST
+
   if ( items[ 0 ] != NULL ) {
     if ( CAS( items[ 0 ], first, first, sizeof( *first ) ) ) {
     if ( CAS( &total_len, &tmp, &tmp, sizeof( tmp ) ) ) {
-    sent = send( items[ 0 ]->opt.server_socket, items[ 0 ]->opt.buffer, total_len, MSG_DONTWAIT );
-    if ( sent != ( int32_t ) total_len && sent != -1 ) {
-      die( "failed to send %d sent %u errno %s %d", sent, total_len, strerror( errno ), errno );
-    }
+    packet_write( items[ 0 ]->opt.server_socket, items[ 0 ]->opt.buffer, total_len );
     done = ctrl->job_done;
-    done_tmp = ( done + i ) % ARRAY_SIZE( ctrl->item );
+    done_tmp = ( done + i ) % ITEM_ARRAY_SIZE;
     CAS( &ctrl->job_done, &done, &done_tmp, sizeof( done_tmp ) );
     } else { die( "total len inconsistent" ); }
     } else { die( "first item inconsistent" ); }
   }
   if ( last == true ) {
     if ( CAS( items[ i - 1 ], last_item, last_item, sizeof( *last_item ) ) ) {
-    sent = send( items[ i - 1 ]->opt.server_socket, items[ i - 1 ]->opt.buffer, items[ i - 1 ]->opt.buffer_len, MSG_DONTWAIT );
-    if ( sent != ( int32_t ) items[ i - 1]->opt.buffer_len && sent != -1 ) {
-      die( "failed to send %d sent %u errno %s %d", sent, total_len, strerror( errno ), errno );
-    }
+    packet_write( items[ i - 1 ]->opt.server_socket, items[ i - 1 ]->opt.buffer, items[ i - 1 ]->opt.buffer_len );
     done = ctrl->job_done;
-    done_tmp = ( done + 1 ) % ARRAY_SIZE( ctrl->item );
+    done_tmp = ( done + 1 ) % ITEM_ARRAY_SIZE;
     CAS( &ctrl->job_done, &done, &done_tmp, sizeof( done_tmp ) );
     } else { die( "last item inconsistent" ); }
   }
+#endif
 }
 
-
 #ifdef TEST
+
     fprintf(fp, "start dumping\n");
     for ( i = 0; i < count; i++ ) {
       fprintf(fp, "server_socket %d buffer %p length %d\n", items[i]->opt.server_socket, items[i]->opt.buffer, items[i]->opt.buffer_len);
@@ -347,12 +385,27 @@ get_multiple_jobs( struct job_ctrl *ctrl ) {
 #endif
 
 
+void
+get_single_job( job_ctrl *ctrl ) {
+  job_item *item;
+  int done;
+  int tmp;
+
+  item = get_lock_free_job( ctrl );
+  packet_write( item->opt.server_socket, item->opt.buffer, item->opt.buffer_len );
+  do {
+    done = ctrl->job_done;
+    tmp = ( done + 1 ) % ITEM_ARRAY_SIZE;
+  } while ( !CAS( &ctrl->job_done, &done, &tmp, sizeof( tmp ) ) ); 
+}
+
+
 void 
 *run_thread( void *data ) {
-  struct job_ctrl *ctrl = data;
+  job_ctrl *ctrl = data;
   int ret = 1;
   
-  while ( 1 ) {
+  while ( true ) {
     get_multiple_jobs( ctrl );
   }
   return ( void * ) ( intptr_t ) ret;
@@ -362,8 +415,8 @@ void
 #ifdef TEST
 void
 *run_thread( void *data ) {
-  struct job_ctrl *ctrl = data;
-  struct job_item *item;
+  job_ctrl *ctrl = data;
+  job_item *item;
   int ret = 1;
 
 
@@ -407,6 +460,7 @@ send_queue_connect( send_queue *sq ) {
       return -1;
     }
   }
+#ifdef TEST
   int ret = fcntl( sq->server_socket, F_SETFL, O_NONBLOCK );
   if ( ret < 0 ) {
     error( "Failed to set O_NONBLOCK ( %s [%d] ).", strerror( errno ), errno );
@@ -414,6 +468,7 @@ send_queue_connect( send_queue *sq ) {
     sq->server_socket = -1;
     return -1;
   }
+#endif
 
   if ( connect( sq->server_socket, ( struct sockaddr * ) &sq->server_addr, sizeof( struct sockaddr_un ) ) == -1 ) {
     error( "Connection refused ( service_name = %s, sun_path = %s, fd = %d, errno = %s [%d] ).",
@@ -590,7 +645,7 @@ my_push_message_to_send_queue( const char *service_name, const uint8_t message_t
 
   if ( message_buffer_overflow( sq->buffer, length ) ) {
     char *end_address = ( char * )sq->buffer->start + length;
-    struct job_item *item = &ctrl.item[ ctrl.job_start ];
+    job_item *item = &ctrl.item[ ctrl.job_start ];
 
     if ( item->opt.buffer_len && end_address > ( char * )item->opt.buffer ) {
       if ( sq->overflow == 0 ) {
@@ -611,7 +666,7 @@ my_push_message_to_send_queue( const char *service_name, const uint8_t message_t
   sq->overflow_total_length = 0;
 
 
-  struct job_item item;
+  job_item item;
 
   memset( &item, 0, sizeof( item ) );
   strncpy( item.opt.service_name, service_name, MESSENGER_SERVICE_NAME_LENGTH );

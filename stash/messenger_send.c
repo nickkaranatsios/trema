@@ -288,18 +288,20 @@ ssize_t xwrite( int fd, const void *buf, size_t len ) {
 
  
 ssize_t packet_write( int fd, void *buf, size_t len ) {
-  uint8_t *p = buf;
+  struct pollfd pollfd;
   ssize_t nw = -1;
+  nfds_t nfd = 1;
+  int ret;
 
-  while ( len ) {
-    nw = xwrite( fd, p, len );
-    if ( nw > 0 ) {
-      p += nw;
-      len -= ( uint32_t ) nw;
-      continue;
-    }
-    if ( !nw ) {
-      len = 0;
+  nw = send( fd, buf, len, MSG_DONTWAIT );
+  if ( nw < 0 && errno == EAGAIN ) {
+    pollfd.fd = fd;
+    pollfd.events = POLLOUT;
+    ret = poll( &pollfd, nfd, -1 );
+    if ( ret > 0 ) {
+      if ( pollfd.revents & POLLOUT ) {
+        nw = send( fd, buf, len, MSG_DONTWAIT );
+      }
     }
   }
   return nw;
@@ -333,6 +335,14 @@ get_multiple_jobs( job_ctrl *ctrl ) {
   }
   if ( first != NULL ) {
     packet_write( first->opt.server_socket, first->opt.buffer, total_len );
+#ifdef TEST
+    if ( last_item == NULL && items[0]!=NULL && items[1]!= NULL) 
+    if ( ( char * )( items[ 0 ]->opt.buffer ) + items[ 0 ]->opt.buffer_len != items[ 1 ]->opt.buffer ) {
+      die("address mismatch");
+    }
+  ssize_t ns;
+    if ( ns < 0 && errno != EAGAIN ) die( "failed to send %s %d", strerror(errno), errno);
+#endif
   }
   if ( last_item != NULL ) {
     packet_write( last_item->opt.server_socket, last_item->opt.buffer, last_item->opt.buffer_len );
@@ -350,8 +360,8 @@ get_multiple_jobs( job_ctrl *ctrl ) {
 
 
 
-#ifdef TEST
 
+#ifdef TEST
   if ( items[ 0 ] != NULL ) {
     if ( CAS( items[ 0 ], first, first, sizeof( *first ) ) ) {
     if ( CAS( &total_len, &tmp, &tmp, sizeof( tmp ) ) ) {
@@ -382,7 +392,6 @@ get_multiple_jobs( job_ctrl *ctrl ) {
     fprintf(fp, "end dumping\n");
     fflush(fp);
   }
-#endif
 
 
 void
@@ -392,12 +401,13 @@ get_single_job( job_ctrl *ctrl ) {
   int tmp;
 
   item = get_lock_free_job( ctrl );
-  packet_write( item->opt.server_socket, item->opt.buffer, item->opt.buffer_len );
+  send( item->opt.server_socket, item->opt.buffer, item->opt.buffer_len, MSG_DONTWAIT );
   do {
     done = ctrl->job_done;
     tmp = ( done + 1 ) % ITEM_ARRAY_SIZE;
   } while ( !CAS( &ctrl->job_done, &done, &tmp, sizeof( tmp ) ) ); 
 }
+#endif
 
 
 void 
@@ -460,7 +470,6 @@ send_queue_connect( send_queue *sq ) {
       return -1;
     }
   }
-#ifdef TEST
   int ret = fcntl( sq->server_socket, F_SETFL, O_NONBLOCK );
   if ( ret < 0 ) {
     error( "Failed to set O_NONBLOCK ( %s [%d] ).", strerror( errno ), errno );
@@ -468,7 +477,6 @@ send_queue_connect( send_queue *sq ) {
     sq->server_socket = -1;
     return -1;
   }
-#endif
 
   if ( connect( sq->server_socket, ( struct sockaddr * ) &sq->server_addr, sizeof( struct sockaddr_un ) ) == -1 ) {
     error( "Connection refused ( service_name = %s, sun_path = %s, fd = %d, errno = %s [%d] ).",

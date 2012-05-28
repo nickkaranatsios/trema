@@ -468,6 +468,8 @@ main()
   pthread_t thread_id[ THREADS ];
   struct job_item item;
   struct job_ctrl *ctrl;
+  int *ptr;
+  int c = -1;
 
 
   init_desc();
@@ -490,6 +492,11 @@ main()
     item.opt.buffer_len = buffer_len;
     item.ref = 0;
     if ( i == 10 ) {
+      do { 
+        ptr = memchr( &ctrl->item, c, ARRAY_SIZE( ctrl->item ) * ITEM_SIZE );
+        if ( ptr != NULL )
+          *ptr = 8;
+      } while ( ptr != NULL );
       server_socket = 8;
       update_server_socket( ctrl, service_name, server_socket );
     }

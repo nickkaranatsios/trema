@@ -55,7 +55,7 @@ static const uint32_t messenger_recv_queue_length = MESSENGER_SEND_BUFFER * 2;
 static hash_table *send_queues = NULL;
 static char socket_directory[ PATH_MAX ];
 static const uint32_t messenger_bucket_size = MESSENGER_SEND_BUFFER;
-static memory_desc desc[ 5 ];
+static memory_desc desc[ MAX_MEM_DESC ];
 
 
 void on_send_write( int fd, void *data );
@@ -209,6 +209,34 @@ update_server_socket( job_ctrl *ctrl, const char *service_name, const int server
 }
 
 
+int
+job_queue_full( job_ctrl *ctrl ) {
+  int end;
+  int done;
+  
+  end = ctrl->job_end;
+  done = ctrl->job_done;
+  if ( ( end + 1 ) % ITEM_ARRAY_SIZE == done ) {
+    return 1;
+  }
+  return 0;
+}
+
+
+int
+any_data_in_job_queue( job_ctrl *ctrl ) {
+  int start;
+  int end;
+
+  start = ctrl->job_start;
+  end = ctrl->job_end;
+  if ( start != end ) {
+    return 1;
+  }
+  return 0;
+}
+
+
 /*
  * Adds a job item to the job pool. A job item stores the following fields:
  * server_socket - the socket to send the message to.
@@ -225,9 +253,8 @@ add_lock_free_job( job_ctrl *ctrl, job_item *item ) {
   int tmp;
   bool added = false;
 
-  end = ctrl->job_end;
-  if ( ( end + 1 ) % ITEM_ARRAY_SIZE == ctrl->job_done ) {
-    return 0;
+  if ( job_queue_full( ctrl ) ) {
+    return 1;
   }
   while ( added == false ) {
     end = ctrl->job_end;
@@ -259,13 +286,10 @@ get_lock_free_job( job_ctrl *ctrl ) {
     }
     if ( start == ctrl->job_end ) {
       nanosleep( &req, NULL );
-      return NULL;
-#ifdef TEST
       continue;
-#endif
     }
     tmp = ( start + 1 ) % ITEM_ARRAY_SIZE;
-    if ( CAS( &ctrl->job_start, &start, &tmp, sizeof( tmp ) ) ) { 
+    if ( CAS( &ctrl->job_start, &start, &tmp, sizeof( tmp ) ) ) {
       if ( item->opt.server_socket != -1 && item->opt.buffer != NULL ) {
         return item;
       }
@@ -308,6 +332,7 @@ ssize_t packet_write( int fd, void *buf, size_t len ) {
 }
 
 
+#ifdef TEST
 static void
 get_multiple_jobs( job_ctrl *ctrl ) {
   job_item *items[ MAX_TAKE ];
@@ -333,58 +358,25 @@ get_multiple_jobs( job_ctrl *ctrl ) {
     }
     total_len += items[ i ]->opt.buffer_len;
   }
+  done_tmp = i;
   if ( first != NULL ) {
     packet_write( first->opt.server_socket, first->opt.buffer, total_len );
-#ifdef TEST
-    if ( last_item == NULL && items[0]!=NULL && items[1]!= NULL) 
-    if ( ( char * )( items[ 0 ]->opt.buffer ) + items[ 0 ]->opt.buffer_len != items[ 1 ]->opt.buffer ) {
-      die("address mismatch");
-    }
-  ssize_t ns;
-    if ( ns < 0 && errno != EAGAIN ) die( "failed to send %s %d", strerror(errno), errno);
-#endif
   }
   if ( last_item != NULL ) {
     packet_write( last_item->opt.server_socket, last_item->opt.buffer, last_item->opt.buffer_len );
   }
   while ( true ) {
     done = ctrl->job_done;
-    done_tmp = ( done + i ) % ITEM_ARRAY_SIZE;
-    if ( last_item != NULL ) {
-      done_tmp = ( done + 1 ) % ITEM_ARRAY_SIZE;
-    }
+    done_tmp = ( done + done_tmp ) % ITEM_ARRAY_SIZE;
     if ( CAS( &ctrl->job_done, &done, &done_tmp, sizeof( done_tmp ) ) ) {
       break;
     }
   }
-
-
-
-
-#ifdef TEST
-  if ( items[ 0 ] != NULL ) {
-    if ( CAS( items[ 0 ], first, first, sizeof( *first ) ) ) {
-    if ( CAS( &total_len, &tmp, &tmp, sizeof( tmp ) ) ) {
-    packet_write( items[ 0 ]->opt.server_socket, items[ 0 ]->opt.buffer, total_len );
-    done = ctrl->job_done;
-    done_tmp = ( done + i ) % ITEM_ARRAY_SIZE;
-    CAS( &ctrl->job_done, &done, &done_tmp, sizeof( done_tmp ) );
-    } else { die( "total len inconsistent" ); }
-    } else { die( "first item inconsistent" ); }
-  }
-  if ( last == true ) {
-    if ( CAS( items[ i - 1 ], last_item, last_item, sizeof( *last_item ) ) ) {
-    packet_write( items[ i - 1 ]->opt.server_socket, items[ i - 1 ]->opt.buffer, items[ i - 1 ]->opt.buffer_len );
-    done = ctrl->job_done;
-    done_tmp = ( done + 1 ) % ITEM_ARRAY_SIZE;
-    CAS( &ctrl->job_done, &done, &done_tmp, sizeof( done_tmp ) );
-    } else { die( "last item inconsistent" ); }
-  }
-#endif
 }
+#endif
+
 
 #ifdef TEST
-
     fprintf(fp, "start dumping\n");
     for ( i = 0; i < count; i++ ) {
       fprintf(fp, "server_socket %d buffer %p length %d\n", items[i]->opt.server_socket, items[i]->opt.buffer, items[i]->opt.buffer_len);
@@ -392,8 +384,11 @@ get_multiple_jobs( job_ctrl *ctrl ) {
     fprintf(fp, "end dumping\n");
     fflush(fp);
   }
+#endif
 
 
+#ifdef TEST
+#endif
 void
 get_single_job( job_ctrl *ctrl ) {
   job_item *item;
@@ -401,13 +396,12 @@ get_single_job( job_ctrl *ctrl ) {
   int tmp;
 
   item = get_lock_free_job( ctrl );
-  send( item->opt.server_socket, item->opt.buffer, item->opt.buffer_len, MSG_DONTWAIT );
+  packet_write( item->opt.server_socket, item->opt.buffer, item->opt.buffer_len );
   do {
     done = ctrl->job_done;
     tmp = ( done + 1 ) % ITEM_ARRAY_SIZE;
   } while ( !CAS( &ctrl->job_done, &done, &tmp, sizeof( tmp ) ) ); 
 }
-#endif
 
 
 void 
@@ -416,34 +410,10 @@ void
   int ret = 1;
   
   while ( true ) {
-    get_multiple_jobs( ctrl );
+    get_single_job( ctrl );
   }
   return ( void * ) ( intptr_t ) ret;
 }
-
-
-#ifdef TEST
-void
-*run_thread( void *data ) {
-  job_ctrl *ctrl = data;
-  job_item *item;
-  int ret = 1;
-
-
-  while ( 1 ) {
-    item = get_lock_free_job( ctrl );
-    send( item->opt.server_socket, item->opt.buffer, item->opt.buffer_len, MSG_DONTWAIT );
-    if ( CAS( &ctrl->item[ ctrl->job_start - 1 ], item, item, sizeof( *item ) ) ) {
-      xfree( item->opt.buffer );
-      item->opt.buffer = NULL;
-      item->opt.buffer_len = 0;
-      item->done = 0;
-    }
-  }
-  return ( void * ) ( intptr_t ) ret;
-}
-#endif
-
 
 
 /**
@@ -620,8 +590,6 @@ create_send_queue( const char *service_name ) {
     return NULL;
   }
 
-  sq->buffer = create_message_buffer( messenger_send_queue_length );
-
   insert_hash_entry( send_queues, sq->service_name, sq );
   return sq;
 }
@@ -644,35 +612,22 @@ my_push_message_to_send_queue( const char *service_name, const uint8_t message_t
     assert( sq != NULL );
   }
 
-  message_header header;
-  header.version = 0;
-  header.message_type = message_type;
-  header.tag = htons( tag );
   uint32_t length = ( uint32_t ) ( sizeof( message_header ) + len );
-  header.message_length = htonl( length );
-
-  if ( message_buffer_overflow( sq->buffer, length ) ) {
-    char *end_address = ( char * )sq->buffer->start + length;
-    job_item *item = &ctrl.item[ ctrl.job_start ];
-
-    if ( item->opt.buffer_len && end_address > ( char * )item->opt.buffer ) {
-      if ( sq->overflow == 0 ) {
-        warn( "Could not write a message to send queue due to overflow ( service_name = %s, fd = %u, length = %u ).", sq->service_name, sq->server_socket, length );
-      }
-      error( "overflow %d otl =%" PRIu64"", sq->overflow, sq->overflow_total_length);
-      ++sq->overflow;
-      sq->overflow_total_length += length;
-      send_dump_message( MESSENGER_DUMP_SEND_OVERFLOW, sq->service_name, NULL, 0 );
-      return false;
-    }
-  }
-  if ( sq->overflow > 1 ) {
-    warn( "length %d overflow %d", len, sq->overflow );
-    warn( "Could not write a message to send queue due to overflow ( service_name = %s, fd = %u, count = %u, total length = %" PRIu64 " ).", sq->service_name, sq->server_socket, sq->overflow, sq->overflow_total_length );
+  if ( job_queue_full( &ctrl ) ) {
+    error( "queue is full1" );
+    ++sq->overflow;
+    sq->overflow_total_length += length;
+    send_dump_message( MESSENGER_DUMP_SEND_OVERFLOW, sq->service_name, NULL, 0 );
+    return false;
   }
   sq->overflow = 0;
   sq->overflow_total_length = 0;
 
+  message_header header;
+  header.version = 0;
+  header.message_type = message_type;
+  header.tag = htons( tag );
+  header.message_length = htonl( length );
 
   job_item item;
 
@@ -691,16 +646,19 @@ my_push_message_to_send_queue( const char *service_name, const uint8_t message_t
   memcpy( item.opt.buffer, &header, sizeof( message_header ) );
   memcpy( ( char * )item.opt.buffer + sizeof( message_header ), data, len );
 
-debug( "about to add_lock_free_job buffer %x length %d start %x tail %x", item.opt.buffer, item.opt.buffer_len, sq->buffer->start, sq->buffer->tail );
+debug( "about to add_lock_free_job buffer %x length %d", item.opt.buffer, item.opt.buffer_len );
   if ( !main_thread ) {
     main_thread = self();
   }
   item.tag_id = main_thread;
   if ( !add_lock_free_job( &ctrl, &item ) ) {
     release_memory( item.opt.buffer, item.opt.buffer_len );
-    error( "queue is full" );
+    error( "queue is full2" );
+    ++sq->overflow;
+    sq->overflow_total_length += length;
+    send_dump_message( MESSENGER_DUMP_SEND_OVERFLOW, sq->service_name, NULL, 0 );
+    return false;
   }
-
   if ( sq->server_socket == -1 ) {
     debug( "Tried to send message on closed send queue, connecting..." );
 
@@ -909,8 +867,10 @@ number_of_send_queue( int *connected_count, int *sending_count, int *reconnectin
   while ( ( e = iterate_hash_next( &iter ) ) != NULL ) {
     send_queue *sq = e->value;
     if ( sq->server_socket != -1 ) {
-      if ( sq->buffer->data_length == 0 ) {
+      if ( sq->buffer != NULL ) {
+        if ( sq->buffer->data_length == 0 ) {
           ( *connected_count )++;
+        }
       }
       else {
         if ( sq->refused_count > 0 ) {
@@ -937,7 +897,6 @@ delete_send_queue( send_queue *sq ) {
 
   debug( "Deleting a send queue ( service_name = %s, fd = %d ).", sq->service_name, sq->server_socket );
 
-  free_message_buffer( sq->buffer );
   if ( sq->server_socket != -1 ) {
     set_readable( sq->server_socket, false );
     delete_fd_handler( sq->server_socket );
@@ -1007,8 +966,8 @@ on_send_read( int fd, void *data ) {
     close( sq->server_socket );
     sq->server_socket = -1;
 
+    if ( any_data_in_job_queue( &ctrl ) ) {
     // Tries to reconnecting immediately, else adds a reconnect timer.
-    if ( sq->buffer->data_length > 0 ) {
       send_queue_try_connect( sq );
     }
     else {

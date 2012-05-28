@@ -34,12 +34,13 @@
 
 #define THREADS 2
 #define ITEM_SIZE 512
-#define MAX_TAKE 1
+#define MAX_TAKE 32
 
 #define ARRAY_SIZE( x ) ( int32_t ) ( sizeof( x ) / sizeof( x[ 0 ] ) )
 
 
 #define MEM_BLOCK 4096
+#define MAX_MEM_DESC 5
 typedef struct memory_region memory_region;
 
 
@@ -89,6 +90,7 @@ struct job_ctrl {
    * protect shared job item variables.
   */
   pthread_mutex_t mutex;
+  
   /*
    * incremented by one after a new job item is added to item.
   */

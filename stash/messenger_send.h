@@ -81,12 +81,14 @@ struct job_item {
 };
 
 
+#define DONE 0
+#define END  DONE + 1
 typedef struct thread_ctrl thread_ctrl;
 
 
 struct thread_ctrl {
-  int job_done_tag;
-  int job_done_value;
+  int job_tag[ 2 ];
+  int job_value[ 2 ];
 };
 
 

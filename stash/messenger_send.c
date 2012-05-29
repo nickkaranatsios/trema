@@ -89,19 +89,6 @@ self() {
 }
 
 
-static inline job_item *
-load_lock_item( job_item *item ) {
-  item->tag_id = self();
-  return item;
-}
-
-
-static inline void
-load_lock_ctrl( job_ctrl *ctrl ) {
-  ctrl->tag_id = self();
-}
-
-
 void
 init_desc() {
   memory_region *ptr;
@@ -178,16 +165,58 @@ void release_memory( void *address, uint32_t release_size ) {
 
       
 int
-CAS( void *address, const void *oldvalue, const void *newvalue, size_t len ) {
+CAS( void *shared, const void *oldvalue, const void *newvalue, size_t len ) {
   int ret = 0;
 
   job_lock();
-  if ( !memcmp( address, oldvalue, len ) ) {
-    memcpy( address, newvalue, len );
+  if ( !memcmp( shared, oldvalue, len ) ) {
+    memcpy( shared, newvalue, len );
     ret = 1;
   }
   job_unlock();
   return ret;
+}
+
+
+void
+write_job_done( job_ctrl *ctrl, int value, int idx ) {
+  int other_tag;
+  int other_idx = 0;
+
+  if ( !idx ) {
+    other_idx = 1;
+  }
+  other_tag = ctrl->thread_ctrl[ other_idx ].job_done_tag;
+  ctrl->thread_ctrl[ idx ].job_done_value = value;
+  if ( !idx ) {
+    ctrl->thread_ctrl[ idx ].job_done_tag = 1 - other_tag;
+  }
+  else {
+    ctrl->thread_ctrl[ idx ].job_done_tag = other_tag;
+  }
+}
+
+
+int
+read_job_done( job_ctrl *ctrl ) {
+  int tag0, tag1;
+  int value = -1;
+  int match_equal_cnt = 0;
+  int match_unequal_cnt = 0;
+
+  while( match_equal_cnt < 2 || match_unequal_cnt < 2 ) {
+    tag0 = ctrl->thread_ctrl[ 0 ].job_done_tag;
+    tag1 = ctrl->thread_ctrl[ 1 ].job_done_tag;
+    if ( tag0 == tag1 ) {
+      value = ctrl->thread_ctrl[ 1 ].job_done_value;
+      match_equal_cnt++;
+    }
+    else {
+      value = ctrl->thread_ctrl[ 0 ].job_done_value;
+      match_unequal_cnt++;
+    }
+  }
+  return value;
 }
 
 
@@ -209,13 +238,14 @@ update_server_socket( job_ctrl *ctrl, const char *service_name, const int server
 }
 
 
-int
+static int
 job_queue_full( job_ctrl *ctrl ) {
   int end;
   int done;
   
   end = ctrl->job_end;
-  done = ctrl->job_done;
+die( "in job_queue_full done");
+  done = read_job_done( ctrl );
   if ( ( end + 1 ) % ITEM_ARRAY_SIZE == done ) {
     return 1;
   }
@@ -223,14 +253,14 @@ job_queue_full( job_ctrl *ctrl ) {
 }
 
 
-int
+static int
 any_data_in_job_queue( job_ctrl *ctrl ) {
-  int start;
+  int done;
   int end;
 
-  start = ctrl->job_start;
+  done = read_job_done( ctrl );
   end = ctrl->job_end;
-  if ( start != end ) {
+  if ( done != end ) {
     return 1;
   }
   return 0;
@@ -246,7 +276,7 @@ any_data_in_job_queue( job_ctrl *ctrl ) {
  *
  * @return [void]
  */
-static int
+static bool
 add_lock_free_job( job_ctrl *ctrl, job_item *item ) {
   job_item *end_item;
   int end;
@@ -254,21 +284,24 @@ add_lock_free_job( job_ctrl *ctrl, job_item *item ) {
   bool added = false;
 
   if ( job_queue_full( ctrl ) ) {
-    return 1;
+    return added;
   }
   while ( added == false ) {
     end = ctrl->job_end;
     tmp = ( end + 1 ) % ITEM_ARRAY_SIZE;
     end_item = &ctrl->item[ end ];
-    if ( CAS( &ctrl->job_end, &end, &tmp, sizeof( tmp ) ) ) {
+    if ( item->tag_id == self() ) {
+      ctrl->job_end = tmp;
+//    if ( CAS( &ctrl->job_end, &end, &tmp, sizeof( tmp ) ) ) {
       memcpy( end_item, item, sizeof( *item ) );
       added = true;
     }
   }
-  return 1;
+  return added;
 }
 
 
+#ifdef TEST
 static job_item *
 get_lock_free_job( job_ctrl *ctrl ) {
   job_item *item;
@@ -296,7 +329,46 @@ get_lock_free_job( job_ctrl *ctrl ) {
     }
   }
 }
+#endif
 
+
+static void
+get_lock_free_job( job_ctrl *ctrl ) {
+  job_item *item;
+  struct timespec req;
+  int done;
+  int tmp;
+  int thread_idx = 0;
+
+#ifdef TEST
+    done = ctrl->job_done;
+    me = self();
+    if ( done != ctrl->job_done ) {
+      continue;
+    }
+      if ( me == self() ) {
+        ctrl->job_done = tmp;
+    // after item
+#endif
+  req.tv_sec = 0;
+  req.tv_nsec = 1;
+  if ( self() == threads[ 1 ] ) {
+    thread_idx = 1;
+  }
+  while ( true ) {
+    done = read_job_done( ctrl );
+    item = &ctrl->item[ done ];
+    if ( done == ctrl->job_end ) {
+      nanosleep( &req, NULL );
+      continue;
+    }
+    tmp = ( done + 1 ) % ITEM_ARRAY_SIZE;
+    if ( item->opt.server_socket != -1 && item->opt.buffer != NULL ) {
+      send( item->opt.server_socket, item->opt.buffer, item->opt.buffer_len, MSG_DONTWAIT );
+      write_job_done( ctrl, tmp, thread_idx );
+    }
+  }
+}
 
 ssize_t xwrite( int fd, const void *buf, size_t len ) {
   ssize_t nw;
@@ -388,7 +460,6 @@ get_multiple_jobs( job_ctrl *ctrl ) {
 
 
 #ifdef TEST
-#endif
 void
 get_single_job( job_ctrl *ctrl ) {
   job_item *item;
@@ -396,12 +467,13 @@ get_single_job( job_ctrl *ctrl ) {
   int tmp;
 
   item = get_lock_free_job( ctrl );
-  packet_write( item->opt.server_socket, item->opt.buffer, item->opt.buffer_len );
+  send( item->opt.server_socket, item->opt.buffer, item->opt.buffer_len, MSG_DONTWAIT );
   do {
     done = ctrl->job_done;
     tmp = ( done + 1 ) % ITEM_ARRAY_SIZE;
   } while ( !CAS( &ctrl->job_done, &done, &tmp, sizeof( tmp ) ) ); 
 }
+#endif
 
 
 void 
@@ -410,7 +482,7 @@ void
   int ret = 1;
   
   while ( true ) {
-    get_single_job( ctrl );
+    get_lock_free_job( ctrl );
   }
   return ( void * ) ( intptr_t ) ret;
 }
@@ -620,6 +692,7 @@ my_push_message_to_send_queue( const char *service_name, const uint8_t message_t
     send_dump_message( MESSENGER_DUMP_SEND_OVERFLOW, sq->service_name, NULL, 0 );
     return false;
   }
+die("we are here");
   sq->overflow = 0;
   sq->overflow_total_length = 0;
 
@@ -651,7 +724,7 @@ debug( "about to add_lock_free_job buffer %x length %d", item.opt.buffer, item.o
     main_thread = self();
   }
   item.tag_id = main_thread;
-  if ( !add_lock_free_job( &ctrl, &item ) ) {
+  if ( add_lock_free_job( &ctrl, &item ) == false ) {
     release_memory( item.opt.buffer, item.opt.buffer_len );
     error( "queue is full2" );
     ++sq->overflow;

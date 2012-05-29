@@ -81,6 +81,15 @@ struct job_item {
 };
 
 
+typedef struct thread_ctrl thread_ctrl;
+
+
+struct thread_ctrl {
+  int job_done_tag;
+  int job_done_value;
+};
+
+
 typedef struct job_ctrl job_ctrl;
 /*
  * one job control structure for each service for all job items
@@ -109,6 +118,7 @@ struct job_ctrl {
    * used for lock-free access
   */
   pthread_t tag_id;
+  thread_ctrl thread_ctrl[ THREADS ];
   /*
   * an array of job items to handle.
   * The client that is connected to the service uses adds items to this array.

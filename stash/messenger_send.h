@@ -77,7 +77,7 @@ typedef struct job_item job_item;
 struct job_item {
   struct job_opt opt;
   pthread_t tag_id;
-  uint16_t done;
+  uint16_t locked;
 };
 
 
@@ -105,7 +105,7 @@ struct job_ctrl {
   /*
    * incremented by one after a new job item is added to item.
   */
-  int job_end;
+  int rear;
   /*
    * incremented by one after a job item has been retrieved from item for 
    * processing.
@@ -115,7 +115,7 @@ struct job_ctrl {
    * incremented by one when a message has been transmitted completed 
    * processing.
   */
-  int job_done;
+  int front;
   /*
    * used for lock-free access
   */

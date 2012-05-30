@@ -241,11 +241,9 @@ update_server_socket( job_ctrl *ctrl, const char *service_name, const int server
 static int
 job_queue_full( job_ctrl *ctrl ) {
   int end;
-  int done;
   
   end = read_job_ctrl( ctrl, END );
-  done = read_job_ctrl( ctrl, DONE );
-  if ( ( end + 1 ) % ITEM_ARRAY_SIZE == done ) {
+  if ( ( end + 1 ) % ITEM_ARRAY_SIZE == read_job_ctrl( ctrl, DONE ) ) {
     return 1;
   }
   return 0;
@@ -281,22 +279,20 @@ add_lock_free_job( job_ctrl *ctrl, job_item *item ) {
   int end;
   int tmp;
 
-#ifdef TEST
-  while ( added == false ) {
-    if ( item->tag_id == self() ) {
-      ctrl->job_end = tmp;
-//    if ( CAS( &ctrl->job_end, &end, &tmp, sizeof( tmp ) ) ) {
-#endif
-
   if ( job_queue_full( ctrl ) ) {
     return 0;
   }
-  end = read_job_ctrl( ctrl, END );
-  tmp = ( end + 1 ) % ITEM_ARRAY_SIZE;
-  end_item = &ctrl->item[ end ];
-  memcpy( end_item, item, sizeof( *item ) );
-  write_job_ctrl( ctrl, tmp, 0, END );
-  return 1;
+  while ( true ) {
+    end = read_job_ctrl( ctrl, END );
+    end_item = &ctrl->item[ end ];
+    tmp = ( end + 1 ) % ITEM_ARRAY_SIZE;
+    if ( end == read_job_ctrl( ctrl, END ) ) {
+      if ( CAS( &ctrl->item[ end ], end_item, item, sizeof( *item ) ) ) {
+        write_job_ctrl( ctrl, tmp, tmp & 1, END );
+        return 1;
+      }
+    }
+  }
 }
 
 
@@ -332,44 +328,12 @@ get_lock_free_job( job_ctrl *ctrl ) {
 
 
 #ifdef TEST
-void
+static job_item *
 get_lock_free_job( job_ctrl *ctrl ) {
   job_item *item;
   struct timespec req;
   int done;
-  int tmp;
-  pthread_t me;
-
-  req.tv_sec = 0;
-  req.tv_nsec = 1;
-  while ( true ) {
-    me = self();
-    done = ctrl->job_done;
-    item = &ctrl->item[ done ];
-    if ( done != ctrl->job_done ) {
-      continue;
-    }
-    if ( done == ctrl->job_end ) {
-      nanosleep( &req, NULL );
-      continue;
-    }
-    tmp = ( done + 1 ) % ITEM_ARRAY_SIZE;
-    if ( item->opt.server_socket != -1 && item->opt.buffer != NULL ) {
-      send( item->opt.server_socket, item->opt.buffer, item->opt.buffer_len, MSG_DONTWAIT );
-      if ( me == self() ) {
-        ctrl->job_done = tmp;
-      }
-    }
-  }
-}
-#endif
-
-static void
-get_lock_free_job( job_ctrl *ctrl ) {
-  job_item *item;
-  struct timespec req;
-  int done;
-  int tmp;
+  int end;
   int thread_idx = 0;
 
   req.tv_sec = 0;
@@ -379,15 +343,48 @@ get_lock_free_job( job_ctrl *ctrl ) {
   }
   while ( true ) {
     done = read_job_ctrl( ctrl, DONE );
+    end = read_job_ctrl( ctrl, END );
+    if ( done == end ) {
+      nanosleep( &req, NULL );
+      return NULL;
+    }
     item = &ctrl->item[ done ];
-    if ( done == read_job_ctrl( ctrl, END ) ) {
+    if ( item->opt.server_socket != -1 && item->opt.buffer != NULL ) {
+      return item;
+    }
+  }
+}
+#endif
+
+
+static void
+get_lock_free_job( job_ctrl *ctrl ) {
+  job_item *item;
+  struct timespec req;
+  int done;
+  int tmp;
+  int end;
+  int thread_idx = 0;
+
+  req.tv_sec = 0;
+  req.tv_nsec = 1;
+  if ( self() == threads[ 1 ] ) {
+    thread_idx = 1;
+  }
+  while ( true ) {
+    done = read_job_ctrl( ctrl, DONE );
+    end = read_job_ctrl( ctrl, END );
+    if ( done == end ) {
       nanosleep( &req, NULL );
       continue;
     }
-    tmp = ( done + 1 ) % ITEM_ARRAY_SIZE;
-    if ( item->opt.server_socket != -1 && item->opt.buffer != NULL ) {
-      send( item->opt.server_socket, item->opt.buffer, item->opt.buffer_len, MSG_DONTWAIT );
-      write_job_ctrl( ctrl, tmp, thread_idx, DONE );
+    item = &ctrl->item[ done ];
+    if ( item->opt.server_socket != -1 ) {
+      tmp = ( done + 1 ) % ITEM_ARRAY_SIZE;
+      if ( done == read_job_ctrl( ctrl, DONE ) ) {
+        write_job_ctrl( ctrl, tmp, thread_idx, DONE );
+        send( item->opt.server_socket, item->opt.buffer, item->opt.buffer_len, MSG_DONTWAIT );
+      }
     }
   }
 }
@@ -436,6 +433,7 @@ get_multiple_jobs( job_ctrl *ctrl ) {
   uint32_t total_len = 0;
   int i;
   int done, done_tmp;
+  int thread_idx = 0;
 
   for ( i = 0; i < MAX_TAKE; i++ ) {
     items[ i ] = get_lock_free_job( ctrl );
@@ -455,23 +453,20 @@ get_multiple_jobs( job_ctrl *ctrl ) {
   }
   done_tmp = i;
   if ( first != NULL ) {
-    packet_write( first->opt.server_socket, first->opt.buffer, total_len );
+    send( first->opt.server_socket, first->opt.buffer, total_len, MSG_DONTWAIT );
   }
   if ( last_item != NULL ) {
-    packet_write( last_item->opt.server_socket, last_item->opt.buffer, last_item->opt.buffer_len );
+    send( last_item->opt.server_socket, last_item->opt.buffer, last_item->opt.buffer_len, MSG_DONTWAIT );
   }
-  while ( true ) {
-    done = ctrl->job_done;
-    done_tmp = ( done + done_tmp ) % ITEM_ARRAY_SIZE;
-    if ( CAS( &ctrl->job_done, &done, &done_tmp, sizeof( done_tmp ) ) ) {
-      break;
-    }
+  done = read_job_ctrl( ctrl, DONE );
+  done_tmp = ( done + 1 ) % ITEM_ARRAY_SIZE;
+  if ( self() == threads[ 1 ] ) {
+    thread_idx = 1;
   }
+  write_job_ctrl( ctrl, done_tmp, thread_idx, DONE );
 }
-#endif
 
 
-#ifdef TEST
     fprintf(fp, "start dumping\n");
     for ( i = 0; i < count; i++ ) {
       fprintf(fp, "server_socket %d buffer %p length %d\n", items[i]->opt.server_socket, items[i]->opt.buffer, items[i]->opt.buffer_len);
@@ -730,18 +725,11 @@ my_push_message_to_send_queue( const char *service_name, const uint8_t message_t
   strncpy( item.opt.service_name, service_name, MESSENGER_SERVICE_NAME_LENGTH );
   item.opt.server_socket = sq->server_socket;
   item.opt.buffer_len = length;
-#ifdef TEST
-  item.opt.buffer = get_message_buffer_tail( sq->buffer, item.opt.buffer_len );
-  write_message_buffer_at_tail( sq->buffer, &header, sizeof( message_header ), data, len );
-  item.opt.buffer = xmalloc( item.opt.buffer_len );
-  memcpy( item.opt.buffer, &header, sizeof( message_header ) );
-  memcpy( ( char * )item.opt.buffer + sizeof( message_header ), data, len );
-#endif
   item.opt.buffer = get_memory( item.opt.buffer_len );
   memcpy( item.opt.buffer, &header, sizeof( message_header ) );
   memcpy( ( char * )item.opt.buffer + sizeof( message_header ), data, len );
 
-debug( "about to add_lock_free_job buffer %x length %d", item.opt.buffer, item.opt.buffer_len );
+  debug( "about to add_lock_free_job buffer %x length %d", item.opt.buffer, item.opt.buffer_len );
   if ( !add_lock_free_job( &ctrl, &item ) ) {
     release_memory( item.opt.buffer, item.opt.buffer_len );
     error( "queue is full2" );

@@ -34,7 +34,7 @@
 
 #define THREADS 2
 #define ITEM_SIZE 512
-#define MAX_TAKE 32
+#define MAX_TAKE 1
 
 #define ARRAY_SIZE( x ) ( int32_t ) ( sizeof( x ) / sizeof( x[ 0 ] ) )
 

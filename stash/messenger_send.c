@@ -178,6 +178,20 @@ CAS( void *shared, const void *oldvalue, const void *newvalue, size_t len ) {
 }
 
 
+static int 
+CAS_int( int *address, const int oldvalue, const int newvalue ) {
+  int ret = 0;
+
+  job_lock();
+  if ( *address == oldvalue ) {
+    *address = newvalue;
+    ret = 1;
+  }
+  job_unlock();
+  return ret;
+}
+
+
 #ifdef TEST
 static void
 write_job_ctrl( job_ctrl *ctrl, int value, const int idx, const int type ) {
@@ -266,6 +280,33 @@ any_data_in_job_queue( job_ctrl *ctrl ) {
 }
 
 
+#ifdef TEST
+static bool
+add_job( job_ctrl *ctrl, job_item *item ) {
+  job_item *rear_item;
+  pthread_t me;
+  int rear;
+  int tmp;
+
+  if ( job_queue_full( ctrl ) ) {
+    return 0;
+  }
+  rear = ctrl->rear;
+  me = self();
+  job_lock();
+  ctrl->item[ rear ].tag_id = me;
+  job_unlock();
+  if ( ctrl->item[ rear ].tag_id == me ) {
+    memcpy( &ctrl->item[ rear ], item, sizeof( *item ) );
+    ctrl->rear = ctrl->rear + 1;
+  }
+  else {
+    rear = ctrl->rear;
+    tmp = rear + 1;
+    
+  }
+  
+#endif
 /*
  * Adds a job item to the job pool. A job item stores the following fields:
  * server_socket - the socket to send the message to.
@@ -277,9 +318,9 @@ any_data_in_job_queue( job_ctrl *ctrl ) {
  */
 static bool
 add_job( job_ctrl *ctrl, job_item *item ) {
+  job_item *rear_item;
   int rear;
   int tmp;
-  pthread_t me;
 
   if ( job_queue_full( ctrl ) ) {
     return 0;
@@ -287,19 +328,13 @@ add_job( job_ctrl *ctrl, job_item *item ) {
   while ( true ) {
     rear = ctrl->rear;
     tmp = ( rear + 1 ) % ITEM_ARRAY_SIZE;
-    if ( rear == ctrl->rear ) {
-      if ( ctrl->item[ rear ].tag_id == 0 ) {
-        me = self();
-        job_lock();
-        ctrl->item[ rear ].tag_id = me;
-        job_unlock();
-      }
-      if ( ctrl->item[ rear ].tag_id == me ) {
-        memcpy( &ctrl->item[ rear ], item, sizeof( *item ) );
-        ctrl->rear = tmp;
-        ctrl->item[ rear ].tag_id = 0;
-        return 1;
-      }
+    if ( rear != ctrl->rear ) {
+      continue;
+    }
+    rear_item = &ctrl->item[ rear ];
+    if ( CAS( &ctrl->item[ rear ], rear_item, item, sizeof( *item ) ) ) {
+      CAS_int( &ctrl->rear, rear, tmp );
+      return 1;
     }
   }
 }
@@ -366,6 +401,8 @@ get_job( job_ctrl *ctrl ) {
 #endif
 
 
+
+
 static void
 get_job( job_ctrl *ctrl ) {
   job_item *item;
@@ -387,7 +424,7 @@ get_job( job_ctrl *ctrl ) {
     item = &ctrl->item[ front ];
     if ( item->opt.server_socket != -1 ) {
       tmp = ( front + 1 ) % ITEM_ARRAY_SIZE;
-      if ( CAS( &ctrl->front, &front, &tmp, sizeof( tmp ) ) ) {
+      if ( CAS_int( &ctrl->front, front, tmp ) ) {
         send( item->opt.server_socket, item->opt.buffer, item->opt.buffer_len, MSG_DONTWAIT );
       }
     }

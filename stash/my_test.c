@@ -96,6 +96,26 @@ static pthread_cond_t cond_write;
 
 
 int
+testCAS( int *address, int *oldvalue, int *newvalue, size_t len ) {
+  int *ptr = address;
+  int *expected = oldvalue;
+  int *new_value = newvalue;
+  int i;
+
+  for ( i = 0; i < len; i += sizeof( int ) ) {
+    if ( *ptr++ != *expected++ ) {
+      return 0;
+    }
+  }
+  ptr = address;
+  for ( i = 0; i < len; i += sizeof( int ) ) {
+    *ptr++ = *new_value++;
+  }
+  return 1;
+}
+
+
+int
 CAS( void *address, const void *oldvalue, const void *newvalue, size_t len ) {
   int ret = 0;
 
@@ -466,7 +486,7 @@ main()
   uint32_t i = 0;
   int server_socket = -1;
   pthread_t thread_id[ THREADS ];
-  struct job_item item;
+  struct job_item item, *ri;
   struct job_ctrl *ctrl;
   int *ptr;
   int c = -1;
@@ -487,6 +507,7 @@ main()
   
   i = 0;
   while ( 1 ) {
+    ri = &ctrl->item[0];
     item.opt.buffer = get_memory( 64 );
     buffer_len = sprintf( item.opt.buffer, "header - body %d", i++  );
     item.opt.buffer_len = buffer_len;
@@ -503,7 +524,8 @@ main()
     item.opt.server_socket = server_socket;
     item.done = 0;
     strncpy(item.opt.service_name, service_name, MESSENGER_SERVICE_NAME_LEN );
-    add_lock_free_job( ctrl, &item );
+    testCAS( (int *)&ctrl->item[0], (int *)ri, (int*)&item, sizeof(item)); 
+//    add_lock_free_job( ctrl, &item );
     sleep( 2 );
   }
   

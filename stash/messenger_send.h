@@ -116,6 +116,7 @@ struct job_ctrl {
    * processing.
   */
   int front;
+  pthread_t tid[ THREADS ];
   /*
    * used for lock-free access
   */

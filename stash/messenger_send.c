@@ -165,6 +165,29 @@ release_memory( void *address, uint32_t release_size ) {
 
       
 static int
+MCAS( int *shared, int *oldvalue, int *newvalue, size_t len ) {
+  int *ptr = shared;
+  int *expected = oldvalue;
+  int *new_value = newvalue;
+  uint32_t i;
+
+  job_lock();
+  for ( i = 0; i < len; i += sizeof( int ) ) {
+    if ( *ptr++ != *expected++ ) {
+      job_unlock();
+      return 0;
+    }
+  }
+  ptr = shared;
+  for ( i = 0; i < len; i += sizeof( int ) ) {
+    *ptr++ = *new_value++;
+  }
+  job_unlock();
+  return 1;
+}
+
+#ifdef TEST
+static int
 CAS( void *shared, const void *oldvalue, const void *newvalue, size_t len ) {
   int ret = 0;
 
@@ -176,18 +199,17 @@ CAS( void *shared, const void *oldvalue, const void *newvalue, size_t len ) {
   job_unlock();
   return ret;
 }
+#endif
 
 
 static int 
 CAS_int( int *address, const int oldvalue, const int newvalue ) {
   int ret = 0;
 
-  job_lock();
   if ( *address == oldvalue ) {
     *address = newvalue;
     ret = 1;
   }
-  job_unlock();
   return ret;
 }
 
@@ -210,7 +232,6 @@ write_job_ctrl( job_ctrl *ctrl, int value, const int idx, const int type ) {
     ctrl->thread_ctrl[ idx ].job_tag[ type ] = other_tag;
   }
 }
-#endif
 
 
 static int
@@ -234,21 +255,22 @@ read_job_ctrl( const job_ctrl *ctrl, const int type ) {
   }
   return value;
 }
+#endif
 
 
 static void
 update_server_socket( job_ctrl *ctrl, const char *service_name, const int server_socket ) {
   job_item *item;
   int i;
-  int end;
+  int rear;
+  int ss;
 
-  end = read_job_ctrl( ctrl, END ); 
-  for ( i = 0; i < end; i++ ) {
+  rear = ctrl->rear; 
+  for ( i = 0; i < rear; i++ ) {
     item = &ctrl->item[ i ];
+    ss = item->opt.server_socket;
     if ( !strncmp( service_name, item->opt.service_name, MESSENGER_SERVICE_NAME_LENGTH ) ) {
-      if ( CAS( &ctrl->item[ i ], item, item, sizeof( *item ) ) ) {
-        item->opt.server_socket = server_socket;
-      }
+      CAS_int( &item->opt.server_socket, ss, server_socket );
     }
   }
 }
@@ -256,10 +278,10 @@ update_server_socket( job_ctrl *ctrl, const char *service_name, const int server
 
 static int
 job_queue_full( job_ctrl *ctrl ) {
-  int end;
+  int rear;
   
-  end = read_job_ctrl( ctrl, END );
-  if ( ( end + 1 ) % ITEM_ARRAY_SIZE == read_job_ctrl( ctrl, DONE ) ) {
+  rear = ctrl->rear;
+  if ( ( rear + 1 ) % ITEM_ARRAY_SIZE == ctrl->front ) {
     return 1;
   }
   return 0;
@@ -332,7 +354,7 @@ add_job( job_ctrl *ctrl, job_item *item ) {
       continue;
     }
     rear_item = &ctrl->item[ rear ];
-    if ( CAS( &ctrl->item[ rear ], rear_item, item, sizeof( *item ) ) ) {
+    if ( MCAS( ( int * ) &ctrl->item[ rear ], ( int * ) rear_item,  ( int * ) item, sizeof( *item ) ) ) {
       CAS_int( &ctrl->rear, rear, tmp );
       return 1;
     }
@@ -398,7 +420,6 @@ get_job( job_ctrl *ctrl ) {
     }
   }
 }
-#endif
 
 
 
@@ -430,6 +451,7 @@ get_job( job_ctrl *ctrl ) {
     }
   }
 }
+#endif
 
 
 ssize_t xwrite( int fd, const void *buf, size_t len ) {
@@ -536,16 +558,62 @@ get_single_job( job_ctrl *ctrl ) {
 #endif
 
 
+
+void
+*exec_partition( void *data ) {
+  job_ctrl *ctrl = data;
+  int ret = 1;
+  job_item *item;
+  struct timespec req;
+  int front;
+  int tmp;
+  int rear;
+  int thread_idx = 1;
+  
+
+  if ( ctrl->tid[ 1 ] == self() ) {
+    thread_idx = 2;
+  }
+  int min = ( thread_idx - 1 ) * 256;
+  int max = thread_idx * 256;
+
+  req.tv_sec = 0;
+  while ( true ) {
+    front = ctrl->front;
+    rear = ctrl->rear;
+    if ( front == rear ) {
+      req.tv_nsec = 1;
+      nanosleep( &req, NULL );
+      continue;
+    }
+    front = ctrl->front;
+    if ( front >= min && front < max ) {
+      item = &ctrl->item[ front ];
+      tmp = ( front + 1 ) % ITEM_ARRAY_SIZE;
+      ctrl->front = tmp;
+      send( item->opt.server_socket, item->opt.buffer, item->opt.buffer_len, MSG_DONTWAIT );
+    } 
+    else {
+      req.tv_nsec = 10;
+      nanosleep( &req, NULL );
+    }
+  }
+  return ( void * ) ( intptr_t ) ret;
+}
+  
+
+#ifdef TEST
 void 
 *run_thread( void *data ) {
   job_ctrl *ctrl = data;
   int ret = 1;
   
   while ( true ) {
-    get_job( ctrl );
+    exec_parallel_job( ctrl );
   }
   return ( void * ) ( intptr_t ) ret;
 }
+#endif
 
 
 /**
@@ -746,11 +814,16 @@ my_push_message_to_send_queue( const char *service_name, const uint8_t message_t
 
   uint32_t length = ( uint32_t ) ( sizeof( message_header ) + len );
   if ( job_queue_full( &ctrl ) ) {
-    error( "queue is full1" );
+    if ( sq->overflow == 0 ) {
+      warn( "Could not write a message to send queue due to overflow ( service_name = %s, fd = %u, length = %u ).", sq->service_name, sq->server_socket, length );
+    }
     ++sq->overflow;
     sq->overflow_total_length += length;
     send_dump_message( MESSENGER_DUMP_SEND_OVERFLOW, sq->service_name, NULL, 0 );
     return false;
+  }
+  if ( sq->overflow > 1 ) {
+    warn( "Could not write a message to send queue due to overflow ( service_name = %s, fd = %u, count = %u, total length = %" PRIu64 " ).", sq->service_name, sq->server_socket, sq->overflow, sq->overflow_total_length );
   }
   sq->overflow = 0;
   sq->overflow_total_length = 0;
@@ -774,7 +847,7 @@ my_push_message_to_send_queue( const char *service_name, const uint8_t message_t
   debug( "about to add_job buffer %x length %d", item.opt.buffer, item.opt.buffer_len );
   if ( !add_job( &ctrl, &item ) ) {
     release_memory( item.opt.buffer, item.opt.buffer_len );
-    error( "queue is full2" );
+    error( "queue is full" );
     ++sq->overflow;
     sq->overflow_total_length += length;
     send_dump_message( MESSENGER_DUMP_SEND_OVERFLOW, sq->service_name, NULL, 0 );
@@ -1226,16 +1299,26 @@ init_messenger_send( const char *working_directory ) {
 void
 start_messenger_send( void ) {
   pthread_attr_t attr;
-  int i;
 
   pthread_attr_init( &attr ) ;
   pthread_attr_setdetachstate( &attr, PTHREAD_CREATE_DETACHED );
   fp = fopen("test.log", "w");
+  if ( ( pthread_create( &ctrl.tid[ 0 ], &attr, exec_partition, &ctrl ) != 0 ) ) {
+    die( "Failed to create thread" );
+  }
+  threads[ 0 ] = ctrl.tid[ 0 ];
+  if ( ( pthread_create( &ctrl.tid[ 1 ], &attr, exec_partition, &ctrl ) != 0 ) ) {
+    die( "Failed to create thread" );
+  }
+  threads[ 1 ] = ctrl.tid[ 1 ];
+#ifdef TEST
   for ( i = 0; i < THREADS; i++ ) {
+    ctrl.thread_idx = i + 1;
     if ( ( pthread_create( &threads[ i ], &attr, run_thread, &ctrl ) != 0 ) ) {
       die( "Failed to create thread" );
     }
   }
+#endif
   pthread_attr_destroy( &attr );
 }
 

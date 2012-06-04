@@ -62,7 +62,6 @@ void on_send_write( int fd, void *data );
 void on_send_read( int fd, void *data );
 static int send_queue_connect_timeout( send_queue *sq );
 static uint32_t get_send_data( send_queue *sq, size_t offset );
-static FILE *fp = NULL;
 
 
 static job_ctrl ctrl;
@@ -88,6 +87,10 @@ self() {
 }
 
 
+/*
+ * This initializes each defined memory region and preallocates memory 
+ * for use later.
+ */
 static void
 init_desc() {
   memory_region *ptr;
@@ -116,6 +119,14 @@ init_desc() {
 }
 
 
+/*
+ * This function returns a pointer to that satisfies the requested size of bytes.
+ * If the subsequent request can be obtained from the same memory region it 
+ * would appear as a continuous memory otherwise starts on a new boundary 
+ * If all memory regions are full the program looks at the first memory region
+ * and proceeds to the next until the request is satisfied.
+ * address.
+ */
 static void *
 get_memory( const uint32_t requested_size ) {
   void *address = NULL;
@@ -149,6 +160,11 @@ get_memory( const uint32_t requested_size ) {
 }
 
 
+/*
+ * This function is called after the get_memory function is called to release
+ * previously obtained memory. This does not frees any memory as such but only
+ * resets the tail pointer.
+ */
 static void 
 release_memory( void *address, uint32_t release_size ) {
   int i;
@@ -164,6 +180,12 @@ release_memory( void *address, uint32_t release_size ) {
 }
 
       
+#ifdef MCAS
+/*
+ * The multi compare and swap function operates on word address and compares
+ * the len bytes of memory pointed to by shared with then assigns the newvalue
+ * if it found to be equal with the oldvalue.
+ */
 static int
 MCAS( int *shared, int *oldvalue, int *newvalue, size_t len ) {
   int *ptr = shared;
@@ -171,13 +193,12 @@ MCAS( int *shared, int *oldvalue, int *newvalue, size_t len ) {
   int *new_value = newvalue;
   uint32_t i;
 
-  job_lock();
   for ( i = 0; i < len; i += sizeof( int ) ) {
     if ( *ptr++ != *expected++ ) {
-      job_unlock();
       return 0;
     }
   }
+  job_lock();
   ptr = shared;
   for ( i = 0; i < len; i += sizeof( int ) ) {
     *ptr++ = *new_value++;
@@ -185,8 +206,13 @@ MCAS( int *shared, int *oldvalue, int *newvalue, size_t len ) {
   job_unlock();
   return 1;
 }
+#endif
 
-#ifdef TEST
+
+/*
+ * This is similar to MCAS except that memory comparision is done using the
+ * system memcmp function.
+ */
 static int
 CAS( void *shared, const void *oldvalue, const void *newvalue, size_t len ) {
   int ret = 0;
@@ -199,9 +225,12 @@ CAS( void *shared, const void *oldvalue, const void *newvalue, size_t len ) {
   job_unlock();
   return ret;
 }
-#endif
 
 
+/*
+ * This is just a simplified version of CAS that operates on a single
+ * word address.
+ */
 static int 
 CAS_int( int *address, const int oldvalue, const int newvalue ) {
   int ret = 0;
@@ -214,7 +243,11 @@ CAS_int( int *address, const int oldvalue, const int newvalue ) {
 }
 
 
-#ifdef TEST
+#ifdef BLOOM
+/*
+ * This function is used by a writer identified by idx to store a value indexed
+ * by type into the job control structure.
+ */
 static void
 write_job_ctrl( job_ctrl *ctrl, int value, const int idx, const int type ) {
   int other_tag;
@@ -223,17 +256,34 @@ write_job_ctrl( job_ctrl *ctrl, int value, const int idx, const int type ) {
   if ( !idx ) {
     other_idx = 1;
   }
+  /*
+  * read the other's writers tag.
+  */
   other_tag = ctrl->thread_ctrl[ other_idx ].job_tag[ type ];
+  /*
+   * assign the value
+  */
   ctrl->thread_ctrl[ idx ].job_value[ type ] = value;
   if ( !idx ) {
+    /*
+     * try to make tags unequal.
+    */
     ctrl->thread_ctrl[ idx ].job_tag[ type ] = 1 - other_tag;
   }
   else {
+    /*
+     * try to make tags equal.
+    */
     ctrl->thread_ctrl[ idx ].job_tag[ type ] = other_tag;
   }
 }
 
 
+/*
+ * This function reads both tags and compares thems. If tags are equal
+ * it returns the value stored from the second writer otherwise it returns
+ * the value from the first writer.
+ */
 static int
 read_job_ctrl( const job_ctrl *ctrl, const int type ) {
   int tag0, tag1;
@@ -258,6 +308,13 @@ read_job_ctrl( const job_ctrl *ctrl, const int type ) {
 #endif
 
 
+/*
+ * It is possible that even if a message is stored in the job queue connection
+ * to the service not established yet but at some time later. This functions
+ * is called to update the server socket to the current value when a connection
+ * to the service is established. The service name indicates the matched socket
+ * update.
+ */ 
 static void
 update_server_socket( job_ctrl *ctrl, const char *service_name, const int server_socket ) {
   job_item *item;
@@ -276,6 +333,11 @@ update_server_socket( job_ctrl *ctrl, const char *service_name, const int server
 }
 
 
+/*
+ * Checks is a job queue is full by advancing the rear pointer by one and 
+ * confirming that is not coincides with the front pointer.
+ * This function is called before a new item is added to the job queue.
+ */
 static int
 job_queue_full( job_ctrl *ctrl ) {
   int rear;
@@ -288,6 +350,9 @@ job_queue_full( job_ctrl *ctrl ) {
 }
 
 
+/*
+ * This function checks if there is any pending data in the job queue.
+ */
 static int
 any_data_in_job_queue( job_ctrl *ctrl ) {
   int front;
@@ -302,33 +367,6 @@ any_data_in_job_queue( job_ctrl *ctrl ) {
 }
 
 
-#ifdef TEST
-static bool
-add_job( job_ctrl *ctrl, job_item *item ) {
-  job_item *rear_item;
-  pthread_t me;
-  int rear;
-  int tmp;
-
-  if ( job_queue_full( ctrl ) ) {
-    return 0;
-  }
-  rear = ctrl->rear;
-  me = self();
-  job_lock();
-  ctrl->item[ rear ].tag_id = me;
-  job_unlock();
-  if ( ctrl->item[ rear ].tag_id == me ) {
-    memcpy( &ctrl->item[ rear ], item, sizeof( *item ) );
-    ctrl->rear = ctrl->rear + 1;
-  }
-  else {
-    rear = ctrl->rear;
-    tmp = rear + 1;
-    
-  }
-  
-#endif
 /*
  * Adds a job item to the job pool. A job item stores the following fields:
  * server_socket - the socket to send the message to.
@@ -354,7 +392,11 @@ add_job( job_ctrl *ctrl, job_item *item ) {
       continue;
     }
     rear_item = &ctrl->item[ rear ];
+#ifdef MCAS
     if ( MCAS( ( int * ) &ctrl->item[ rear ], ( int * ) rear_item,  ( int * ) item, sizeof( *item ) ) ) {
+#else
+    if ( CAS( ( int * ) &ctrl->item[ rear ], ( int * ) rear_item,  ( int * ) item, sizeof( *item ) ) ) {
+#endif
       CAS_int( &ctrl->rear, rear, tmp );
       return 1;
     }
@@ -362,206 +404,16 @@ add_job( job_ctrl *ctrl, job_item *item ) {
 }
 
 
-#ifdef TEST
-static job_item *
-get_job( job_ctrl *ctrl ) {
-  job_item *item;
-  struct timespec req;
-  int tmp;
-  int start;
-
-  req.tv_sec = 0;
-  req.tv_nsec = 1;
-  while ( true ) {
-    start = ctrl->job_start;
-    item = &ctrl->item[ start ];
-    if ( start != ctrl->job_start ) {
-      continue;
-    }
-    if ( start == ctrl->rear ) {
-      nanosleep( &req, NULL );
-      continue;
-    }
-    tmp = ( start + 1 ) % ITEM_ARRAY_SIZE;
-    if ( CAS( &ctrl->job_start, &start, &tmp, sizeof( tmp ) ) ) {
-      if ( item->opt.server_socket != -1 && item->opt.buffer != NULL ) {
-        return item;
-      }
-    }
-  }
-}
-#endif
-
-
-#ifdef TEST
-static job_item *
-get_job( job_ctrl *ctrl ) {
-  job_item *item;
-  struct timespec req;
-  int front;
-  int end;
-  int thread_idx = 0;
-
-  req.tv_sec = 0;
-  req.tv_nsec = 1;
-  if ( self() == threads[ 1 ] ) {
-    thread_idx = 1;
-  }
-  while ( true ) {
-    front = ctrl->front;
-    end = read_job_ctrl( ctrl, END );
-    if ( front == end ) {
-      nanosleep( &req, NULL );
-      return NULL;
-    }
-    item = &ctrl->item[ front ];
-    if ( item->opt.server_socket != -1 && item->opt.buffer != NULL ) {
-      return item;
-    }
-  }
-}
-
-
-
-
+#ifdef PARTITION
+/*
+ * A maximum of two tasks expected to enter and execute this function. The first 
+ * task is assigned to extract and process items from the job queue in the 
+ * range 0..255 and the other task in the range 256..511. In this case the 
+ * front pointer can be safely advanced without any locking.
+ * The idle time for each task to wait is fixed to 10 nanoseconds.
+ */
 static void
-get_job( job_ctrl *ctrl ) {
-  job_item *item;
-  struct timespec req;
-  int front;
-  int tmp;
-  int rear;
-
-  req.tv_sec = 0;
-  req.tv_nsec = 1;
-  while ( true ) {
-    front = ctrl->front;
-    rear = ctrl->rear;
-    if ( front == rear ) {
-      nanosleep( &req, NULL );
-      continue;
-    }
-    front = ctrl->front;
-    item = &ctrl->item[ front ];
-    if ( item->opt.server_socket != -1 ) {
-      tmp = ( front + 1 ) % ITEM_ARRAY_SIZE;
-      if ( CAS_int( &ctrl->front, front, tmp ) ) {
-        send( item->opt.server_socket, item->opt.buffer, item->opt.buffer_len, MSG_DONTWAIT );
-      }
-    }
-  }
-}
-#endif
-
-
-ssize_t xwrite( int fd, const void *buf, size_t len ) {
-  ssize_t nw;
-
-  while ( true ) {
-    nw = write( fd, buf, len );
-    if ( ( nw < 0 ) && ( errno == EAGAIN || errno == EINTR ) ) {
-      continue;
-    }
-    return nw;
-  }
-}
-
- 
-ssize_t packet_write( int fd, void *buf, size_t len ) {
-  struct pollfd pollfd;
-  ssize_t nw = -1;
-  nfds_t nfd = 1;
-  int ret;
-
-  nw = send( fd, buf, len, MSG_DONTWAIT );
-  if ( nw < 0 && errno == EAGAIN ) {
-    pollfd.fd = fd;
-    pollfd.events = POLLOUT;
-    ret = poll( &pollfd, nfd, -1 );
-    if ( ret > 0 ) {
-      if ( pollfd.revents & POLLOUT ) {
-        nw = send( fd, buf, len, MSG_DONTWAIT );
-      }
-    }
-  }
-  return nw;
-}
-
-
-#ifdef TEST
-static void
-get_multiple_jobs( job_ctrl *ctrl ) {
-  job_item *items[ MAX_TAKE ];
-  job_item *first = NULL;
-  job_item *last_item = NULL;
-  uint32_t total_len = 0;
-  int i;
-  int done, done_tmp;
-  int thread_idx = 0;
-
-  for ( i = 0; i < MAX_TAKE; i++ ) {
-    items[ i ] = get_job( ctrl );
-    first = items[ 0 ];
-    if ( items[ i ] == NULL ) {
-      break;
-    }
-    if ( i > 0 && items[ i - 1 ]->opt.server_socket != items[ i ]->opt.server_socket ) {
-      last_item = items[ i - 1 ];
-      break;
-    }
-    if ( i > 0 && ( char * )( items[ i - 1 ]->opt.buffer ) + items[ i - 1 ]->opt.buffer_len != items[ i ]->opt.buffer ) {
-      last_item = items[ i - 1 ];
-      break;
-    }
-    total_len += items[ i ]->opt.buffer_len;
-  }
-  done_tmp = i;
-  if ( first != NULL ) {
-    send( first->opt.server_socket, first->opt.buffer, total_len, MSG_DONTWAIT );
-  }
-  if ( last_item != NULL ) {
-    send( last_item->opt.server_socket, last_item->opt.buffer, last_item->opt.buffer_len, MSG_DONTWAIT );
-  }
-  done = read_job_ctrl( ctrl, DONE );
-  done_tmp = ( done + 1 ) % ITEM_ARRAY_SIZE;
-  if ( self() == threads[ 1 ] ) {
-    thread_idx = 1;
-  }
-  write_job_ctrl( ctrl, done_tmp, thread_idx, DONE );
-}
-
-
-    fprintf(fp, "start dumping\n");
-    for ( i = 0; i < count; i++ ) {
-      fprintf(fp, "server_socket %d buffer %p length %d\n", items[i]->opt.server_socket, items[i]->opt.buffer, items[i]->opt.buffer_len);
-    }
-    fprintf(fp, "end dumping\n");
-    fflush(fp);
-  }
-#endif
-
-
-#ifdef TEST
-void
-get_single_job( job_ctrl *ctrl ) {
-  job_item *item;
-  int done;
-  int tmp;
-
-  item = get_job( ctrl );
-  send( item->opt.server_socket, item->opt.buffer, item->opt.buffer_len, MSG_DONTWAIT );
-  do {
-    done = ctrl->front;
-    tmp = ( done + 1 ) % ITEM_ARRAY_SIZE;
-  } while ( !CAS( &ctrl->front, &done, &tmp, sizeof( tmp ) ) ); 
-}
-#endif
-
-
-
-void
-*exec_partition( void *data ) {
-  job_ctrl *ctrl = data;
+exec_partition( job_ctrl *ctrl ) {
   int ret = 1;
   job_item *item;
   struct timespec req;
@@ -598,22 +450,64 @@ void
       nanosleep( &req, NULL );
     }
   }
-  return ( void * ) ( intptr_t ) ret;
 }
-  
 
-#ifdef TEST
+
+#else
+/*
+ * This function extracts and processes a single item from the queue in an
+ * infinite loop. If the queue is full it sleeps for a negligible amount of 
+ * time before checking again. If an item is found advances the front pointer
+ * and sends the message to socket.
+ */
+static void
+get_job( job_ctrl *ctrl ) {
+  job_item *item;
+  struct timespec req;
+  int front;
+  int tmp;
+  int rear;
+
+  req.tv_sec = 0;
+  req.tv_nsec = 1;
+  while ( true ) {
+    front = ctrl->front;
+    rear = ctrl->rear;
+    if ( front == rear ) {
+      nanosleep( &req, NULL );
+      continue;
+    }
+    front = ctrl->front;
+    item = &ctrl->item[ front ];
+    if ( item->opt.server_socket != -1 ) {
+      tmp = ( front + 1 ) % ITEM_ARRAY_SIZE;
+      if ( CAS_int( &ctrl->front, front, tmp ) ) {
+        send( item->opt.server_socket, item->opt.buffer, item->opt.buffer_len, MSG_DONTWAIT );
+      }
+    }
+  }
+}
+#endif
+
+
+/*
+ * All threads initially enter and functions and unless an severe error occurs
+ * they never exit.
+ */
 void 
 *run_thread( void *data ) {
   job_ctrl *ctrl = data;
   int ret = 1;
   
   while ( true ) {
-    exec_parallel_job( ctrl );
+#ifdef PARTITION
+    exec_partition( ctrl );
+#else
+    get_job( ctrl );
+#endif
   }
   return ( void * ) ( intptr_t ) ret;
 }
-#endif
 
 
 /**
@@ -795,8 +689,14 @@ create_send_queue( const char *service_name ) {
 }
 
 
+/*
+ * This function pushes a message into the job queue. A send queue is created 
+ * that manages the connection to the server service socket. If there is room
+ * in the job queue a message header is constructed a new job item is created
+ * the message is copied into the job queue for sending.
+ */
 static int
-my_push_message_to_send_queue( const char *service_name, const uint8_t message_type, const uint16_t tag, const void *data, size_t len ) {
+push_message_to_send_queue( const char *service_name, const uint8_t message_type, const uint16_t tag, const void *data, size_t len ) {
 
   debug( "Pushing a message to send queue ( service_name = %s, message_type = %#x, tag = %#x, data = %p, len = %u ).",
          service_name, message_type, tag, data, len );
@@ -863,70 +763,6 @@ my_push_message_to_send_queue( const char *service_name, const uint8_t message_t
 }
 
 
-#ifdef TEST
-static bool
-push_message_to_send_queue( const char *service_name, const uint8_t message_type, const uint16_t tag, const void *data, size_t len ) {
-  assert( service_name != NULL );
-
-  debug( "Pushing a message to send queue ( service_name = %s, message_type = %#x, tag = %#x, data = %p, len = %u ).",
-         service_name, message_type, tag, data, len );
-
-  message_header header;
-
-  if ( send_queues == NULL ) {
-    error( "All send queues are already deleted or not created yet." );
-    return false;
-  }
-
-  send_queue *sq = lookup_hash_entry( send_queues, service_name );
-
-  if ( NULL == sq ) {
-    sq = create_send_queue( service_name );
-    assert( sq != NULL );
-  }
-
-  header.version = 0;
-  header.message_type = message_type;
-  header.tag = htons( tag );
-  uint32_t length = ( uint32_t ) ( sizeof( message_header ) + len );
-  header.message_length = htonl( length );
-
-  if ( message_buffer_remain_bytes( sq->buffer ) < length ) {
-    if ( sq->overflow == 0 ) {
-      warn( "Could not write a message to send queue due to overflow ( service_name = %s, fd = %u, length = %u ).", sq->service_name, sq->server_socket, length );
-    }
-    ++sq->overflow;
-    sq->overflow_total_length += length;
-    send_dump_message( MESSENGER_DUMP_SEND_OVERFLOW, sq->service_name, NULL, 0 );
-    return false;
-  }
-  if ( sq->overflow > 1 ) {
-    warn( "Could not write a message to send queue due to overflow ( service_name = %s, fd = %u, count = %u, total length = %" PRIu64 " ).", sq->service_name, sq->server_socket, sq->overflow, sq->overflow_total_length );
-  }
-  sq->overflow = 0;
-  sq->overflow_total_length = 0;
-
-debug("before writting to %x data_len %d", sq->buffer, sq->buffer->data_length);
-  write_message_buffer( sq->buffer, &header, sizeof( message_header ) );
-  write_message_buffer( sq->buffer, data, len );
-debug("writting to %x len %d", sq->buffer, len);
-
-  if ( sq->server_socket == -1 ) {
-    debug( "Tried to send message on closed send queue, connecting..." );
-
-    send_queue_try_connect( sq );
-    return true;
-  }
-
-  set_writable( sq->server_socket, true );
-  if ( sq->buffer->data_length > messenger_send_length_for_flush ) {
-    on_send_write( sq->server_socket, sq );
-  }
-  return true;
-}
-#endif
-
-
 static bool
 _send_message( const char *service_name, const uint16_t tag, const void *data, size_t len ) {
   assert( service_name != NULL );
@@ -934,7 +770,7 @@ _send_message( const char *service_name, const uint16_t tag, const void *data, s
   debug( "Sending a message ( service_name = %s, tag = %#x, data = %p, len = %u ).",
          service_name, tag, data, len );
 
-  return my_push_message_to_send_queue( service_name, MESSAGE_TYPE_NOTIFY, tag, data, len );
+  return push_message_to_send_queue( service_name, MESSAGE_TYPE_NOTIFY, tag, data, len );
 }
 bool ( *send_message )( const char *service_name, const uint16_t tag, const void *data, size_t len ) = _send_message;
 
@@ -964,7 +800,7 @@ _send_request_message( const char *to_service_name, const char *from_service_nam
   p = request_data + handle_len;
   memcpy( p, data, len );
 
-  return_value = my_push_message_to_send_queue( to_service_name, MESSAGE_TYPE_REQUEST, tag, request_data, handle_len + len );
+  return_value = push_message_to_send_queue( to_service_name, MESSAGE_TYPE_REQUEST, tag, request_data, handle_len + len );
 
   xfree( request_data );
 
@@ -991,7 +827,7 @@ _send_reply_message( const messenger_context_handle *handle, const uint16_t tag,
   reply_handle->service_name_len = htons( 0 );
   memcpy( reply_handle->service_name, data, len );
 
-  return_value = my_push_message_to_send_queue( handle->service_name, MESSAGE_TYPE_REPLY, tag, reply_data, sizeof( messenger_context_handle ) + len );
+  return_value = push_message_to_send_queue( handle->service_name, MESSAGE_TYPE_REPLY, tag, reply_data, sizeof( messenger_context_handle ) + len );
 
   xfree( reply_data );
 
@@ -1296,29 +1132,24 @@ init_messenger_send( const char *working_directory ) {
 }
 
 
+/*
+ * After initialization this function is called to start the messenger send.
+ * It creates two threads in detachable state to execute the processing 
+ * of sending the messages
+ */
 void
 start_messenger_send( void ) {
   pthread_attr_t attr;
+  int i;
 
   pthread_attr_init( &attr ) ;
   pthread_attr_setdetachstate( &attr, PTHREAD_CREATE_DETACHED );
-  fp = fopen("test.log", "w");
-  if ( ( pthread_create( &ctrl.tid[ 0 ], &attr, exec_partition, &ctrl ) != 0 ) ) {
-    die( "Failed to create thread" );
-  }
-  threads[ 0 ] = ctrl.tid[ 0 ];
-  if ( ( pthread_create( &ctrl.tid[ 1 ], &attr, exec_partition, &ctrl ) != 0 ) ) {
-    die( "Failed to create thread" );
-  }
-  threads[ 1 ] = ctrl.tid[ 1 ];
-#ifdef TEST
   for ( i = 0; i < THREADS; i++ ) {
-    ctrl.thread_idx = i + 1;
-    if ( ( pthread_create( &threads[ i ], &attr, run_thread, &ctrl ) != 0 ) ) {
+    if ( ( pthread_create( &ctrl.tid[ i ], &attr, run_thread, &ctrl ) != 0 ) ) {
       die( "Failed to create thread" );
     }
+    threads[ i ] = ctrl.tid[ i ];
   }
-#endif
   pthread_attr_destroy( &attr );
 }
 

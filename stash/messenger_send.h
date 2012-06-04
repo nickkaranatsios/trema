@@ -81,6 +81,7 @@ struct job_item {
 };
 
 
+#ifdef BLOOM
 #define DONE 0
 #define END  DONE + 1
 typedef struct thread_ctrl thread_ctrl;
@@ -90,6 +91,7 @@ struct thread_ctrl {
   int job_tag[ 2 ];
   int job_value[ 2 ];
 };
+#endif
 
 
 typedef struct job_ctrl job_ctrl;
@@ -107,11 +109,6 @@ struct job_ctrl {
   */
   int rear;
   /*
-   * incremented by one after a job item has been retrieved from item for 
-   * processing.
-  */
-  int job_start;
-  /*
    * incremented by one when a message has been transmitted completed 
    * processing.
   */
@@ -121,7 +118,9 @@ struct job_ctrl {
    * used for lock-free access
   */
   pthread_t tag_id;
+#ifdef BLOOM
   thread_ctrl thread_ctrl[ THREADS ];
+#endif
   /*
   * an array of job items to handle.
   * The client that is connected to the service uses adds items to this array.

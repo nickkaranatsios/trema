@@ -71,13 +71,34 @@ static pthread_t threads[ THREADS ];
 
 static inline void
 job_lock() {
+#ifdef MUTEX  
   pthread_mutex_lock( &ctrl.mutex );
+#else
+  struct timespec req;
+  int ticket;
+  int tmp;
+
+  ticket = ctrl.next;
+  tmp = ctrl.next;
+  ctrl.next = ( tmp + 1 ) % ( THREADS + 1 );
+  req.tv_sec = 0;
+  req.tv_nsec = 1;
+  while ( ticket != ctrl.granted ) {
+    nanosleep( &req, NULL );
+  }
+#endif
 }
 
 
 static inline void
 job_unlock() {
+#ifdef MUTEX
   pthread_mutex_unlock( &ctrl.mutex );
+#else
+  int tmp = ctrl.granted;
+  tmp = ( tmp + 1 ) % ( THREADS + 1 );
+  ctrl.granted = tmp;
+#endif
 }
 
 
@@ -206,7 +227,7 @@ MCAS( int *shared, int *oldvalue, int *newvalue, size_t len ) {
   job_unlock();
   return 1;
 }
-#endif
+#else
 
 
 /*
@@ -225,6 +246,7 @@ CAS( void *shared, const void *oldvalue, const void *newvalue, size_t len ) {
   job_unlock();
   return ret;
 }
+#endif
 
 
 /*
@@ -414,7 +436,6 @@ add_job( job_ctrl *ctrl, job_item *item ) {
  */
 static void
 exec_partition( job_ctrl *ctrl ) {
-  int ret = 1;
   job_item *item;
   struct timespec req;
   int front;

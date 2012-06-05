@@ -118,6 +118,10 @@ struct job_ctrl {
    * used for lock-free access
   */
   pthread_t tag_id;
+  /*
+  * mutual exclusion ticket-based algorithm
+  */
+  int next, granted;
 #ifdef BLOOM
   thread_ctrl thread_ctrl[ THREADS ];
 #endif

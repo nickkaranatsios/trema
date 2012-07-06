@@ -1,0 +1,6 @@
+[submodule "vendor/yard.i18n"]
+	path = vendor/yard.i18n
+	url = https://github.com/kou/yard
+[submodule "apps"]
+	path = apps
+	url = https://github.com/nickkaranatsios/apps.git

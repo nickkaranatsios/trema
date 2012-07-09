@@ -72,6 +72,12 @@ task :apps => [
   :broadcast_helper,
   :flow_dumper,
   :flow_manager,
+  :load_balance_switch,
+  :packetin_dispatcher,
+  :path_manager,
+  :routing_switch,
+  :show_description,
+  :simple_load_balancer,
   :topology_client,
   :path_resolver_client,
   :authenticator
@@ -373,13 +379,17 @@ task :distclean => "topology_client:distclean"
 
 task "topology_client:clean" do
   sys.cd "#{ Trema.topology }" do
-    sys "make clean" rescue nil
+    sys.rm_f sys[ "*.o", "*.a" ]
+    sys.rm_f [ "mkmf.log", "topology_client.so", "topology_client.map" ]
   end
 end
 
 
 task "topology_client:distclean" do
-  sys.rm_f "#{ Trema.topology }/Makefile"
+  sys.cd "#{ Trema.topology }" do
+    sys.rm_f sys[ "*~" ]
+    sys.rm_f [ "Makefile", "core" ]
+  end
 end
 
 
@@ -403,13 +413,17 @@ task :distclean => "path_resolver_client:distclean"
 
 task "path_resolver_client:clean" do
   sys.cd "#{ Trema.path_resolver_client }" do
-    sys.rm_f "path_resolver_client.so"
+    sys.rm_f sys[ "*.o", "*.a" ]
+    sys.rm_f [ "mkmf.log", "path_resolver_client.so", "path_resolver_client.map" ]
   end
 end
 
 
 task "path_resolver_client:distclean" do
-  sys.rm_f "#{ Trema.path_resolver_client }/Makefile"
+  sys.cd "#{ Trema.path_resolver_client }" do
+    sys.rm_f sys[ "*~" ]
+    sys.rm_f [ "Makefile", "core" ]
+  end
 end
 
 
@@ -433,13 +447,17 @@ task :distclean => "authenticator:distclean"
 
 task "authenticator:clean" do | t |
   sys.cd "#{ Trema.redirectable_routing_switch }" do
-    sys.rm_f "authenticator.so"
+    sys.rm_f sys[ "*authenticator*.o", "*authenticator*.a" ]
+    sys.rm_f [ "mkmf.log", "authenticator.so", "authenticator.map" ]
   end
 end
 
 
 task "authenticator:distclean" do
-  sys.rm_f "#{ Trema.redirectable_routing_switch }/Makefile"
+  sys.cd "#{ Trema.redirectable_routing_switch }" do
+    sys.rm_f sys[ "*~" ]
+    sys.rm_f [ "Makefile", "core" ]
+  end
 end
 
 
@@ -463,13 +481,17 @@ task :distclean => "redirector:distclean"
 
 task "redirector:clean" do
   sys.cd "#{ Trema.redirectable_routing_switch }" do
-    sys "make clean" rescue nil
+    sys.rm_f sys[ "*redirector*.o", "*redirector*.a" ]
+    sys.rm_f [ "mkmf.log", "redirector.so", "redirector.map" ]
   end
 end
 
 
 task "redirector:distclean" do
-  sys.rm_f "#{ Trema.redirectable_routing_switch }/Makefile"
+  sys.cd "#{ Trema.redirectable_routing_switch }" do
+    sys.rm_f sys[ "*~" ]
+    sys.rm_f [ "Makefile", "core" ]
+  end
 end
 
 
@@ -487,6 +509,24 @@ end
 #
 # broadcast_helper
 #
+task :clean => "broadcast_helper:clean"
+task :distclean => "broadcast_helper:distclean"
+
+task "broadcast_helper:clean" do
+  sys.cd "#{ Trema.apps }/broadcast_helper" do
+    sys.rm_f sys[ "*.o", "*.a" ]
+    sys.rm_f [ "broadcast_helper" ]
+  end
+end
+
+task "broadcast_helper:distclean" do
+  sys.cd "#{ Trema.apps }/broadcast_helper" do
+    sys.rm_f sys[ "*~" ]
+    sys.rm_f [ "Makefile", "core" ]
+  end
+end
+  
+  
 desc "Build broadcast helper"
 task :broadcast_helper => "#{ Trema.apps }/broadcast_helper/broadcast_helper"
 broadcast_helper_src = sys[ "#{ Trema.apps }/broadcast_helper/*.c" ]
@@ -503,12 +543,30 @@ end
 #
 # flow_dumper
 #
+task :clean => "flow_dumper:clean"
+task :distclean => "flow_dumper:distclean"
+
+task "flow_dumper:clean" do
+  sys.cd "#{ Trema.apps }/flow_dumper" do
+    sys.rm_f sys[ "*.o", "*.a" ]
+    sys.rm_f [ "flow_dumper" ]
+  end
+end
+
+task "flow_dumper:distclean" do
+  sys.cd "#{ Trema.apps }/flow_dumper" do
+    sys.rm_f sys[ "*~" ]
+    sys.rm_f [ "Makefile", "core" ]
+  end
+end
+   
+
 desc "Build flow dumper"
 task :flow_dumper => "#{ Trema.apps }/flow_dumper/flow_dumper"
 flow_dumper_src = sys[ "#{ Trema.apps }/flow_dumper/*.c" ]
 flow_dumper_objs = flow_dumper_src.ext( 'o' )
 gen Rule, /flow_dumper.*.o$/ => lambda { | fn | fn.sub( /\.o$/, '.c') } do | t |
-  sys "gcc -I#{ Trema.include } -I#{ Trema.openflow } -I#{ Trema.apps}/topology #{ var :CFLAGS } -fPIC -c -o #{ t.name } #{ t.source }"
+  sys "gcc -I#{ Trema.include } -I#{ Trema.openflow } -I#{ Trema.apps }/topology #{ var :CFLAGS } -fPIC -c -o #{ t.name } #{ t.source }"
 end
 file "#{ Trema.apps }/flow_dumper/flow_dumper" => flow_dumper_objs do | t |
   sys "gcc -L#{ Trema.lib } -o #{ t.name } #{ flow_dumper_objs } -ltrema -lsqlite3 -ldl -lrt -lpthread"
@@ -518,12 +576,45 @@ end
 #
 # flow_manager and examples
 #
+task :clean => "flow_manager:clean"
+task :distclean => "flow_manager:distclean"
+
+task "flow_manager:clean" do
+  sys.cd "#{ Trema.apps }/flow_manager" do
+    sys.rm_f sys[ "*.o", "*.a" ]
+    sys.rm_f [ "flow_manager" ]
+    sys.cd "examples" do
+      sys.rm_f sys[ "*.o", "*.a" ]
+      ( 1..5 ).each do | i |
+        sys.rm_f [ "example#{ i }" ]
+      end
+    end
+  end
+end
+
+
+task "flow_manager:distclean" do
+  sys.cd "#{ Trema.apps }/flow_manager" do
+    sys.rm_f sys[ "*~" ]
+    sys.rm_f [ "Makefile", "core" ]
+    sys.cd "examples" do
+      sys.rm_f [ "Makefile", "core" ]
+    end
+  end
+end
+  
+
+
 desc "Build flow manager"
-task :flow_manager => [ "#{ Trema.apps }/flow_manager/flow_manager", "#{ Trema.apps }/flow_manager/libpath.a" ]
+task :flow_manager => [ 
+  "#{ Trema.apps }/flow_manager/flow_manager", 
+  "#{ Trema.apps }/flow_manager/libpath.a",
+  :flow_manager_examples
+]
 flow_manager_src = sys[ "#{ Trema.apps }/flow_manager/flow_manager.c", "#{ Trema.apps }/flow_manager/flow_manager_interface.c" ]
 flow_manager_objs = flow_manager_src.ext( 'o' )
 gen Rule, /flow_manager.*.o$/ => lambda { | fn | fn.sub( /\.o$/, '.c') } do | t |
-  sys "gcc -I#{ Trema.include } -I#{ Trema.openflow } #{ var :CFLAGS } -fPIC -c -o #{ t.name } #{ t.source }"
+  sys "gcc -I#{ Trema.include } -I#{ Trema.openflow } -I#{ Trema.apps }/flow_manager #{ var :CFLAGS } -fPIC -c -o #{ t.name } #{ t.source }"
 end
 file "#{ Trema.apps }/flow_manager/flow_manager" => flow_manager_objs do | t |
   sys "gcc -L#{ Trema.lib } -o #{ t.name } #{ flow_manager_objs } -ltrema -lsqlite3 -ldl -lrt -lpthread"
@@ -534,6 +625,228 @@ libpath_objs = libpath_src.ext( 'o' )
 file "#{ Trema.apps }/flow_manager/libpath.a" => libpath_objs do | t |
   sys "ar -cq #{ t.name } #{ libpath_objs }"
   sys "ranlib #{ t.name }"
+end
+
+
+fm_examples = Array.new( 5 ) { | i | "#{ Trema.apps }/flow_manager/examples/example#{ i + 1 }" }
+task :flow_manager_examples => fm_examples
+
+fm_examples.each do | each |
+  src = sys[ "#{ Trema.apps }/flow_manager/examples/utils.c", "#{ each }.c" ]
+  objs = src.ext( 'o' )
+
+  file "#{ each }" => objs do | t |
+    sys "gcc -L#{ Trema.lib } -L#{ Trema.apps }/flow_manager -o #{ t.name } #{ objs } -ltrema -lsqlite3 -ldl -lrt -lpthread -lpath"
+  end
+end
+
+
+#
+# apps load_balance_switch
+#
+task :clean => "load_balance_switch:clean"
+task :distclean => "load_balance_switch:distclean"
+
+task "load_balance_switch:clean" do
+  sys.cd "#{ Trema.apps }/load_balance_switch" do
+    sys.rm_f sys[ "*.o", "*.a" ]
+    sys.rm_f [ "switch" ]
+  end
+end
+
+task "load_balance_switch:distclean" do
+  sys.cd "#{ Trema.apps }/load_balance_switch" do
+    sys.rm_f sys[ "*~" ]
+    sys.rm_f [ "Makefile", "core" ]
+  end
+end
+
+desc "Build load balance switch"
+task :load_balance_switch => [ "#{ Trema.apps }/load_balance_switch/switch" ]
+
+load_balance_switch_src = sys[ "#{ Trema.apps }/load_balance_switch/*.c" ]
+load_balance_switch_objs = load_balance_switch_src.ext( 'o' )
+gen Rule, /load_balance_switch.*.o$/ => lambda { | fn | fn.sub( /\.o$/, '.c' ) } do | t |
+  sys "gcc -I#{ Trema.include } -I#{ Trema.openflow } -I#{ Trema.topology } -I#{ Trema.apps }/path_manager #{ var :CFLAGS } -fPIC -c -o #{ t.name } #{ t.source }"
+end
+file "#{ Trema.apps }/load_balance_switch/switch" => load_balance_switch_objs do | t |
+  sys "gcc -L#{ Trema.lib } -L#{ Trema.topology } -o #{ t.name } #{ load_balance_switch_objs } -ltrema -lsqlite3 -ldl -lrt -lpthread -ltopology"
+end
+
+
+#
+# apps packetin_dispatcher
+#
+task :clean => "packetin_dispatcher:clean"
+task :distclean => "packetin_dispatcher:distclean"
+
+task "packetin_dispatcher:clean" do
+  sys.cd "#{ Trema.apps }/packetin_dispatcher" do
+    sys.rm_f sys[ "*.o", "*.a" ]
+    sys.rm_f [ "packetin_dispatcher" ]
+  end
+end
+
+task "packetin_dispatcher:distclean" do
+  sys.cd "#{ Trema.apps }/packetin_dispatcher" do
+    sys.rm_f sys[ "*~" ]
+    sys.rm_f [ "Makefile", "core" ]
+  end
+end
+
+desc "Build packet-in dispatcher"
+task :packetin_dispatcher => [ "#{ Trema.apps }/packetin_dispatcher/packetin_dispatcher" ]
+
+packetin_dispatcher_src = sys[ "#{ Trema.apps }/packetin_dispatcher/*.c" ]
+packetin_dispatcher_objs = packetin_dispatcher_src.ext( 'o' )
+gen Rule, /packetin_dispatcher.*.o$/ => lambda { | fn | fn.sub( /\.o$/, '.c' ) } do | t |
+  sys "gcc -I#{ Trema.include } -I#{ Trema.openflow } -I#{ Trema.topology } #{ var :CFLAGS } -fPIC -c -o #{ t.name } #{ t.source }"
+end
+file "#{ Trema.apps }/packetin_dispatcher/packetin_dispatcher" => packetin_dispatcher_objs do | t |
+  sys "gcc -L#{ Trema.lib } -o #{ t.name } #{ packetin_dispatcher_objs } -ltrema -lsqlite3 -ldl -lrt -lpthread"
+end
+
+
+#
+# apps path_manager
+#
+task :clean => "path_manager:clean"
+task :distclean => "path_manager:distclean"
+
+task "path_manager:clean" do
+  sys.cd "#{ Trema.apps }/path_manager" do
+    sys.rm_f sys[ "*.o", "*.a" ]
+    sys.rm_f [ "path_manager" ]
+  end
+end
+
+task "path_manager:distclean" do
+  sys.cd "#{ Trema.apps }/path_manager" do
+    sys.rm_f sys[ "*~" ]
+    sys.rm_f [ "Makefile", "core" ]
+  end
+end
+
+desc "Build path manager"
+task :path_manager => [ "#{ Trema.apps }/path_manager/path_manager" ]
+
+path_manager_src = sys[ "#{ Trema.apps }/path_manager/*.c" ]
+path_manager_objs = path_manager_src.ext( 'o' )
+gen Rule, /path_manager.*.o$/ => lambda { | fn | fn.sub( /\.o$/, '.c' ) } do | t |
+  sys "gcc -I#{ Trema.include } -I#{ Trema.openflow } #{ var :CFLAGS } -fPIC -c -o #{ t.name } #{ t.source }"
+end
+file "#{ Trema.apps }/path_manager/path_manager" => path_manager_objs do | t |
+  sys "gcc -L#{ Trema.lib } -o #{ t.name } #{ path_manager_objs } -ltrema -lsqlite3 -ldl -lrt -lpthread"
+end
+
+
+#
+# apps routing switch
+#
+task :clean => "routing_switch:clean"
+task :distclean => "routing_switch:distclean"
+
+task "routing_switch:clean" do
+  sys.cd "#{ Trema.apps }/routing_switch" do
+    sys.rm_f sys[ "*.o", "*.a" ]
+    sys.rm_f [ "routing_switch" ]
+  end
+end
+
+
+task "routing_switch:distclean" do
+  sys.cd "#{ Trema.apps }/routing_switch" do
+    sys.rm_f sys[ "*~" ]
+    sys.rm_f [ "Makefile", "core" ]
+  end
+end
+
+
+desc "Build routing switch"
+task :routing_switch => [ "#{ Trema.apps }/routing_switch/routing_switch" ]
+
+routing_switch_src = sys[ 
+  "#{ Trema.apps }/routing_switch/fdb.c",
+  "#{ Trema.apps }/routing_switch/libpathresolver.c",
+  "#{ Trema.apps }/routing_switch/port.c",
+  "#{ Trema.apps }/routing_switch/routing_switch.c"
+]
+routing_switch_objs = routing_switch_src.ext( 'o' )
+gen Rule, /routing_switch.*.o$/ => lambda { | fn | fn.sub( /\.o$/, '.c' ) } do | t |
+  sys "gcc -I#{ Trema.include } -I#{ Trema.openflow } -I#{ Trema.topology} #{ var :CFLAGS } -fPIC -c -o #{ t.name } #{ t.source }"
+end
+file "#{ Trema.apps }/routing_switch/routing_switch" => routing_switch_objs do | t |
+  sys "gcc -L#{ Trema.lib } -L#{ Trema.topology } -o #{ t.name } #{ routing_switch_objs } -ltrema -lsqlite3 -ldl -lrt -lpthread -ltopology"
+end
+
+
+#
+# apps show_description
+#
+target_name = target_dir = "show_description"
+task :clean => "#{ target_name }:clean"
+task :distclean => "#{ target_name }:distclean"
+
+task "#{ target_name }:clean" do
+  sys.cd "#{ Trema.apps }/#{ target_dir }" do
+    sys.rm_f sys[ "*.o", "*.a" ]
+    sys.rm_f [ "#{ target_name }" ]
+  end
+end
+
+task "#{ target_name }:distclean" do
+  sys.cd "#{ Trema.apps }/#{ target_dir }" do
+    sys.rm_f sys[ "*~" ]
+    sys.rm_f [ "Makefile", "core" ]
+  end
+end
+
+desc "Build #{ target_name }"
+task :"#{ target_name }" => [ "#{ Trema.apps }/#{ target_dir }/#{ target_name }" ]
+
+target_src = sys[ "#{ Trema.apps }/#{ target_dir }/*.c" ]
+target_objs = target_src.ext( 'o' )
+gen Rule, /#{ target_dir }.*.o$/ => lambda { | fn | fn.sub( /\.o$/, '.c' ) } do | t |
+  sys "gcc -I#{ Trema.include } -I#{ Trema.openflow } #{ var :CFLAGS } -fPIC -c -o #{ t.name } #{ t.source }"
+end
+file "#{ Trema.apps }/#{ target_dir }/#{ target_name }" => target_objs do | t |
+  sys "gcc -L#{ Trema.lib } -o #{ t.name } #{ target_objs } -ltrema -lsqlite3 -ldl -lrt -lpthread"
+end
+
+
+#
+# apps simple_load_balancer
+#
+target_name = target_dir = "simple_load_balancer"
+task :clean => "#{ target_name }:clean"
+task :distclean => "#{ target_name }:distclean"
+
+task "#{ target_name }:clean" do
+  sys.cd "#{ Trema.apps }/#{ target_dir }" do
+    sys.rm_f sys[ "*.o", "*.a" ]
+    sys.rm_f [ "#{ target_name }" ]
+  end
+end
+
+
+task "#{ target_name }:distclean" do
+  sys.cd "#{ Trema.apps }/#{ target_dir }" do
+    sys.rm_f sys[ "*~" ]
+    sys.rm_f [ "Makefile", "core" ]
+  end
+end
+
+desc "Build #{ target_name }"
+task :"#{ target_name }" => [ "#{ Trema.apps }/#{ target_dir }/#{ target_name }" ]
+
+
+target_src = sys[ "#{ Trema.apps }/#{ target_dir }/*.c" ]
+target_objs = target_src.ext( 'o' )
+gen Rule, /#{ target_dir }.*.o$/ => lambda { | fn | fn.sub( /\.o$/, '.c' ) } do | t |
+  sys "gcc -I#{ Trema.include } -I#{ Trema.openflow } #{ var :CFLAGS } -fPIC -c -o #{ t.name } #{ t.source }"
+end
+file "#{ Trema.apps }/#{ target_dir }/#{ target_name }" => target_objs do | t |
+  sys "gcc -L#{ Trema.lib } -o #{ t.name } #{ target_objs } -ltrema -lsqlite3 -ldl -lrt -lpthread"
 end
 
 

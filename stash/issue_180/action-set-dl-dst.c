@@ -112,7 +112,7 @@ action_set_dl_dst_inspect( VALUE self ) {
   VALUE dl_dst_str = rb_funcall( mac_obj, rb_intern( "to_s" ), 0 );
   
   char str[ 64 ];
-  sprintf( str, "#<%s %s=%s>", attr + 1, rb_obj_classname( self ), RSTRING_PTR( dl_dst_str ) );
+  sprintf( str, "#<%s %s=%s>", rb_obj_classname( self ), attr + 1, RSTRING_PTR( dl_dst_str ) );
   return rb_str_new2( str );
 }
 

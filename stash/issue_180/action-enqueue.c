@@ -24,6 +24,11 @@
 
 extern VALUE mTrema;
 VALUE cActionEnqueue;
+static const char *attrs[] = {
+  "@port",
+  "@queue_id"
+};
+
 
 
 /*
@@ -62,10 +67,6 @@ action_enqueue_init( int argc, VALUE *argv, VALUE self ) {
      * since there is no way that I know of to retrieve the keys from the hash we
      * explicitly set them.
      */
-    const char *attrs[] = {
-      "@port",
-      "@queue_id"
-    };
     VALUE fields = rb_ary_new();
     
     rb_ary_push( fields, rb_str_new2( attrs[ 0 ] + 1 ) );
@@ -108,7 +109,7 @@ action_enqueue_init( int argc, VALUE *argv, VALUE self ) {
  */
 static VALUE
 action_enqueue_get_port( VALUE self ) {
-  return rb_iv_get( self, "@port" );
+  return rb_iv_get( self, attrs[ 0 ] );
 }
 
 
@@ -119,7 +120,7 @@ action_enqueue_get_port( VALUE self ) {
  */
 static VALUE
 action_enqueue_get_queue_id( VALUE self ) {
-  return rb_iv_get( self, "@queue_id" );
+  return rb_iv_get( self, attrs[ 1 ] );
 }
 
 

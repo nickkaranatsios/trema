@@ -25,6 +25,7 @@
 
 extern VALUE mTrema;
 VALUE cActionSetDlDst;
+static const char *attr = "@dl_dst";
 
 
 /*
@@ -55,7 +56,6 @@ action_set_dl_dst_init( int argc, VALUE *argv, VALUE self ) {
 
   if ( rb_scan_args( argc, argv, "10", &options ) == 1 ) {
     Check_Type( options, T_HASH );
-    const char *attr = "@dl_dst";
     VALUE fields = rb_ary_new();
     rb_ary_push( fields, rb_str_new2( attr + 1 ) );
     rb_call_super( 1, &fields );
@@ -81,7 +81,7 @@ action_set_dl_dst_init( int argc, VALUE *argv, VALUE self ) {
  */
 static VALUE
 action_get_dl_dst( VALUE self ) {
-  return rb_iv_get( self, "@dl_dst" );
+  return rb_iv_get( self, attr );
 }
 
 
@@ -112,7 +112,7 @@ action_set_dl_dst_inspect( VALUE self ) {
   VALUE dl_dst_str = rb_funcall( mac_obj, rb_intern( "to_s" ), 0 );
   
   char str[ 64 ];
-  sprintf( str, "#<%s dl_dst=%s>", rb_obj_classname( self ), RSTRING_PTR( dl_dst_str ) );
+  sprintf( str, "#<%s %s=%s>", attr + 1, rb_obj_classname( self ), RSTRING_PTR( dl_dst_str ) );
   return rb_str_new2( str );
 }
 

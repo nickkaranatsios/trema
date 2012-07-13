@@ -24,6 +24,11 @@
 
 extern VALUE mTrema;
 VALUE cActionOutput;
+static const char *attrs[] = {
+  "@port",
+  "@max_len"
+};
+
 
 
 /*
@@ -59,10 +64,6 @@ VALUE cActionOutput;
  */
 static VALUE
 action_output_init( VALUE self, VALUE options ) {
-  const char *attrs[] = {
-    "@port",
-    "@max_len"
-  };
   VALUE fields = rb_ary_new();
 
   rb_ary_push( fields, rb_str_new2( attrs[ 0 ] + 1 ) );
@@ -111,7 +112,7 @@ action_output_init( VALUE self, VALUE options ) {
  */
 static VALUE
 action_output_port( VALUE self ) {
-  return rb_iv_get( self, "@port" );
+  return rb_iv_get( self, attrs[ 0 ] );
 }
 
 
@@ -123,7 +124,7 @@ action_output_port( VALUE self ) {
  */
 static VALUE
 action_output_max_len( VALUE self ) {
-  return rb_iv_get( self, "@max_len" );
+  return rb_iv_get( self, attrs[ 1 ] );
 }
 
 

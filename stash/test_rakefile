@@ -30,7 +30,6 @@ require "trema/path"
 require "trema/dsl/parser"
 
 
-puts self.inspect
 ################################################################################
 # Main tasks
 ################################################################################
@@ -354,7 +353,7 @@ trema_directory packetin_filter_objects_dir
 packetin_filter_objs = []
 packetin_filter_src.each do | each |
   if each =~ /src\/packetin_filter\/(.*)\.c$/
-    packetin_filter_objs << "#{ packetin_filter_objects_dir }/#{ $1 }\.o"
+    packetin_filter_objs << "#{ packetin_filter_objects_dir }/#{ $1 }.o"
   end
 end
 
@@ -403,7 +402,7 @@ trema_directory tremashark_objects_dir
 tremashark_objs = []
 tremashark_src.each do | each |
   if each =~ /src\/tremashark\/(.*)\.c$/
-    tremashark_objs << "#{ tremashark_objects_dir }/#{ $1 }\.o"
+    tremashark_objs << "#{ tremashark_objects_dir }/#{ $1 }.o"
   end
 end
 
@@ -1014,6 +1013,38 @@ end
 
 task "vendor:openflow:distclean" do
   rm_rf Trema.vendor_openflow
+end
+
+
+#
+# Use the Stanford openflow reference software to compile and copy the wireshark
+# plugin to enable viewing of openflow messages.
+# The plugin would be compiled and copied to your home directory
+# (.wireshark/plugins) if it is found, otherwise it is left for you to copy
+# from openflow.git/utilities/wireshark_dissectors/openflow directory
+# Trema.vendor_openflow_git => vendor/openflow.git
+# Task openflow_wireshark_plugin
+#
+desc "Build openflow wireshark plugin"
+task :openflow_wireshark_plugin => Trema.vendor_openflow_git
+file Trema.vendor_openflow_git do | t |
+  sh "tar -xzf #{ t.name }.tar.gz -C #{ Trema.vendor }"
+  subpath = "utilities/wireshark_dissectors/openflow"
+  cd "#{ Trema.vendor_openflow_git }/#{ subpath }" do
+    sh "make"
+    plugin_path = "#{ File.expand_path(" ~ ") }/.wireshark/plugins"
+    cp "packet-openflow.so", plugin_path if File.directory?( plugin_path )
+  end
+end
+
+
+task :clean => "openflow_wireshark_plugin:clean"
+task :distclean => "openflow_wireshark_plugin:distclean"
+
+
+task "openflow_wireshark_plugin:clean" => "openflow_wireshark_plugin:distclean"
+task "openflow_wireshark_plugin:distclean" do
+  rm_rf Trema.vendor_openflow_git
 end
 
 

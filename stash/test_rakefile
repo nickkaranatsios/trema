@@ -114,7 +114,7 @@ def cbench_command
 end
 
 
-def directory dir
+def trema_directory dir
   mkdir_p dir unless File.exists? dir
 end
 
@@ -141,9 +141,8 @@ CFLAGS = [
 
 
 # The directory Trema.lib didn't work that's why the following
-directory Trema.lib
-directory "#{ Trema.home }/objects/unittests"
-
+trema_directory Trema.lib
+trema_directory "#{ Trema.home }/objects/unittests"
 
 libtrema = File.join( Trema.lib, "libtrema.a" )
 libtrema_gcov = File.join( "#{ Trema.home }/objects/unittests", "libtrema.a" )
@@ -181,7 +180,7 @@ end
 
 
 task :clean => "libtrema:clean"
-task :distclean => "libtrema::distclean"
+task :distclean => "libtrema:distclean"
 
 
 task "libtrema:clean" do
@@ -243,7 +242,7 @@ rule /#{ switch_manager_objects_dir }\/.*.o$/ => lambda { | fn | fn.sub( /#{ swi
 end
 
 
-directory switch_manager_objects_dir
+trema_directory switch_manager_objects_dir
 switch_manager_objects = [
   "dpid_table.o",
   "switch_manager.o",
@@ -323,7 +322,7 @@ packetin_filter_objects_dir = objects( "packetin_filter" )
 
 
 packetin_filter_src = FileList[ "src/packetin_filter/*.c" ]
-directory packetin_filter_objects_dir
+trema_directory packetin_filter_objects_dir
 
 
 packetin_filter_objs = []
@@ -356,7 +355,10 @@ end
 
 
 task "packetin_filter:distclean" do
-  rm_f Trema::Executables.packetin_filter
+  begin
+    rm_f Trema::Executables.packetin_filter
+  rescue
+  end
 end
 
 
@@ -366,7 +368,7 @@ task :tremashark => Trema::Executables.tremashark
 tremashark_objects_dir = objects( "tremashark" )
 
 tremashark_src = FileList[ "src/tremashark/*.c" ]
-directory tremashark_objects_dir
+trema_directory tremashark_objects_dir
 
 
 tremashark_objs = []
@@ -524,7 +526,7 @@ openflow_messages = [
 openflow_message_source_dir = "src/examples/openflow_message"
 openflow_message_objects_dir = objects( "examples/openflow_message" )
 
-directory openflow_message_objects_dir
+trema_directory openflow_message_objects_dir
 rule /#{ openflow_message_objects_dir }\/.*.o$/ => lambda { | fn | fn.sub( /#{ openflow_message_objects_dir }\/(.*).o$/ ) { | str | "#{ openflow_message_source_dir }/#{ $1 }.c" } } do | t |
   sh "gcc -I#{ Trema.include } -I#{ Trema.openflow } #{ CFLAGS } -c -o #{ t.name } #{ t.source }"
 end
@@ -552,8 +554,11 @@ end
 
 
 task "examples:openflow_message:distclean" do
-  cd openflow_message_objects_dir do
-    rm_f openflow_messages
+  begin
+    cd openflow_message_objects_dir do
+      rm_f openflow_messages
+    end
+  rescue
   end
 end
 
@@ -571,7 +576,7 @@ packetin_filter_config_source_dir = "src/examples/packetin_filter_config"
 packetin_filter_config_objects_dir = objects( "examples/packetin_filter_config" )
 
 
-directory packetin_filter_config_objects_dir
+trema_directory packetin_filter_config_objects_dir
 rule /#{ packetin_filter_config_objects_dir }\/.*.o$/ => lambda { | fn | fn.sub( /#{ packetin_filter_config_objects_dir }\/(.*).o$/ ) { | str | "#{ packetin_filter_config_source_dir }/#{ $1 }.c" } } do | t |
   sh "gcc -I#{ Trema.include } -I#{ Trema.openflow } #{ CFLAGS } -c -o #{ t.name } #{ t.source }"
 end
@@ -600,8 +605,11 @@ end
 
 
 task "examples:packetin_filter_config:distclean" do
-  cd packetin_filter_config_objects_dir do
-    rm_f packetin_filter_config
+  begin
+    cd packetin_filter_config_objects_dir do
+      rm_f packetin_filter_config
+    end
+  rescue
   end
 end
 
@@ -625,7 +633,7 @@ standalone_examples.each do | each |
   target = objects( "examples/#{ each }/#{ each }" )
 
 
-  directory objects_dir
+  trema_directory objects_dir
   rule /#{ objects_dir }\/.*.o$/ => lambda { | fn | fn.sub( /#{ objects_dir }\/(.*).o$/ ) { | str | "src/examples/#{ each }/#{ $1 }.c" } } do | t |
     sh "gcc -I#{ Trema.include } -I#{ Trema.openflow } #{ CFLAGS } -c -o #{ t.name } #{ t.source }"
   end
@@ -684,9 +692,12 @@ task :distclean => "vendor:oflops:distclean"
 
 
 task "vendor:oflops:clean" do
-  rm_f cbench_command
-  cd Trema.vendor_oflops do
-    sh "make clean"
+  begin
+    rm_f cbench_command
+    cd Trema.vendor_oflops do
+      sh "make clean"
+    end
+  rescue
   end
 end
 
@@ -714,8 +725,11 @@ task :distclean => "vendor:openvswitch:distclean"
 
 task "vendor:openvswitch:clean" do
   rm_f Trema::Executables.ovs_openflowd
-  cd Trema.vendor_openvswitch do
-    sh "make clean"
+  begin
+    cd Trema.vendor_openvswitch do
+      sh "make clean"
+    end
+  rescue
   end
 end
 
@@ -739,7 +753,7 @@ file Trema::Executables.phost do
   cd phost_src do
     sh "make"
   end
-  directory File.dirname( Trema::Executables.phost )
+  trema_directory File.dirname( Trema::Executables.phost )
   install File.join( phost_src, "phost" ), Trema::Executables.phost, :mode => 0755
 end
 
@@ -748,7 +762,7 @@ file Trema::Executables.cli do
   cd phost_src do
     sh "make"
   end
-  directory File.dirname( Trema::Executables.cli )
+  trema_directory File.dirname( Trema::Executables.cli )
   install File.join( phost_src, "cli" ), Trema::Executables.cli, :mode => 0755
 end
 
@@ -924,7 +938,7 @@ task :distclean => [
 #
 
 
-directory Trema.objects
+trema_directory Trema.objects
 
 
 task "vendor:openflow" => Trema.openflow_h
@@ -973,8 +987,8 @@ def test_object_files test
 end
 
 
-directory "unittests/objects"
-directory "objects/unittests"
+trema_directory "unittests/objects"
+trema_directory "objects/unittests"
 
 
 rule /unittests\/objects\/.*.o$/ => lambda { | fn | fn.sub( /unittests\/objects\/(.*).o$/ ) { | str | "unittests/lib/#{ $1 }.c" } } do | t |
@@ -1036,7 +1050,7 @@ end
 
 
 desc "Run unittests"
-task :unittests => [ :build_old_unittests, :build_unittests ] do
+task :unittests => [ "vendor:openflow", :build_old_unittests, :build_unittests ] do
   ( FileList[ "unittests/objects/*_test" ] + tests ).each do | each |
     puts "Running #{ each }..."
     sh each

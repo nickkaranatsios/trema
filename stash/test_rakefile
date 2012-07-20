@@ -30,6 +30,7 @@ require "trema/path"
 require "trema/dsl/parser"
 
 
+puts self.inspect
 ################################################################################
 # Main tasks
 ################################################################################
@@ -140,7 +141,10 @@ CFLAGS = [
 ].join( ' ' )
 
 
+################################################################################
+# Tasks libtrema and coverage:libtrema
 # The directory Trema.lib didn't work that's why the following
+################################################################################
 trema_directory Trema.lib
 trema_directory "#{ Trema.home }/objects/unittests"
 
@@ -151,8 +155,8 @@ libtrema_src = FileList[ "#{ Trema.include }/*.c" ]
 libtrema_objs = libtrema_gcov_objs = []
 libtrema_src.each do | fn |
   if fn =~ /#{ Trema.include }\/(.*)\.c$/
-    libtrema_objs << "#{ Trema.lib }\/#{ $1 }\.o"
-    libtrema_gcov_objs << "#{ Trema.home }\/objects\/unittests\/#{ $1 }\.o"
+    libtrema_objs << "#{ Trema.lib }/#{ $1 }.o"
+    libtrema_gcov_objs << "#{ Trema.home }/objects/unittests/#{ $1 }.o"
   end
 end
 # one line substitution did not work that's why I used the above code
@@ -203,6 +207,19 @@ file libtrema_gcov => libtrema_gcov_objs do | t |
 end
 
 
+task :clean => "coverage:libtrema:clean"
+task :distclean => "coverage:libtrema:distclean"
+
+
+task "coverage:libtrema:clean" => "libtrema:clean"
+task "coverage:libtrema:distclean" do
+  rm_f libtrema_gcov
+end
+
+
+################################################################################
+# Task rubylib
+################################################################################
 desc "Build ruby library."
 task :rubylib => "ruby/trema.so"
 file "ruby/trema.so" => FileList[ "ruby/trema/*.c", "ruby/trema/*.h", libtrema ] do
@@ -230,6 +247,9 @@ task "rubylib:distclean" do
 end
 
 
+################################################################################
+# Task switch_manager
+################################################################################
 desc "Build switch manager"
 task :switch_manager => Trema::Executables.switch_manager
 switch_manager_objects_dir = objects( "switch_manager" )
@@ -273,6 +293,9 @@ task "switch_manager:distclean" do
 end
 
 
+################################################################################
+# Task switch
+################################################################################
 desc "Build switch"
 task :switch => Trema::Executables.switch
 
@@ -315,6 +338,9 @@ task "switch:distclean" do
 end
 
 
+################################################################################
+# Task packetin_filter
+################################################################################
 desc "Build packetin filter."
 # Trema::Executables.packetin_filter => objects/packetin_filter/packetin_filter
 task :packetin_filter => Trema::Executables.packetin_filter
@@ -362,6 +388,9 @@ task "packetin_filter:distclean" do
 end
 
 
+################################################################################
+# Task tremashark
+################################################################################
 desc "Build tremashark."
 # Trema::Executables => objects/tremashark/tremashark
 task :tremashark => Trema::Executables.tremashark
@@ -414,6 +443,9 @@ task "tremashark:distclean" do
 end
 
 
+################################################################################
+# Task packet_capture
+################################################################################
 desc "Build packet_capture."
 # Trema::Executables.packet_capture => objects/tremashark/packet_capture
 task :packet_capture => Trema::Executables.packet_capture
@@ -448,6 +480,9 @@ task "packet_capture:distclean" do
 end
 
 
+################################################################################
+# Task syslog_relay 
+################################################################################
 desc "Build syslog_relay."
 # Trema::Executables.syslog_relay => objects/tremashark/syslog_relay
 task :syslog_relay => Trema::Executables.syslog_relay
@@ -481,6 +516,9 @@ task "syslog_relay:distclean" do
 end
 
 
+################################################################################
+# Task stdin_relay
+################################################################################
 desc "Build stdin_relay."
 # Trema::Executables.stdin_relay => objects/tremashark/stdin_relay
 task :stdin_relay => Trema::Executables.stdin_relay
@@ -514,6 +552,9 @@ task "stdin_relay:distclean" do
 end
 
 
+################################################################################
+# Task examples:openflow_message
+################################################################################
 openflow_messages = [
   "echo_reply",
   "echo_request",
@@ -563,6 +604,9 @@ task "examples:openflow_message:distclean" do
 end
 
 
+################################################################################
+# Task examples:packetin_filter_config
+################################################################################
 packetin_filter_config = [
   "add_filter",
   "delete_filter",
@@ -614,6 +658,9 @@ task "examples:packetin_filter_config:distclean" do
 end
 
 
+################################################################################
+# Task examples:standalone_examples
+################################################################################
 standalone_examples = [
   "cbench_switch",
   "dumper",
@@ -677,6 +724,9 @@ task "examples:distclean" => [ "examples:openflow_message:distclean", "examples:
 end
 
 
+################################################################################
+# Task vendor:oflops 
+################################################################################
 task "vendor:oflops" => cbench_command
 file cbench_command => Trema.openflow_h do
   sh "tar -xzf #{ Trema.vendor_oflops }.tar.gz -C #{ Trema.vendor }"
@@ -708,6 +758,9 @@ task "vendor:oflops:distclean" do
 end
 
 
+################################################################################
+# Task vendor:openvswitch
+################################################################################
 task "vendor:openvswitch" => Trema::Executables.ovs_openflowd
 file Trema::Executables.ovs_openflowd do
   sh "tar -xzf #{ Trema.vendor_openvswitch }.tar.gz -C #{ Trema.vendor }"
@@ -739,6 +792,9 @@ task "vendor:openvswitch:distclean" do
 end
 
 
+################################################################################
+# Task vendor:phost
+################################################################################
 # Trema::Executables.phost => "objects/phost/phost" 
 # Trema::Executables.cli => "objects/phost/cli"
 task "vendor:phost" => [ Trema::Executables.phost, Trema::Executables.cli ]
@@ -784,6 +840,9 @@ task "vendor:phost:distclean" do
 end
 
 
+################################################################################
+# Task vendor:cmockery
+################################################################################
 # Trema.libcmockery_a => objects/cmockery/lib/libcmockery.a
 task "vendor:cmockery" => Trema.libcmockery_a
 file Trema.libcmockery_a do
@@ -815,6 +874,9 @@ end
 ################################################################################
 
 
+################################################################################
+# Task cbench defaults to cbench:c, cbench:ruby, cbench:profile
+################################################################################
 def cbench_command
   File.join Trema.objects, "oflops/bin/cbench"
 end
@@ -941,6 +1003,9 @@ task :distclean => [
 trema_directory Trema.objects
 
 
+################################################################################
+# Task vendor:openflow
+################################################################################
 task "vendor:openflow" => Trema.openflow_h
 file Trema.openflow_h => Trema.objects do
   sh "tar -xzf #{ Trema.vendor_openflow }.tar.gz -C #{ Trema.vendor }"
@@ -953,10 +1018,8 @@ end
 
 
 ################################################################################
-# Unit tests.
+# Task unittests
 ################################################################################
-
-
 def libtrema_unit_tests
   {
     :byteorder_test => [ :log, :utility, :wrapper, :trema_wrapper ],
@@ -1058,9 +1121,9 @@ task :unittests => [ "vendor:openflow", :build_old_unittests, :build_unittests ]
 end
 
 
-#
-# apps topology
-#
+################################################################################
+# Task apps:topology_client
+################################################################################
 task :clean => "topology_client:clean"
 task :distclean => "topology_client:distclean"
 
@@ -1092,9 +1155,9 @@ file "#{ Trema.topology }/topology_client.so" do
 end
 
 
-#
-# apps path_resolver_client
-#
+################################################################################
+# Task apps:path_resolver_client
+################################################################################
 task :clean => "path_resolver_client:clean"
 task :distclean => "path_resolver_client:distclean"
 
@@ -1126,9 +1189,9 @@ file "#{ Trema.path_resolver_client }/path_resolver_client.so" do
 end
 
 
-#
-# apps authenticator
-#
+################################################################################
+# Task apps:authenticator
+################################################################################
 task :clean => "authenticator:clean"
 task :distclean => "authenticator:distclean"
 
@@ -1160,9 +1223,9 @@ file "#{ Trema.redirectable_routing_switch }/authenticator.so" do
 end
 
 
-#
-# apps redirector
-#
+################################################################################
+# Task apps:redirector
+################################################################################
 task :clean => "redirector:clean"
 task :distclean => "redirector:distclean"
 
@@ -1183,7 +1246,6 @@ task "redirector:distclean" do
 end
 
 
-################################################################################
 desc "Build redirector"
 task :redirector => [ "#{ Trema.redirectable_routing_switch }/redirector.so" ]
 file "#{ Trema.redirectable_routing_switch }/redirector.so" do
@@ -1194,9 +1256,9 @@ file "#{ Trema.redirectable_routing_switch }/redirector.so" do
 end
 
 
-#
-# broadcast_helper
-#
+################################################################################
+# Task apps:broadcast_helper
+################################################################################
 task :clean => "broadcast_helper:clean"
 task :distclean => "broadcast_helper:distclean"
 
@@ -1230,9 +1292,9 @@ file "#{ Trema.apps }/broadcast_helper/broadcast_helper" => broadcast_helper_obj
 end
 
 
-#
-# flow_dumper
-#
+################################################################################
+# Task apps:flow_dumper
+################################################################################
 task :clean => "flow_dumper:clean"
 task :distclean => "flow_dumper:distclean"
 
@@ -1265,9 +1327,9 @@ file "#{ Trema.apps }/flow_dumper/flow_dumper" => flow_dumper_objs do | t |
 end
 
 
-#
-# flow_manager and examples
-#
+################################################################################
+# Task apps:flow_manager
+################################################################################
 task :clean => "flow_manager:clean"
 task :distclean => "flow_manager:distclean"
 
@@ -1333,9 +1395,9 @@ fm_examples.each do | each |
 end
 
 
-#
-# apps load_balance_switch
-#
+################################################################################
+# Task apps:load_balance_switch
+################################################################################
 task :clean => "load_balance_switch:clean"
 task :distclean => "load_balance_switch:distclean"
 
@@ -1369,9 +1431,9 @@ file "#{ Trema.apps }/load_balance_switch/switch" => load_balance_switch_objs do
 end
 
 
-#
-# apps packetin_dispatcher
-#
+################################################################################
+# Task apps:packetin_dispatcher
+################################################################################
 task :clean => "packetin_dispatcher:clean"
 task :distclean => "packetin_dispatcher:distclean"
 
@@ -1405,9 +1467,9 @@ file "#{ Trema.apps }/packetin_dispatcher/packetin_dispatcher" => packetin_dispa
 end
 
 
-#
-# apps path_manager
-#
+################################################################################
+# Task apps:path_manager
+################################################################################
 task :clean => "path_manager:clean"
 task :distclean => "path_manager:distclean"
 
@@ -1440,9 +1502,9 @@ file "#{ Trema.apps }/path_manager/path_manager" => path_manager_objs do | t |
 end
 
 
-#
-# apps routing switch
-#
+################################################################################
+# Task apps:routing_switch
+################################################################################
 task :clean => "routing_switch:clean"
 task :distclean => "routing_switch:distclean"
 
@@ -1516,11 +1578,9 @@ targets.each do | target |
 end
 
 
-#
-# apps sliceable_switch
-#
-
-
+################################################################################
+# Task apps:sliceable_switch
+################################################################################
 task :clean => "sliceable_switch:clean"
 task :distclean => "sliceable_switch:distclean"
 
@@ -1562,9 +1622,9 @@ file "#{ Trema.apps }/sliceable_switch/sliceable_switch" => sliceable_switch_obj
 end
 
 
-#
-# apps topology
-#
+################################################################################
+# Task apps:topology
+################################################################################
 desc "Build topology"
 task :topology => [ 
   "#{ Trema.apps }/topology/libtopology.a",
@@ -1631,8 +1691,6 @@ end
 ################################################################################
 # TODO, FIXME etc.
 ################################################################################
-
-
 desc "Print list of notes."
 task :notes do
   keywords = [ "TODO", "FIXME", "XXX" ]

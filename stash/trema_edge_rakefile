@@ -30,6 +30,11 @@ require "trema/executables"
 require "trema/path"
 require "trema/dsl/parser"
 
+ENV[ 'DEBUG' ] = "true"
+desc "Do not output any build messages"
+task :silent do
+  ENV[ 'DEBUG' ] = nil
+end
 
 CFLAGS = [ 
     '-g',
@@ -445,9 +450,9 @@ switch_tests.keys.each do | each |
     builder.library_dependencies = [ 'ofdp', 'trema', 'rt', 'cmockery', 'sqlite3', 'dl', 'pthread' ]
     builder.linker_options = '--coverage --static'
     builder.target_prerequisites = [
+      'vendor:cmockery',
       "#{ File.expand_path 'objects/unittests/switch/ofdp/lib/libofdp.a' }",
-      "#{ File.expand_path 'objects/unittests/libtrema.a' }",
-      'vendor:cmockery'
+      "#{ File.expand_path 'objects/unittests/libtrema.a' }"
     ]
   end
 end

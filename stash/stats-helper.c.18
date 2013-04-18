@@ -714,6 +714,9 @@ _request_send_flow_stats( const struct ofp_flow_stats_request *req, const uint32
     xfree( stats );
     delete_oxm_matches( oxm_matches );
   }
+  else {
+    SEND_STATS( flow, transaction_id, 0, NULL );
+  }
   delete_list( list );
 }
 void ( *request_send_flow_stats )( const struct ofp_flow_stats_request *req, uint32_t transaction_id ) = _request_send_flow_stats;
@@ -725,18 +728,16 @@ _request_aggregate_stats( const struct ofp_aggregate_stats_request *req ) {
 
   flow_stats *stats = retrieve_flow_stats( &nr_stats, req->table_id, req->out_port, req->out_group, req->cookie,
                                            req->cookie_mask, &req->match );
-  if ( stats && nr_stats > 0 ) {
-    struct ofp_aggregate_stats_reply *as_reply = xmalloc( sizeof( *as_reply ) );
 
-    memset( as_reply, 0, sizeof( *as_reply ) );
+  struct ofp_aggregate_stats_reply *as_reply = xcalloc( 1, sizeof( *as_reply ) );
+  if ( stats && nr_stats > 0 ) {
     for( uint32_t i = 0; i < nr_stats; i++ ) {
       sum_ofp_aggregate_stats( as_reply, &stats[ i ] );
     }
     as_reply->flow_count = nr_stats;
     xfree( stats );
-    return as_reply;
   }
-  return NULL;
+  return as_reply;
 }
 struct ofp_aggregate_stats_reply * ( *request_aggregate_stats )( const struct ofp_aggregate_stats_request *req ) = _request_aggregate_stats;
 
@@ -778,7 +779,8 @@ _request_send_port_stats( const struct ofp_port_stats_request *req, const uint32
   list_element *list = new_list();
   uint32_t nr_port_stats = 0;
 
-  if ( get_port_stats( req->port_no, &stats, &nr_port_stats ) == OFDPE_SUCCESS ) {
+  OFDPE ret;
+  if ( ( ret = get_port_stats( req->port_no, &stats, &nr_port_stats ) ) == OFDPE_SUCCESS ) {
     uint16_t flags = OFPMPF_REPLY_MORE;
     for ( uint32_t i = 0; i < nr_port_stats; i++ ) {
       append_to_tail( &list, ( void * ) &stats[ i ] );
@@ -789,6 +791,12 @@ _request_send_port_stats( const struct ofp_port_stats_request *req, const uint32
       delete_element( &list, ( void * ) &stats[ i ] );
     }
     xfree( stats );
+  }
+  else {
+    uint16_t type = OFPET_BAD_REQUEST;
+    uint16_t code = OFPBRC_BAD_PORT;
+    get_ofp_error( ret, &type, &code );
+    send_error_message( transaction_id, type, code );
   }
   delete_list( list );
 }
@@ -821,8 +829,9 @@ static void
 _request_send_group_stats( const struct ofp_group_stats_request *req, const uint32_t transaction_id ) {
   group_stats *stats = NULL;
   uint32_t nr_group_stats = 0;
-
-  if ( get_group_stats( req->group_id, &stats, &nr_group_stats ) == OFDPE_SUCCESS ) {
+  
+  OFDPE ret;
+  if (  ( ret = get_group_stats( req->group_id, &stats, &nr_group_stats ) ) == OFDPE_SUCCESS ) {
     list_element *list = NULL;
     if ( nr_group_stats ) {
       list = new_list();
@@ -844,18 +853,25 @@ _request_send_group_stats( const struct ofp_group_stats_request *req, const uint
       delete_list( list );
     }
   }
+  else {
+    uint16_t type = OFPET_BAD_REQUEST;
+    uint16_t code = OFPBRC_BAD_MULTIPART;
+    get_ofp_error( ret, &type, &code );
+    send_error_message( transaction_id, type, code );
+  }
 }
 void ( *request_send_group_stats )( const struct ofp_group_stats_request *req, const uint32_t transaction_id ) = _request_send_group_stats;
 
 
 static list_element *
-_request_group_desc_stats( void ) {
+_request_group_desc_stats( const uint32_t transaction_id ) {
   group_desc_stats *stats = NULL;
   list_element *list = new_list();
   uint16_t group_desc_stats_nr = 0;
   uint16_t length = 0;
 
-  if ( get_group_desc_stats( &stats, &group_desc_stats_nr ) == OFDPE_SUCCESS ) {
+  OFDPE ret;
+  if ( ( ret = get_group_desc_stats( &stats, &group_desc_stats_nr ) ) == OFDPE_SUCCESS ) {
     for ( uint16_t i = 0; i < group_desc_stats_nr; i++ ) {
       length = bucket_list_length( &stats[ i ].buckets );
       length = ( uint16_t ) ( length + sizeof( struct ofp_group_desc_stats ) );
@@ -870,9 +886,16 @@ _request_group_desc_stats( void ) {
       append_to_tail( &list, ( void * ) stat );
     }
   }
+  else {
+    uint16_t type = OFPET_BAD_REQUEST;
+    uint16_t code = OFPBRC_BAD_MULTIPART;
+    get_ofp_error( ret, &type, &code );
+    send_error_message( transaction_id, type, code );
+  }
+
   return list;
 }
-list_element * ( *request_group_desc_stats )( void ) = _request_group_desc_stats;
+list_element * ( *request_group_desc_stats )( const uint32_t transaction_id ) = _request_group_desc_stats;
 
 
 static void
@@ -881,8 +904,9 @@ _request_send_table_features_stats( uint32_t transaction_id ) {
   list_element *list = new_list();
 
   uint16_t flags = OFPMPF_REPLY_MORE;
+  OFDPE ret;
   for ( uint8_t i = 0; i <= FLOW_TABLE_ID_MAX; i++ ) {
-    if ( get_flow_table_features( i, &table_features ) == OFDPE_SUCCESS ) {
+    if ( ( ret = get_flow_table_features( i, &table_features ) ) == OFDPE_SUCCESS ) {
       struct ofp_table_features *table_features_reply = assign_table_features( &table_features );
       append_to_tail( &list, ( void * ) table_features_reply );
       if ( i == FLOW_TABLE_ID_MAX ) {
@@ -893,10 +917,10 @@ _request_send_table_features_stats( uint32_t transaction_id ) {
       xfree( table_features_reply );
     }
     else {
-      delete_list( list );
-      SEND_STATS( table_features, transaction_id, 0, NULL );
-      send_error_message( transaction_id, OFPET_BAD_REQUEST, OFPBRC_BAD_TABLE_ID );
-      return;
+      uint16_t type = OFPET_BAD_REQUEST;
+      uint16_t code = OFPBRC_BAD_TABLE_ID;
+      get_ofp_error( ret, &type, &code );
+      send_error_message( transaction_id, type, code );
     }
   }
   delete_list( list );
@@ -937,6 +961,13 @@ _request_group_features( void ) {
     reply->actions[ 3 ] = features.actions[ 3 ] & UINT32_MAX;
     return reply;
   }
+  else {
+    uint16_t type = OFPET_BAD_REQUEST;
+    uint16_t code = OFPBRC_BAD_MULTIPART;
+    get_ofp_error( ret, &type, &code );
+    send_error_message( transaction_id, type, code );
+  }
+
   return NULL;
 }
 struct ofp_group_features * ( *request_group_features )( void ) = _request_group_features;

@@ -734,7 +734,7 @@ _handle_flow_stats( const struct ofp_flow_stats_request *req, const uint32_t tra
 
   if ( stats != NULL && nr_stats > 0 ) {
     uint16_t flags = OFPMPF_REPLY_MORE;
-    char **alloc_ptrs = ( char ** )xmalloc( nr_stats * sizeof( char * ) );
+    void **alloc_ptrs = ( void ** )xmalloc( nr_stats * sizeof( void * ) );
 
     for ( uint32_t i = 0; i < nr_stats; i++ ) {
       oxm_matches *oxm_matches = create_oxm_matches();
@@ -757,7 +757,7 @@ _handle_flow_stats( const struct ofp_flow_stats_request *req, const uint32_t tra
       // finally update the length construct_ofp_match performs htons on the length and type
       fs->length = length;
       append_to_tail( &list, ( void * ) fs );
-      alloc_ptrs[ i ] = ( char * ) fs;
+      alloc_ptrs[ i ] = ( void * ) fs;
       if ( i == nr_stats - 1 ) {
         flags &= ( uint16_t ) ~OFPMPF_REPLY_MORE;
       }
@@ -765,10 +765,11 @@ _handle_flow_stats( const struct ofp_flow_stats_request *req, const uint32_t tra
     }
     SEND_STATS( flow, transaction_id, flags, list );
     for ( uint32_t i = 0; i < nr_stats; i++ ) {
-      delete_element( &list, ( void * ) alloc_ptrs[ i ] );
+      delete_element( &list, alloc_ptrs[ i ] );
       xfree( alloc_ptrs[ i ] );
     }
     xfree( stats );
+    xfree( alloc_ptrs );
   }
   else {
     SEND_STATS( flow, transaction_id, 0, NULL );
@@ -825,15 +826,13 @@ _handle_table_stats( const uint32_t transaction_id, const uint32_t capabilities 
   get_table_stats( &stats, &nr_tables );
 
   table_stats *stat = stats;
-  uint16_t flags = OFPMPF_REPLY_MORE;
   for ( uint8_t i = 0; i < nr_tables; i++ ) {
     append_to_tail( &list, ( void * ) stat );
-    if ( i == nr_tables - 1 ) {
-      flags &= ( uint16_t ) ~OFPMPF_REPLY_MORE;
-    }
-    SEND_STATS( table, transaction_id, flags, list );
-    delete_element( &list, ( void * ) stat );
     stat++;
+  }
+  SEND_STATS( table, transaction_id, 0, list );
+  for ( uint8_t i = 0; i < nr_tables; i++ ) {
+    delete_element( &list, ( void * ) &stats[ i ] );
   }
   delete_list( list );
   if ( stats != NULL ) {
@@ -916,18 +915,22 @@ _handle_group_stats( const struct ofp_group_stats_request *req, const uint32_t t
     if ( nr_group_stats ) {
       list = new_list();
     }
-    uint16_t flags = OFPMPF_REPLY_MORE;
+    void **alloc_ptrs = ( void ** )xmalloc( nr_group_stats * sizeof( void * ) );
     for ( uint32_t i = 0; i < nr_group_stats; i++ ) {
       buffer *buf = assign_group_stats( &stats[ i ] );
       struct ofp_group_stats *group_stats = buf->data;
       append_to_tail( &list, ( void * ) group_stats );
-      if ( i == nr_group_stats - 1 ) {
-        flags &= ( uint16_t ) ~OFPMPF_REPLY_MORE;
-      }
-      SEND_STATS( group, transaction_id, flags, list );
+      alloc_ptrs[ i ] = buf;
+    }
+
+    SEND_STATS( group, transaction_id, 0, list );
+    for ( uint32_t i = 0; i < nr_group_stats; i++ ) {
+      buffer *buf = alloc_ptrs[ i ];
+      struct ofp_group_stats *group_stats = buf->data;
       delete_element( &list, ( void * ) group_stats );
       free_buffer( buf );
     }
+    xfree( alloc_ptrs );
     xfree( stats );
     if ( list != NULL ) {
       delete_list( list );
@@ -939,6 +942,7 @@ _handle_group_stats( const struct ofp_group_stats_request *req, const uint32_t t
     uint16_t code = OFPBRC_BAD_MULTIPART;
     get_ofp_error( ret, &type, &code );
     send_error_message( transaction_id, type, code );
+    return;
   }
 }
 void ( *handle_group_stats )( const struct ofp_group_stats_request *req, const uint32_t transaction_id, const uint32_t capabilities ) = _handle_group_stats;
@@ -959,7 +963,8 @@ _handle_group_desc( const uint32_t transaction_id, const uint32_t capabilities )
   OFDPE ret;
 
   if ( ( ret = get_group_desc_stats( &stats, &nr_group_desc_stats ) ) == OFDPE_SUCCESS ) {
-    uint16_t flags = OFPMPF_REPLY_MORE;
+    void **alloc_ptrs = ( void ** )xmalloc( nr_group_desc_stats * sizeof( void * ) );
+
     for ( uint16_t i = 0; i < nr_group_desc_stats; i++ ) {
       length = bucket_list_length( &stats[ i ].buckets );
       length = ( uint16_t ) ( length + sizeof( struct ofp_group_desc_stats ) );
@@ -972,13 +977,18 @@ _handle_group_desc( const uint32_t transaction_id, const uint32_t capabilities )
       void *p = ( ( char * ) stat + offsetof( struct ofp_group_desc_stats, buckets ) );
       pack_bucket( p, &stats[ i ].buckets );
       append_to_tail( &list, ( void * ) stat );
-      if ( i == nr_group_desc_stats - 1 ) {
-        flags &= ( uint16_t ) ~OFPMPF_REPLY_MORE;
-      }
-      SEND_STATS( group_desc, transaction_id, flags, list );
+      alloc_ptrs[ i ] = msg;
+    }
+
+    SEND_STATS( group_desc, transaction_id, 0, list );
+    for ( uint16_t i = 0; i < nr_group_desc_stats; i++ ) {
+      buffer *msg = alloc_ptrs[ i ];
+      struct ofp_group_desc_stats *stat = msg->data;
       delete_element( &list, ( void * ) stat );
       free_buffer( msg );
     }
+    xfree( stats );
+    xfree( alloc_ptrs );
   }
   else {
     SEND_STATS( group_desc, transaction_id, 0, NULL );
@@ -997,10 +1007,17 @@ _handle_table_features( uint32_t transaction_id ) {
   list_element *list = new_list();
 
   uint16_t flags = OFPMPF_REPLY_MORE;
+#ifdef TEST
+  void **alloc_ptrs = ( void ** )xmalloc( FLOW_TABLE_ID_MAX + 1 * sizeof( void * ) );
+  uint8_t sent = 0;
+#endif
   for ( uint8_t i = 0; i <= FLOW_TABLE_ID_MAX; i++ ) {
     if ( get_flow_table_features( i, &table_features ) == OFDPE_SUCCESS ) {
       struct ofp_table_features *table_features_reply = assign_table_features( &table_features );
       append_to_tail( &list, ( void * ) table_features_reply );
+#ifdef TEST
+      alloc_ptrs[ i ] = ( void * ) table_features_reply;
+#endif
       if ( i == FLOW_TABLE_ID_MAX ) {
         flags &= ( uint16_t ) ~OFPMPF_REPLY_MORE;
       }
@@ -1014,10 +1031,28 @@ _handle_table_features( uint32_t transaction_id ) {
       send_error_message( transaction_id, OFPET_BAD_REQUEST, OFPBRC_BAD_TABLE_ID );
       return;
     }
+#ifdef TEST
+    if ( i - sent == 2 ) {
+      SEND_STATS( table_features, transaction_id, flags, list );
+      for ( uint8_t j = sent; j < sent + 2; j++ ) {
+        delete_element( &list, ( void * ) alloc_ptrs[ j ] );
+        xfree( alloc_ptrs[ j ] );
+      }
+      sent = i;
+    }
+#endif
   }
+#ifdef TEST
+  SEND_STATS( table_features, transaction_id, 0, list );
+  for ( uint8_t i = 0; i <= FLOW_TABLE_ID_MAX; i++ ) {
+    delete_element( &list, ( void * ) alloc_ptrs[ i ] );
+    xfree( alloc_ptrs[ i ] );
+  }
+  xfree( alloc_ptrs );
+#endif
   delete_list( list );
 }
-void ( *request_table_features )( uint32_t transaction_id ) = _handle_table_features;
+void ( *handle_table_features )( uint32_t transaction_id ) = _handle_table_features;
 
 
 static void

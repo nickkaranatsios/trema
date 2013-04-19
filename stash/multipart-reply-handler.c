@@ -424,6 +424,7 @@ static VALUE
 unpack_multipart_reply( void *controller, VALUE r_attributes, const uint16_t stats_type, const buffer *frame ) {
   VALUE r_dpid = HASH_REF( r_attributes, datapath_id );
   VALUE r_reply_obj = Qnil;
+  VALUE r_parts = rb_ary_new();
 
   switch ( stats_type ) {
     case OFPMP_DESC: {
@@ -466,10 +467,20 @@ unpack_multipart_reply( void *controller, VALUE r_attributes, const uint16_t sta
     case OFPMP_PORT_STATS: {
       if ( frame != NULL ) {
         if ( frame->length ) {
-          unpack_port_multipart_reply( r_attributes, frame->data );
+          size_t len = sizeof( struct ofp_port_stats );
+          size_t total_len = frame->length;
+          size_t offset = 0;
+          while( total_len >= len ) {
+            unpack_port_multipart_reply( r_attributes, ( ( char * ) frame->data + offset ) );
+            r_reply_obj = rb_funcall( rb_eval_string( "Messages::PortMultipartReply" ), rb_intern( "new" ), 1, r_attributes );
+            rb_ary_push( r_parts, r_reply_obj );
+            total_len -= len;
+            offset += len;
+          }
+          HASH_SET( r_attributes, "parts", r_parts );
         }
       }
-      r_reply_obj = rb_funcall( rb_eval_string( "Messages::PortMultipartReply" ), rb_intern( "new" ), 1, r_attributes );
+      r_reply_obj = rb_funcall( rb_eval_string( "Messages::MultipartReply" ), rb_intern( "new" ), 1, r_attributes );
       if ( rb_respond_to( ( VALUE ) controller, rb_intern( "port_multipart_reply" ) ) ) {
         rb_funcall( ( VALUE ) controller, rb_intern( "port_multipart_reply" ), 2, r_dpid, r_reply_obj );
       }

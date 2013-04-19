@@ -86,7 +86,7 @@ _handle_features_request( const uint32_t transaction_id, void *user_data ) {
     /*
      * save datapath's capabilities
      */
-    protocol->ctrl.capabilities = features.capabilities
+    protocol->ctrl.capabilities = features.capabilities;
   }
   free_buffer( features_reply );
 }
@@ -603,129 +603,69 @@ _handle_multipart_request( uint32_t transaction_id, uint16_t type, uint16_t flag
     send_error_message( transaction_id, OFPET_BAD_REQUEST, OFPBRC_MULTIPART_BUFFER_OVERFLOW );
     return;
   }
-  bool unsupported_type = false;
-  uint32_t capabilities = protocol->ctrl.capabilities;
+  const uint32_t capabilities = protocol->ctrl.capabilities;
   switch( type ) {
     case OFPMP_DESC: {
       // the request body is empty
-      char *desc = hw_desc();
-      buffer *msg = create_desc_multipart_reply( transaction_id, 0, mfr_desc(), desc, protocol->args->progname, serial_num(), dp_desc() );
-      switch_send_openflow_message( msg );
-      xfree( desc );
-      free_buffer( msg );
+      handle_desc( transaction_id, protocol->args->progname );
     }
     break;
     case OFPMP_FLOW: {
-      if ( capabilities & OFPC_FLOW_STATS == OFPC_FLOW_STATS ) {
-        const struct ofp_flow_stats_request *req = ( const struct ofp_flow_stats_request * ) body->data;
-        request_send_flow_stats( req, transaction_id );
-      }
-      else {
-        unsupported_type = true;
-      }
+      const struct ofp_flow_stats_request *req = ( const struct ofp_flow_stats_request * ) body->data;
+      handle_flow_stats( req, transaction_id, capabilities );
     }
     break;
     case OFPMP_AGGREGATE: {
-      if ( capabilities & OFPC_FLOW_STATS == OFPC_FLOW_STATS ) {
-        const struct ofp_aggregate_stats_request *req = ( const struct ofp_aggregate_stats_request * ) body->data;
-        struct ofp_aggregate_stats_reply *reply = request_aggregate_stats( req );
-        assert( reply );
-        buffer *msg = create_aggregate_multipart_reply( transaction_id, 0, reply->packet_count, reply->byte_count, reply->flow_count );
-        switch_send_openflow_message( msg );
-        xfree( reply );
-        free_buffer( msg );
-      }
-      else {
-        unsupported_type = true;
-      }
+      const struct ofp_aggregate_stats_request *req = ( const struct ofp_aggregate_stats_request * ) body->data;
+      handle_aggregate_stats( req, transaction_id, capabilities );
     }
     break;
     case OFPMP_TABLE: {
-      if ( capabilities & OFPC_TABLE_STATS == OFPC_TABLE_STATS ) {
-        // no request body is included with this type.
-        request_send_table_stats( transaction_id );
-      }
-      else {
-        unsupported_type = true;
-      }
+      // no request body is included with this type.
+      handle_table_stats( transaction_id, capabilities );
     }
     break;
     case OFPMP_PORT_STATS: {
-      if ( capabilities & OFPC_PORT_STATS == OFPC_PORT_STATS ) {
-        const struct ofp_port_stats_request *req = ( const struct ofp_port_stats_request * ) body->data;
-        request_send_port_stats( req, transaction_id );
-      }
-      else {
-        unsupported_type = true;
-      }
+      const struct ofp_port_stats_request *req = ( const struct ofp_port_stats_request * ) body->data;
+      handle_port_stats( req, transaction_id, capabilities );
     }
     break;
     case OFPMP_PORT_DESC: {
       // no request body is included with this type.
-      list_element *list = request_port_desc();
-      SEND_STATS( port_desc, transaction_id, flags, list );
+      handle_port_desc( transaction_id );
     }
     break;
     case OFPMP_QUEUE: {
-      if ( capabilities & OFPC_QUEUE_STATS == OFPC_QUEUE_STATS ) {
-        const struct ofp_queue_stats_request *req = ( const struct ofp_queue_stats_request * ) body->data;
-        // TODO no support for queue statistics in datapath.
-        UNUSED( req );
-      }
-      else {
-       unsupported_type = true;
-      }
+      const struct ofp_queue_stats_request *req = ( const struct ofp_queue_stats_request * ) body->data;
+      handle_queue_stats( req, transaction_id, capabilities );
     }
     break;
     case OFPMP_GROUP: {
-      if ( capabilities & OFPC_GROUP_STATS == OFPC_GROUP_STATS ) {
-        const struct ofp_group_stats_request *req = ( const struct ofp_group_stats_request * ) body->data;
-        request_send_group_stats( req, transaction_id );
-      }
-      else {
-        unsupported_type = true;
-      }
+      const struct ofp_group_stats_request *req = ( const struct ofp_group_stats_request * ) body->data;
+      handle_group_stats( req, transaction_id, capabilities );
     }
     break;
     case OFPMP_GROUP_DESC: {
       // the request body is empty.
-      list_element *list = request_group_desc_stats();
-      SEND_STATS( group_desc, transaction_id, flags, list );
+      handle_group_desc( transaction_id, capabilities );
     }
     break;
     case OFPMP_GROUP_FEATURES: {
-      struct ofp_group_features *reply = request_group_features();
-      if ( reply != NULL ) {
-        buffer *msg = create_group_features_multipart_reply( transaction_id, flags,
-          reply->types, reply->capabilities, reply->max_groups, reply->actions );
-        switch_send_openflow_message( msg );
-        free_buffer( msg );
-        xfree( reply );
-      }
+      handle_group_features( transaction_id, capabilities );
     }
     break;
     case OFPMP_METER: {
       const struct ofp_meter_multipart_request *req = ( const struct ofp_meter_multipart_request * ) body->data;
-      /*
-       * TODO Currently this setting not supported by datapath.
-       */
-      UNUSED( req );
+      handle_meter_stats( req, transaction_id );
     }
     break;
     case OFPMP_METER_CONFIG: {
       const struct ofp_meter_multipart_request *req = ( const struct ofp_meter_multipart_request * ) body->data;
-      UNUSED( req );
-      unsupported_type = true;
+      handle_meter_config( req, transaction_id );
     }
     break;
     case OFPMP_METER_FEATURES: {
-      // request body is empty
-      const struct ofp_meter_features *reply = ( const struct ofp_meter_features * ) body->data;
-      /*
-       * TODO Currently meter features not supported by datapath.
-       */
-      UNUSED( reply );
-      unsupported_type = true;
+      handle_meter_features( transaction_id );
     }
     break;
     case OFPMP_TABLE_FEATURES: {
@@ -738,22 +678,17 @@ _handle_multipart_request( uint32_t transaction_id, uint16_t type, uint16_t flag
        * therefore ignored.
        */
       UNUSED( table_features );
-      request_send_table_features_stats( transaction_id );
+      handle_table_features( transaction_id );
     }
     break;
     case OFPMP_EXPERIMENTER: {
       const struct ofp_experimenter_multipart_header *em_hdr = ( const struct ofp_experimenter_multipart_header * ) body->data;
-      // TODO not supported yet in datapath.
-      UNUSED( em_hdr );
-      unsupported_type = true;
+      handle_experimenter_stats( em_hdr, transaction_id );
     }
     break;
     default:
-      unsupported_type = true;
+      send_error_message( transaction_id, OFPET_BAD_REQUEST, OFPBRC_BAD_MULTIPART );
     break;
-  }
-  if ( unsupported_type == true ) {
-    send_error_message( transaction_id, OFPET_BAD_REQUEST, OFPBRC_BAD_MULTIPART );
   }
 }
 void ( *handle_multipart_request )( uint32_t transaction_id, uint16_t type, uint16_t flags, const buffer *body, void *user_data ) = _handle_multipart_request;

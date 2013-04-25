@@ -38,18 +38,30 @@ end
 
 
 describe ArpOp, ".new( VALID OPTIONS )" do
-  context "when sending #flow_mod(add) with a match action set to ArpOp" do
+  context "when sending #flow_mod(add) with a match field set to ArpOp" do
     it "should respond to #pack_arp_op" do
-      class FlowModAddController < Controller; end
-      network {
-        trema_switch { datapath_id 0xabc }
-      }.run( FlowModAddController ) {
-        arp_op = ArpOp.new( arp_op: 1 )
-        arp_op.should_receive( :pack_arp_op )
-        send_to_controller = SendOutPort.new( port_number: OFPP_CONTROLLER, max_len: OFPCML_NO_BUFFER )
-        apply_ins = ApplyAction.new( actions: [ send_to_controller ] )
-        controller( "FlowModAddController" ).send_flow_mod_add( 0xabc, match: match, instructions: [ apply_ins ] )
+      conf_blk = Proc.new {
+        trema_switch( "lsw" ) { datapath_id 0xabc }
+        vhost( "host1" ) {
+          ip "192.168.0.1"
+          netmask "255.255.255.0"
+          mac "00:00:00:00:00:01"
+        }
+        vhost( "host2" ) {
+          ip "192.168.0.2"
+          netmask "255.255.255.0"
+          mac "00:00:00:00:00:02"
+        }
+        link "host1", "lsw:1"
+        link "host2", "lsw:2"
       }
+      ControllerMock.start( :switch_ready, conf_blk ) do | controller, datapath_id |
+        match_field = ArpOp.new( arp_op: 1 ) 
+        match_field.should_receive( :pack_arp_op )
+        controller.send_flow_mod_add( datapath_id,
+                                      cookie: 1111,
+                                      match: match_field )
+      end
     end
   end
 end

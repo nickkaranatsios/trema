@@ -29,6 +29,7 @@ require "trema"
 require "trema/dsl/configuration"
 require "trema/dsl/context"
 require "trema/util"
+require "trema/shell/send_packets"
 
 
 require "coveralls"
@@ -145,25 +146,26 @@ def network &block
   Network.new &block
 end
 
+
 class ControllerMock < Controller
-  def initialize handlers, conf_blk, &callback_blk
-    @handlers = handlers
-    @conf_blk = conf_blk
-    @callback_blk = callback_blk
-    @context = Trema::DSL::Parser.new.eval( &conf_blk )
+  def initialize network_blk
+    @callbacks = {}
+    @network_blk = network_blk
+    @context = Trema::DSL::Parser.new.eval( &network_blk )
   end
 
 
-  def self.start handler, conf_blk, &callback_blk
-    new( handler, conf_blk, callback_blk ) unless conf_blk.nil?
+  def recv callback, &callback_blk
+    @callbacks[ callback ] = callback_blk
   end
 
 
-  def start_handlers
-    if @conf_blk.respond_to? :call
+  def start_callbacks
+    if @network_blk.respond_to? :call
       begin
         trema_run
       ensure
+puts "stopping system"
         trema_kill
       end
     end
@@ -171,19 +173,12 @@ class ControllerMock < Controller
 
 
   def switch_ready datapath_id
-    @callback_blk.call( self, datapath_id )
-   end
-
-
-  def packet_in datapath_id, message
-    @callback_blk.call( self, datapath_id, message )
+    @callbacks[ __method__ ].call( datapath_id )
   end
 
 
-  def yield_handler options
-     if @handlers.include? method
-      yield options
-    end
+  def packet_in datapath_id, message
+    @callbacks[ __method__ ].call( datapath_id, message )
   end
 
 
@@ -228,10 +223,6 @@ class ControllerMock < Controller
     @th_controller.join if @th_controller
     sleep 2  # FIXME: wait until switch_manager.down?
   end
-end
-
-def controller_mock handlers, conf_blk, &callback_blk
-  ControllerMock.new( handlers, conf_blk, &callback_blk ).start_handlers
 end
 
 

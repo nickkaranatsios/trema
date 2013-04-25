@@ -40,7 +40,7 @@ end
 describe ArpOp, ".new( VALID OPTIONS )" do
   context "when sending #flow_mod(add) with a match field set to ArpOp" do
     it "should respond to #pack_arp_op" do
-      conf_blk = Proc.new {
+      network_blk = Proc.new {
         trema_switch( "lsw" ) { datapath_id 0xabc }
         vhost( "host1" ) {
           ip "192.168.0.1"
@@ -55,13 +55,23 @@ describe ArpOp, ".new( VALID OPTIONS )" do
         link "host1", "lsw:1"
         link "host2", "lsw:2"
       }
-      ControllerMock.start( :switch_ready, conf_blk ) do | controller, datapath_id |
-        match_field = ArpOp.new( arp_op: 1 ) 
-        match_field.should_receive( :pack_arp_op )
-        controller.send_flow_mod_add( datapath_id,
+      cm = ControllerMock.new( network_blk )
+      cm.recv( :switch_ready ) do | datapath_id |
+puts "datapath_id #{ datapath_id }"
+        action = SendOutPort.new( port_number: OFPP_CONTROLLER )
+        apply_ins = ApplyAction.new( actions: [ action ] )
+        match_fields = Match.new( in_port: 1, eth_type: 0x806  )
+        cm.send_flow_mod_add( datapath_id,
                                       cookie: 1111,
-                                      match: match_field )
+                                      match: match_fields,
+                                      instructions: [ apply_ins ] )
       end
+      cm.recv( :packet_in ) do | datapath_id, messaage |
+puts message.inspect
+      end
+      cm.start_callbacks
+puts "sending packets"
+      send_packets "host1", "host2", n_pkts: 1
     end
   end
 end

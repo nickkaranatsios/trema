@@ -130,7 +130,7 @@ class Network
     @th_controller = Thread.start do
       controller.run!
     end
-    sleep 2  # FIXME: wait until controller.up?
+    #sleep 2  # FIXME: wait until controller.up?
   end
 
 
@@ -147,38 +147,30 @@ def network &block
 end
 
 
-class ControllerMock < Controller
+class MockController < Controller
   def initialize network_blk
-    @callbacks = {}
     @network_blk = network_blk
     @context = Trema::DSL::Parser.new.eval( &network_blk )
   end
 
 
-  def recv callback, &callback_blk
-    @callbacks[ callback ] = callback_blk
-  end
-
-
-  def start_callbacks
+  def start_receiving
     if @network_blk.respond_to? :call
-      begin
-        trema_run
-      ensure
-puts "stopping system"
-        trema_kill
-      end
+      trema_run
+    else
+      raise ArgumentError, "Network configuration should a proc block"
     end
   end
 
 
-  def switch_ready datapath_id
-    @callbacks[ __method__ ].call( datapath_id )
+  def stop_receiving
+    trema_kill
   end
 
 
-  def packet_in datapath_id, message
-    @callbacks[ __method__ ].call( datapath_id, message )
+  def time_sleep interval
+    sleep interval
+    yield
   end
 
 

@@ -19,17 +19,18 @@
 
 
 require File.join( File.dirname( __FILE__ ), "..", "spec_helper" )
+require "timeout"
 require "trema"
 
 
-describe ArpOp, "new( VALID OPTIONS )" do
+describe Trema::ArpOp, "new( VALID OPTIONS )" do
   subject { ArpOp.new arp_op: 1 }
   let( :arp_op ) { 1 }
   its ( :arp_op ) { should == 1 }
 end
 
 
-describe ArpOp, ".new( MANDADORY OPTION MISSING ) - arp op" do
+describe Trema::ArpOp, ".new( MANDADORY OPTION MISSING ) - arp op" do
   subject { ArpOp.new }
   it "should raise ArgumentError" do
     expect { subject }.to raise_error( ArgumentError, /Required option arp_op missing/ )
@@ -37,9 +38,52 @@ describe ArpOp, ".new( MANDADORY OPTION MISSING ) - arp op" do
 end
 
 
-describe ArpOp, ".new( VALID OPTIONS )" do
-  context "when sending #flow_mod(add) with a match field set to ArpOp" do
-    it "should respond to #pack_arp_op" do
+#describe ArpOp, ".new( VALID OPTIONS )" do
+#  context "when sending #flow_mod(add) with a match field set to ArpOp" do
+#    class MockController < Controller ;end
+#    it "should respond to #pack_arp_op" do
+#      network {
+#        trema_switch( "lsw" ) { datapath_id 0xabc }
+#        vhost( "host1" ) {
+#          ip "192.168.0.1"
+#          netmask "255.255.255.0"
+#          mac "00:00:00:00:00:01"
+#        }
+#        vhost( "host2" ) {
+#          ip "192.168.0.2"
+#          netmask "255.255.255.0"
+#          mac "00:00:00:00:00:02"
+#        }
+#        link "host1", "lsw:1"
+#        link "host2", "lsw:2"
+#      }.run( MockController ) {
+#        mc = controller( "MockController" )
+#        mc.should_receive( :switch_ready ) do | datapath_id |
+#puts "datapath_id #{ datapath_id }"
+#          action = SendOutPort.new( port_number: OFPP_CONTROLLER )
+#          apply_ins = ApplyAction.new( actions: [ action ] )
+#          # eth_type: 0x806
+#          match_fields = Match.new( in_port: 1, eth_type: 2048  )
+#          mc.send_flow_mod_add( datapath_id,
+#                              cookie: 1111,
+#                              match: match_fields,
+#                              instructions: [ apply_ins ] )
+#        end
+#        mc.should_receive( :packet_in ) do | datapath_id, message |
+#          puts message.inspect
+#        end
+#        puts "sending packets"
+#        send_packets "host1", "host2", n_pkts: 1
+#        sleep 2
+#      }
+#    end
+#  end
+#end
+
+
+describe Trema::ArpOp, ".new( VALID OPTIONS )" do
+  context "when setting a flow with a match field arp_op set to 1 and sending a ping packet" do
+    it "should have its arp_op set to 1 when #packet-in" do
       network_blk = Proc.new {
         trema_switch( "lsw" ) { datapath_id 0xabc }
         vhost( "host1" ) {
@@ -55,23 +99,27 @@ describe ArpOp, ".new( VALID OPTIONS )" do
         link "host1", "lsw:1"
         link "host2", "lsw:2"
       }
-      cm = ControllerMock.new( network_blk )
-      cm.recv( :switch_ready ) do | datapath_id |
-puts "datapath_id #{ datapath_id }"
+      mc = MockController.new( network_blk )
+      mc.should_receive( :switch_ready ) do | datapath_id |
         action = SendOutPort.new( port_number: OFPP_CONTROLLER )
         apply_ins = ApplyAction.new( actions: [ action ] )
-        match_fields = Match.new( in_port: 1, eth_type: 0x806  )
-        cm.send_flow_mod_add( datapath_id,
-                                      cookie: 1111,
-                                      match: match_fields,
-                                      instructions: [ apply_ins ] )
+        # eth_type: 0x806
+        match_fields = Match.new( in_port: 1, eth_type: 2054, arp_op: 1 )
+        mc.send_flow_mod_add( datapath_id,
+                              cookie: 1111,
+                              match: match_fields,
+                              instructions: [ apply_ins ] )
       end
-      cm.recv( :packet_in ) do | datapath_id, messaage |
-puts message.inspect
+      mc.should_receive( :packet_in ).at_least( :once ) do | datapath_id, message |
+        action = Trema::ArpOp.new( arp_op: 1 )
+        expect( action.arp_op ).to  eq( message.packet_info.arp_op )
       end
-      cm.start_callbacks
-puts "sending packets"
-      send_packets "host1", "host2", n_pkts: 1
+      mc.start_receiving
+      #send_packets "host1", "host2", n_pkts: 1
+      system( "ping -I trema1-0 -c 1 192.168.0.1" )
+      mc.time_sleep( 2 ) {
+        mc.stop_receiving
+      }
     end
   end
 end

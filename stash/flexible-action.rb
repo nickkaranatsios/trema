@@ -20,24 +20,24 @@ require_relative "accessor"
 
 
 module Trema
-  class Message
+  class FlexibleAction
     include Accessor
-    include Messages
-    include MessageConst
+    include Actions
 
 
-    def self.next_transaction_id
-      Messages::next_xid
+    def self.ofp_type type
+      prefix = "OFPXMT_OFB" 
+      store "#{ prefix }_#{ type }", self
     end
 
 
-    def pack_msg datapath_id
-      params = { :datapath_id => datapath_id }
+    def pack_flexible_action oxm_match
+      params = {}
       instance_variables.each do | each |
         params[ each.to_s.sub( '@', '' ).to_sym ] = instance_variable_get( each )
       end
-      method = "pack_#{ self.class.name.demodulize.underscore }_msg"
-      __send__ method, params
+      method = "pack_#{ self.class.name.demodulize.underscore }"
+      __send__ method, oxm_match, params
     end
   end
 end

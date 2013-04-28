@@ -20,24 +20,47 @@ require_relative "accessor"
 
 
 module Trema
-  class Message
-    include Accessor
-    include Messages
-    include MessageConst
+  class BasicAction
+   include Accessor
+   include Actions
 
 
-    def self.next_transaction_id
-      Messages::next_xid
+    def self.ofp_type type
+      prefix = "OFPAT_"
+      store "#{ prefix }#{ type }", self
     end
 
 
-    def pack_msg datapath_id
-      params = { :datapath_id => datapath_id }
+    #
+    # appends its action into a list of actions
+    #
+    def pack_basic_action action
+      params = {}
       instance_variables.each do | each |
         params[ each.to_s.sub( '@', '' ).to_sym ] = instance_variable_get( each )
       end
-      method = "pack_#{ self.class.name.demodulize.underscore }_msg"
-      __send__ method, params
+      if instance_of? Actions::SetField
+        return pack_field action, params
+      end
+      method = "pack_#{ self.class.name.demodulize.underscore }"
+      __send__ method, action, params
+    end
+
+
+    private
+
+
+    def pack_field set_field, params
+      options = {}
+      params.each do | k, v |
+        v.each do | action |
+          action.instance_variables.each do | attr |
+            options[ attr.to_s.sub( '@', '' ).to_sym ] = action.instance_variable_get( attr )
+          end
+          method = "pack_#{ action.class.name.demodulize.underscore }"
+          action.__send__ method, set_field, options
+        end
+      end
     end
   end
 end

@@ -20,24 +20,27 @@ require_relative "accessor"
 
 
 module Trema
-  class Message
+  class Instruction
     include Accessor
-    include Messages
-    include MessageConst
+    include Instructions
 
 
-    def self.next_transaction_id
-      Messages::next_xid
+    def self.ofp_type type
+      prefix = "OFPIT_"
+      store "#{ prefix }#{ type }", self
     end
 
 
-    def pack_msg datapath_id
-      params = { :datapath_id => datapath_id }
+    #
+    # packs its instruction into a list of instructions
+    #
+    def pack_instruction instructions
+      params = {}
       instance_variables.each do | each |
         params[ each.to_s.sub( '@', '' ).to_sym ] = instance_variable_get( each )
       end
-      method = "pack_#{ self.class.name.demodulize.underscore }_msg"
-      __send__ method, params
+      method = "pack_#{ self.class.name.demodulize.underscore }_instruction"
+      __send__ method, instructions, params
     end
   end
 end

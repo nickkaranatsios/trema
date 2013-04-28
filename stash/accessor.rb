@@ -21,24 +21,39 @@ require_relative "mapping"
 
 module Trema
   #
-  # A base class for defining user defined like accessors.
+  # A module for defining user defined like accessors.
   #
-  class Accessor
-    # mixin mapping of ofp type to implementation class.
-    include Mapping
-    USER_DEFINED_TYPES = %w( ip_addr mac match packet_info array string bool )
-
-
-    attr_accessor :required_attributes
-
-    class << self
-      def default_attributes
-        @default_attributes ||= {}
+  module Accessor
+    def self.included klass
+      klass.extend ClassMethods
+      klass.instance_eval do
+        include InstanceMethods
       end
+      klass.setup_accessor_methods
+puts klass.methods.sort
+    end
 
 
-      def required_attributes
-        @required_attributes ||= []
+    module ClassMethods
+      # mixin mapping of ofp type to implementation class.
+      include Mapping
+      USER_DEFINED_TYPES = %w( ip_addr mac match packet_info array string bool )
+
+
+      class AttributeProperty
+        attr_reader :required, :default, :alias
+
+
+        def initialize
+          @required ||= []
+          @default ||= {}
+          @alias ||= {}
+        end
+
+
+        def attributes
+          @attributes ||= AttributeProperty.new
+        end
       end
 
 
@@ -48,8 +63,8 @@ module Trema
       end
 
 
-      def inherited klass
-        map_ofp_type klass
+      def setup_accessor_methods
+        #map_ofp_type klass
         primitive_sizes.each do | each |
           define_accessor_meth :"unsigned_int#{ each }"
           define_method :"check_unsigned_int#{ each }" do | number, name |
@@ -77,7 +92,7 @@ module Trema
 
 
       def define_accessor_meth meth
-        self.class.class_eval do
+        class_eval do
           define_method :"#{ meth }" do | *args |
             attrs = args
             opts = extract_options!( args )
@@ -87,8 +102,8 @@ module Trema
             opts.store :validate_with, "check_#{ meth }" if meth.to_s[ /unsigned_int\d\d/ ]
             attrs.each do | attr_name |
               define_accessor attr_name, opts
-              self.required_attributes << attr_name if opts.has_key? :presence
-              self.default_attributes[ attr_name ] = opts[ :default ] if opts.has_key? :default
+              attributes.required << attr_name if opts.has_key? :presence
+              attributes.default[ attr_name ] = opts[ :default ] if opts.has_key? :default
             end
           end
         end
@@ -96,7 +111,7 @@ module Trema
 
 
       def define_accessor attr_name, opts
-        self.class_eval do
+        class_eval do
           define_method attr_name do
             instance_variable_get "@#{ attr_name }"
           end
@@ -132,47 +147,48 @@ module Trema
     end
 
 
-    def initialize options=nil
-      setters = self.class.instance_methods.select{ | i | i.to_s =~ /[a-z].+=$/ }.delete_if{ | i | i.to_s =~ /required_attributes=/ }
-      required_attributes = self.class.required_attributes
-      if required_attributes.empty?
-        required_attributes = self.class.superclass.required_attributes
-      end
+    module InstanceMethods
+      def initialize options=nil
+        setters = self.class.instance_methods.select{ | i | i.to_s =~ /[a-z].+=$/ }.delete_if{ | i | i.to_s =~ /required_attributes=/ }
+        required = self.class.attributes.required
+        if required.empty?
+          required = self.class.superclass.attributes.required
+        end
 
-      case options
-      when Hash
-        setters.each do | each |
-          opt_key = each.to_s.sub( '=', '' ).to_sym
-          if options.has_key? opt_key
-            public_send each, options[ opt_key ]
+        set_default setters
+        case options
+        when Hash
+          setters.each do | each |
+            opt_key = each.to_s.sub( '=', '' ).to_sym
+            if options.has_key? opt_key
+              public_send each, options[ opt_key ]
+            else
+              raise ArgumentError, "Required option #{ opt_key } is missing for #{ self.class.name }" if required.include? opt_key
+            end
+          end
+        when Integer, String
+          unless setters.empty?
+            public_send setters[ 0 ], options
           else
-            raise ArgumentError, "Required option #{ opt_key } is missing for #{ self.class.name }" if required_attributes.include? opt_key
+            raise ArgumentError, "#{ self.class.name } accepts no options"
+          end
+          else
+            raise ArgumentError, "Required option #{ required_attributes.first } missing for #{ self.class.name }" unless required_attributes.empty?
           end
         end
-      when Integer, String
-        unless setters.empty?
-          public_send setters[ 0 ], options
-        else
-          raise ArgumentError, "#{ self.class.name } accepts no options"
-        end
-      else
-        raise ArgumentError, "Required option #{ required_attributes.first } missing for #{ self.class.name }" unless required_attributes.empty?
       end
-      set_default setters
-    end
 
 
-    def set_default setters
-      default_attributes = self.class.default_attributes
-      setters.each do | each |
+      def set_default setters
+        default = self.class.attributes.default
+        setters.each do | each |
         opt_key = each.to_s.sub( '=', '' ).to_sym
-       if default_attributes.has_key? opt_key
-         puts default_attributes.inspect if default_attributes.has_key? opt_key
-         if default_attributes[ opt_key ].respond_to? :call
-           public_send each, default_attributes[ opt_key ].call
-         else
-           public_send each, default_attributes[ opt_key ]
-         end
+        if default.has_key? opt_key
+          if default[ opt_key ].respond_to? :call
+            public_send each, default[ opt_key ].call
+          else
+            public_send each, default[ opt_key ]
+          end
         end
       end
     end

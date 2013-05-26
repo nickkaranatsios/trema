@@ -130,19 +130,50 @@ proxy_fe_pub_sub( proxy_t *proxy ) {
 }
 
 
+static int
+frontend_recv( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
+  printf( "fe recv\n" );
+  return 0;
+}
+
+
+static int
+backend_recv( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
+  printf( "be recv\n" );
+  return 0;
+}
+
+
 static void
-proxy_fe_client_server( proxy_t *proxy ) {
-  proxy->frontend = zmq_socket( proxy->ctx, ZMQ_ROUTER );
-  proxy->backend = zmq_socket( proxy->ctx, ZMQ_DEALER );
-  zmq_bind( proxy->frontend, "tcp://*:5559" );
-  zmq_bind( proxy->backend,  "tcp://*:5560" );
+proxy_fe_requester_responder( proxy_t *proxy ) {
+  proxy->frontend = zsocket_new( proxy->ctx, ZMQ_ROUTER );
+  if ( proxy->frontend == NULL ) {
+    printf( "Failed to create frontend ROUTER socket errno: %d:%s\n", errno, zmq_strerror( errno ) );
+  }
+  proxy->backend = zsocket_new( proxy->ctx, ZMQ_DEALER );
+  int rc;
+  rc = zsocket_bind( proxy->frontend, "tcp://*:5559" );
+  if ( rc < 0 ) {
+    printf( "Failed to bind ROUTER frontend socket %p errno: %d:%s\n" ,proxy->frontend, errno, zmq_strerror( errno ) );
+  }
+  rc = zsocket_bind( proxy->backend,  "tcp://*:5560" );
+  if ( rc < 0 ) {
+    printf( "Failed to bind DEALER backend socket %p errno: %d:%s\n", proxy->backend, errno, zmq_strerror( errno ) );
+  }
+  zloop_t *loop = zloop_new();
+  
+  zmq_pollitem_t poller = { 0, 0, ZMQ_POLLIN, 0 };
+  poller.socket = proxy->frontend;
+  zloop_poller( loop, &poller, frontend_recv, proxy );
+  poller.socket = proxy->backend;
+  zloop_poller( loop, &poller, backend_recv, proxy );
 }
 
 
 static void
 proxy_fe( proxy_t *proxy ) {
   proxy_fe_pub_sub( proxy );
-  proxy_fe_client_server( proxy );
+  // proxy_fe_requester_responder( proxy );
 }
 
 
@@ -191,15 +222,22 @@ publish_service_module( void *publisher, const char *mname, const char *uri ) {
 
 static void
 requester_thread( void *args, zctx_t *ctx, void *pipe ) {
-  void *requester = zmq_socket( ctx, ZMQ_REQ );
-  zmq_connect( requester, "tcp://localhost:5559" );
+  void *requester = zsocket_new( ctx, ZMQ_REQ );
+  int rc = zsocket_connect( requester, "tcp://localhost:5559" );
+  if ( rc ) {
+    printf( "failed to connect requester\n" );
+    return;
+  }
 
   while ( true ) {
     char *string = zstr_recv( pipe );
-    // serialize the request
-    // send the request 
-    zstr_send( requester, string );
-    free( string );
+    if ( string != NULL ) {
+      printf( "request message %s\n", string );
+      // serialize the request
+      // send the request 
+      zstr_send( requester, string );
+      free( string );
+    }
   }
 }
 
@@ -212,12 +250,17 @@ proxy_requester( proxy_t *proxy ) {
 
 static void
 responder_thread( void *args, zctx_t *ctx, void *pipe ) {
-  void *responder = zmq_socket( ctx, ZMQ_REP );
-  zmq_connect( responder, "tcp://localhost:5560" );
+  void *responder = zsocket_new( ctx, ZMQ_REP );
+  int rc = zsocket_connect( responder, "tcp://localhost:5560" );
+  if ( rc ) {
+    printf( "Failed to connect responder errno %d:%s\n", errno, zmq_strerror( errno ) );
+  }
   while ( true ) {
     char *string = zstr_recv( responder );
-    printf( "Received request [ %s ]\n", string );
-    free( string );
+    if ( string ) {
+      printf( "Received request [ %s ]\n", string );
+      free( string );
+    }
     // to think how to pass the callback this thread from main thread.
   }
 }
@@ -277,6 +320,7 @@ main (int argc, char *argv []) {
       request_callback *request_callback = my_request_handler;
       // client B ( responder ) adds a request callback
       set_host_location_request_callback( self->responder_cache, request_callback );
+      zstr_send( self->requester, "this is a request test message" );
       add_once = 1;
     }
     publish_service_module( self->pub, "test", "test" );

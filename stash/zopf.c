@@ -214,6 +214,12 @@ static void
 responder_thread( void *args, zctx_t *ctx, void *pipe ) {
   void *responder = zmq_socket( ctx, ZMQ_REP );
   zmq_connect( responder, "tcp://localhost:5560" );
+  while ( true ) {
+    char *string = zstr_recv( responder );
+    printf( "Received request [ %s ]\n", string );
+    free( string );
+    // to think how to pass the callback this thread from main thread.
+  }
 }
 
 static void
@@ -223,7 +229,7 @@ proxy_responder( proxy_t *proxy ) {
 
 
 static void
-add_host_location_reply_callback( zhash_t *cache, reply_callback *callback ) {
+set_host_location_reply_callback( zhash_t *cache, reply_callback *callback ) {
   // store the association of service name and callback
   zhash_insert( cache, "host_location", callback );
 }
@@ -242,7 +248,7 @@ send_host_location_request( proxy_t *proxy ) {
 
 
 static void
-add_host_location_request_callback( zhash_t *cache, request_callback *callback ) {
+set_host_location_request_callback( zhash_t *cache, request_callback *callback ) {
   zhash_insert( cache, "host_location", callback );
 }
 
@@ -265,12 +271,12 @@ main (int argc, char *argv []) {
       self->requester_cache = zhash_new();
       reply_callback *callback = my_reply_handler;
       // client A (requester ) adds a reply callback
-      add_host_location_reply_callback( self->requester_cache, callback );
+      set_host_location_reply_callback( self->requester_cache, callback );
 
       self->responder_cache = zhash_new();
       request_callback *request_callback = my_request_handler;
       // client B ( responder ) adds a request callback
-      add_host_location_request_callback( self->responder_cache, request_callback );
+      set_host_location_request_callback( self->responder_cache, request_callback );
       add_once = 1;
     }
     publish_service_module( self->pub, "test", "test" );

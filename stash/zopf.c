@@ -51,6 +51,7 @@ my_request_handler( void *args ) {
   puts( "inside my_request_handler" );
 }
 
+#ifdef X
 static void
 subscriber_thread( void *args, zctx_t *ctx, void *pipe ) {
   subscription_info *subscription = args;
@@ -79,8 +80,32 @@ subscriber_thread( void *args, zctx_t *ctx, void *pipe ) {
     free( string );
   }
 }
+#endif
 
 
+static void
+subscriber_thread( void *args, zctx_t *ctx, void *pipe ) {
+  subscription_info *subscription = args;
+  void *sub = zsocket_new( ctx, ZMQ_SUB );
+  int rc;
+
+  rc = zsocket_connect( sub, "tcp://localhost:6001" );
+  zsockopt_set_subscribe( sub, "B" );
+  zsockopt_set_subscribe( sub, "C" );
+
+  while ( true ) {
+    char *string = zstr_recv( sub );
+    if ( string == NULL ) {
+      break;              //  Interrupted
+    }
+    printf( "subscribe string: %s\n", string );
+    subscription->callback( sub );
+    free( string );
+  }
+}
+
+
+#ifdef X
 static void
 publisher_thread( void *args, zctx_t *ctx, void *pipe ) {
   int rc;
@@ -106,17 +131,46 @@ publisher_thread( void *args, zctx_t *ctx, void *pipe ) {
     zstr_send( pipe, zsocket_last_endpoint( pub ) );
     while ( true ) {
       char *string = zstr_recv( pipe );
-      if ( string != NULL ) {
-        printf( "publish string %s\n", string );
-        if ( zstr_send( pub, string ) == -1 ) {
-          break;              //  Interrupted
-        }
+      if ( string == NULL ) {
+        break;
       }
+      printf( "publish string %s\n", string );
+      if ( zstr_send( pub, string ) == -1 ) {
+        break;              //  Interrupted
+      }
+      free( string );
       zclock_sleep( 100 );     //  Wait for 1/10th second
     }
   }
 }
+#endif
 
+
+static void 
+publisher_thread( void *args, zctx_t *ctx, void *pipe ) {
+  int rc;
+  void *pub = zsocket_new( ctx, ZMQ_PUB );
+  rc = zsocket_bind( pub, "tcp://*:6000" );
+  if ( rc < 0 ) {
+    printf( "Failed to bind to XSUB %d\n", rc );
+    return;
+  }
+  if ( pub != NULL ) {
+    zstr_send( pipe, zsocket_last_endpoint( pub ) );
+    while ( true ) {
+      char *string = zstr_recv( pipe );
+      if ( string == NULL ) {
+        break;
+      }
+      printf( "publish string %s\n", string );
+      if ( zstr_send( pub, string ) == -1 ) {
+        break;              //  Interrupted
+      }
+      free( string );
+    }
+  }
+}
+      
 
 static void
 proxy_fe_pub_sub( proxy_t *proxy ) {

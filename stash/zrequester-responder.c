@@ -11,9 +11,19 @@ typedef struct _proxy_t {
 
 static int
 frontend_recv( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
-  printf( "fe recv\n" );
   proxy_t *self = arg;
 
+  zmq_msg_t message;
+  while ( 1 ) {
+    zmq_msg_init( &message );
+    zmq_msg_recv( &message, poller->socket, 0 );
+    int more = zmq_msg_more( &message );
+    zmq_msg_send( &message, self->backend, more? ZMQ_SNDMORE: 0 );
+    zmq_msg_close( &message );
+    if ( !more )
+      break;      //  Last message part
+  }
+#ifdef X
   zframe_t *fe_frame = zframe_recv( self->frontend );
   if ( fe_frame ) {
     zframe_print( fe_frame, NULL );
@@ -21,6 +31,7 @@ printf( "sending the frame to backend %p\n", self->backend );
     zframe_send( &fe_frame, self->backend, 0 );
     zframe_destroy( &fe_frame );
   }
+#endif
 
   return 0;
 }
@@ -30,11 +41,26 @@ static int
 backend_recv( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
   proxy_t *self = arg;
   printf( "be recv\n" );
+  zmq_msg_t message;
+
+  while ( 1 ) {
+    zmq_msg_init( &message );
+    zmq_msg_recv( &message, poller->socket, 0 );
+    int more = zmq_msg_more( &message );
+    zmq_msg_send( &message, self->frontend, more? ZMQ_SNDMORE: 0 );
+    zmq_msg_close( &message );
+    if ( !more )
+      break;      //  Last message part
+  }
+
+#ifdef X
   zframe_t *be_frame = zframe_recv( self->backend );
   if ( be_frame ) {
     zframe_print( be_frame, NULL );
+    zframe_send( &be_frame, self->frontend, 0 );
     zframe_destroy( &be_frame );
   }
+#endif
 
   return 0;
 }
@@ -64,7 +90,7 @@ fe_requester_responder( proxy_t *proxy ) {
   }
   proxy->loop = zloop_new();
   
-  zmq_pollitem_t poller = { 0, 0, ZMQ_POLLIN };
+  zmq_pollitem_t poller = { 0, 0, ZMQ_POLLIN, 0 };
   poller.socket = proxy->frontend;
   zloop_poller( proxy->loop, &poller, frontend_recv, proxy );
   poller.socket = proxy->backend;

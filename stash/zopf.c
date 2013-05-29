@@ -1,5 +1,6 @@
 #include <jansson.h>
 #include "czmq.h"
+#include "morph.c"
 
 
 #define PUB_BASE 6000
@@ -25,27 +26,6 @@ typedef struct _proxy_t {
 } proxy_t;
 
 
-enum morph_type {
-  MORPH_STRING,
-  MORPH_INT32
-};
-typedef enum morph_type morph_type;
-
-enum morph_class {
-  MORPH_SCHEMA,
-  MORPH_DATA
-};
-typedef enum morph_class morph_class;
-
-
-struct morph_obj {
-  morph_type type;
-  morph_class class_type;
-};
-
-typedef struct morph_obj *morph_schema;
-
-  
 
 typedef void ( subscriber_callback )( void *args );
 typedef void ( reply_callback )( void *args );
@@ -384,18 +364,11 @@ make_request_message() {
   return root;
 }
 
-morph_schema
-morph_schema_string( void ) {
-  static struct morph_obj obj = {
-    MORPH_STRING,
-    MORPH_SCHEMA
-  };
-  return &obj;
-}
-
 
 int
 main (int argc, char *argv []) {
+  morph_init();
+  
   proxy_t *self = ( proxy_t * ) zmalloc( sizeof( *self ) );
   self->ctx = zctx_new();
 

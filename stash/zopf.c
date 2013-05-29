@@ -1,3 +1,4 @@
+#include <jansson.h>
 #include "czmq.h"
 
 
@@ -23,6 +24,28 @@ typedef struct _proxy_t {
   zhash_t *responder_cache;
 } proxy_t;
 
+
+enum morph_type {
+  MORPH_STRING,
+  MORPH_INT32
+};
+typedef enum morph_type morph_type;
+
+enum morph_class {
+  MORPH_SCHEMA,
+  MORPH_DATA
+};
+typedef enum morph_class morph_class;
+
+
+struct morph_obj {
+  morph_type type;
+  morph_class class_type;
+};
+
+typedef struct morph_obj *morph_schema;
+
+  
 
 typedef void ( subscriber_callback )( void *args );
 typedef void ( reply_callback )( void *args );
@@ -350,6 +373,27 @@ set_host_location_request_callback( zhash_t *cache, request_callback *callback )
 }
 
 
+static json_t *
+make_request_message() {
+  json_t *root;
+
+  root = json_object();
+  json_int_t x = 10;
+  json_object_set( root, "usage", json_integer( x ) );
+
+  return root;
+}
+
+morph_schema
+morph_schema_string( void ) {
+  static struct morph_obj obj = {
+    MORPH_STRING,
+    MORPH_SCHEMA
+  };
+  return &obj;
+}
+
+
 int
 main (int argc, char *argv []) {
   proxy_t *self = ( proxy_t * ) zmalloc( sizeof( *self ) );
@@ -374,6 +418,9 @@ main (int argc, char *argv []) {
       request_callback *request_callback = my_request_handler;
       // client B ( responder ) adds a request callback
       set_host_location_request_callback( self->responder_cache, request_callback );
+      json_t *msg = make_request_message();
+      printf( "msg = %s\n", json_dumps( msg, JSON_ENCODE_ANY | JSON_INDENT( 2 ) ) );
+      printf( "morph schema %p\n", morph_schema_string() );
       zstr_send( self->requester, "this is a request test message" );
       add_once = 1;
     }

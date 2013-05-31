@@ -11,7 +11,6 @@ typedef struct _subscription_info {
 
 static void
 my_subscriber_handler( void *args ) {
-  //puts( "inside my_subscriber_handler" );
 }
 
 
@@ -29,10 +28,8 @@ subscriber_thread( void *args, zctx_t *ctx, void *pipe ) {
   void *sub = zsocket_new( ctx, ZMQ_SUB );
   int rc;
 
-  rc = zsocket_connect( sub, "tcp://localhost:6001" );
-  // zsockopt_set_subscribe( sub, subscription->filter );
+  rc = zsocket_connect( sub, "tcp://localhost:6000" );
   zsockopt_set_subscribe( sub, "" );
-
 
   uint64_t sub_count = 0;
   while ( true ) {
@@ -40,7 +37,6 @@ subscriber_thread( void *args, zctx_t *ctx, void *pipe ) {
     if ( string == NULL ) {
       break;              //  Interrupted
     }
-    //printf( "subscribe string: %s\n", string );
     subscription->callback( sub );
     sub_count++;
     free( string );
@@ -51,17 +47,10 @@ subscriber_thread( void *args, zctx_t *ctx, void *pipe ) {
 
 int
 main( int argc, char **argv ) {
-#ifdef BENCHMARK
-  if ( argc != 2 ) {
-    printf( "%s subscription\n", argv[ 0 ] );
-    exit( 1 );
-  }
-#endif
   zctx_t *ctx;
   ctx = zctx_new(); 
 
   subscription_info *subscription = ( subscription_info * ) zmalloc( sizeof( *subscription ) );
-  //subscription->filter = argv[ 1 ];
   subscription->filter = "";
   subscription->callback = my_subscriber_handler;
   subscribe_service_profile( my_subscriber_handler );
@@ -72,9 +61,6 @@ main( int argc, char **argv ) {
     if ( zclock_time() >= end ) {
       break;
     }
-#ifdef BENCHMARK
-    zclock_sleep( 1000 );
-#endif
   }
   zctx_destroy( &ctx );
 

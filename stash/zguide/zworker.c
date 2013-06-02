@@ -8,6 +8,8 @@ responder_thread( void *args, zctx_t *ctx, void *pipe ) {
   void *responder = zsocket_new( ctx, ZMQ_REQ );
   printf( "identity of client: %s\n", identity );
   zmq_setsockopt( responder, ZMQ_IDENTITY, identity, strlen( identity ) );
+  zsocket_set_sndhwm( responder, 10000 );
+  zsocket_set_rcvhwm( responder, 10000 );
 
   int rc = zsocket_connect( responder, "ipc://backend.ipc" );
   if ( rc ) {
@@ -15,22 +17,39 @@ responder_thread( void *args, zctx_t *ctx, void *pipe ) {
   }
   s_send( responder, "READY" ); 
 
+  uint64_t read_timeout = 0;
+  uint64_t reply_count = 0;
   while ( true ) {
-    char *identity = zstr_recv( responder );
-    char *empty = zstr_recv( responder );
-    assert( *empty == 0 );
-    free( empty );
-    char *request = zstr_recv( responder );
-    if ( request ) {
-      printf( "Received request [ %s ]\n", request );
-      s_sendmore( responder, identity );
-      s_sendmore( responder, "" );
-      s_send( responder, request );
-      free( identity );
-      free( request );
+    zmq_pollitem_t poller = { responder, 0, ZMQ_POLLIN, 0 }; 
+    rc = zmq_poll( &poller, 1, 1000 );
+    if ( rc == -1 ) {
+      break;
     }
-    // to think how to pass the callback this thread from main thread.
+    if ( !rc ) {
+      read_timeout++;
+    }
+    if ( poller.revents & ZMQ_POLLIN ) {
+      char *identity = zstr_recv( responder );
+      char *empty = zstr_recv( responder );
+      assert( *empty == 0 );
+      free( empty );
+      char *request = zstr_recv( responder );
+      if ( request ) {
+        if ( request[ 0 ] == '\0' ) {
+          break;
+        }
+      // printf( "Received request [ %s ]\n", request );
+        s_sendmore( responder, identity );
+        s_sendmore( responder, "" );
+        s_send( responder, request );
+        free( identity );
+        free( request );
+        reply_count++;
+      }
+    }
   }
+  printf( "reply count ( %" PRIu64 " )\n" ,reply_count );
+  printf( "read timeout count ( %" PRIu64 " )\n" ,read_timeout );
 }
 
 
@@ -52,8 +71,12 @@ main( int argc, char **argv ) {
   ctx = zctx_new();
   void *responder = responder_init( ctx, identity );
   if ( responder != NULL ) {
+    uint64_t end = 3 * 60 * 1000 + zclock_time();
     while ( !zctx_interrupted ) {
-      zclock_sleep( 1000 );
+      zclock_sleep( 2 * 60 * 1000 );
+      if ( zclock_time() >= end ) {
+        break;
+      }
     }
   }
 

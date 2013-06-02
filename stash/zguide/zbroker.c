@@ -12,13 +12,13 @@ frontend_recv( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
   free( empty );
 
   char *peer_id = s_recv( poller->socket );
-  printf( "peer id %s\n", peer_id );
+  //printf( "peer id %s\n", peer_id );
   empty = s_recv( poller->socket );
   assert( empty[ 0 ] == 0 );
   free( empty );
   
   char *request = s_recv( poller->socket );
-  printf( "Frontend request %s\n", request );
+  //printf( "Frontend request %s\n", request );
 
   s_sendmore( backend, peer_id );
   s_sendmore( backend, "" );
@@ -38,7 +38,7 @@ backend_recv( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
   char *empty;
 
   char *worker_id = s_recv( poller->socket );
-  printf( "worker_id %s\n", worker_id );
+  //printf( "worker_id %s\n", worker_id );
 
   empty = s_recv( poller->socket );
   assert( empty[ 0 ] == 0 );

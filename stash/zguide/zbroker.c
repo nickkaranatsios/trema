@@ -109,7 +109,7 @@ main( int argc, char **argv ) {
     printf( "Failed to bind frontent socket %d\n", rc );
     exit( 1 );
   }
-  rc = zsocket_bind( broker->backend, "tcp://*:8888" );
+  rc = zsocket_bind( broker->backend, "tcp://*:7778" );
   if ( rc < 0 ) {
     printf( "Failed to bind backend socket %d\n", rc );
     exit( 1 );

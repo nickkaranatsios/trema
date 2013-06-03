@@ -18,7 +18,7 @@ reconnect( zctx_t *ctx, void *socket ) {
 
 
 char *
-resend_recv( void *socket, void *string ) {
+resend_recv( void *socket, char *string ) {
   int rc;
   int i;
   char *reply = NULL;

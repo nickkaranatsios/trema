@@ -5,14 +5,60 @@
 
 #define ONE_SEC 1000
 
+
+static void
+set_sock_identity( void *socket ) {
+  char identity[ 10 ];
+  sprintf( identity, "%c-%05d", randof( 10 ) + 'A', getpid() );
+  printf( "identity of client: %s\n", identity );
+  zmq_setsockopt( socket, ZMQ_IDENTITY, identity, strlen( identity ) );
+}
+  
+
+static int
+multi_msg_send( void *socket, char *identity, char *string ) {
+  s_sendmore( socket, identity );
+  s_sendmore( socket, "" );
+  return s_send( socket, string );
+}
+
+
+char *
+resend_recv( void *socket, char *identity, char *string ) {
+  int rc;
+  int i;
+  char *reply = NULL;
+
+  multi_msg_send( socket, identity, string );
+  for ( i = 0; i < 3 && reply == NULL; i++ ) {
+    reply = poll_recv( socket );
+  }
+
+  return reply;
+}
+
+
+void *
+reconnect( zctx_t *ctx, void *socket ) {
+  int rc;
+
+  zsocket_destroy( ctx, socket );
+  socket = zsocket_new( ctx, ZMQ_REQ );
+  set_sock_identity( socket );
+  rc = zsocket_connect( socket, "tcp://localhost:7777" );
+  if ( rc ) {
+    socket = NULL;
+    printf( "failed to connect requester\n" );
+  }
+  return ( char * ) socket;
+}
+
+
 static void
 requester_thread( void *args, zctx_t *ctx, void *pipe ) {
   char *peer_identity = args;
   void *requester = zsocket_new( ctx, ZMQ_REQ );
-  char identity[ 10 ];
-  sprintf( identity, "%c-%05d", randof( 10 ) + 'A', getpid() );
-  printf( "identity of client: %s\n", identity );
-  zmq_setsockopt( requester, ZMQ_IDENTITY, identity, strlen( identity ) );
+  set_sock_identity( requester );
   
   // zsocket_set_sndhwm( requester, 100 );
   //zsocket_set_rcvhwm( requester, 100 );
@@ -32,34 +78,36 @@ requester_thread( void *args, zctx_t *ctx, void *pipe ) {
     char *string = zstr_recv( pipe );
     if ( string != NULL ) {
       if ( string[ 0 ] == '\0' ) {
-        s_sendmore( requester, peer_identity );
-        s_sendmore( requester, ""  );
-        s_send( requester, string );
+        multi_msg_send( requester, peer_identity, string );
         free( string );
         break;
       }
       // printf( "request message %s\n", string );
       // serialize the request
       // send the request 
-      s_sendmore( requester, peer_identity );
-      s_sendmore( requester, ""  );
-      rc = s_send( requester, string );
-      if ( rc == -1 ) {
-        reply_timeout_count++;
-        continue;
+      rc = multi_msg_send( requester, peer_identity, string );
+      reply = poll_recv( requester );
+      if ( reply ) {
+        printf( "reply %s\n", reply );
+        reply_count++;
+        free( reply );
       }
-      nr_messages++;
+      if ( rc == -1 || reply == NULL ) {
+        reply_timeout_count++;
+        reply = resend_recv( requester, peer_identity, string );
+        while ( reply == NULL ) {
+          requester = reconnect( ctx, requester );
+          reply = resend_recv( requester, peer_identity, string );
+        }
+        if ( reply ) {
+          reply_count++;
+          free( reply );
+        }
+      }
       free( string );
     }
-    else {
-      printf( "recv pipe timeout %s\n", strerror( errno ) );
-    }
-    reply = poll_recv( requester );
-    if ( reply != NULL ) {
-printf( "reply %s\n", reply );
-      reply_count++;
-    }
   }
+
   printf( "reply count( %" PRIu64 ")\n" ,reply_count );
   printf( "reply timeout count( %" PRIu64 ")\n" ,reply_timeout_count );
 }

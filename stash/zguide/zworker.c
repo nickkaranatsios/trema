@@ -11,7 +11,7 @@ responder_thread( void *args, zctx_t *ctx, void *pipe ) {
   zsocket_set_sndhwm( responder, 10000 );
   zsocket_set_rcvhwm( responder, 10000 );
 
-  int rc = zsocket_connect( responder, "tcp://localhost:8888" );
+  int rc = zsocket_connect( responder, "tcp://localhost:7778" );
   if ( rc ) {
     printf( "Failed to connect responder errno %d:%s\n", errno, zmq_strerror( errno ) );
   }

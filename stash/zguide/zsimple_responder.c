@@ -18,7 +18,7 @@ responder_thread( void *args, zctx_t *ctx, void *pipe ) {
   char *string;
   do {
     zmq_pollitem_t poller = { responder, 0, ZMQ_POLLIN, 0 };
-    int rc = zmq_poll( &poller, 1, 5 * 1000 );
+    rc = zmq_poll( &poller, 1, 5 * 1000 );
     if ( rc == -1 ) {
       break;
     }
@@ -38,9 +38,9 @@ responder_thread( void *args, zctx_t *ctx, void *pipe ) {
       }
     }
     // to think how to pass the callback this thread from main thread.
-  } while ( test != NULL );
-  printf( "reply count ( %" PRIu64 ")\n" ,reply_count );
-  printf( "wait for request count ( %" PRIu64 ")\n" ,wait_for_request_timeout );
+  } while ( test != NULL || !rc );
+  printf( "reply count ( %" PRIu64 " )\n" ,reply_count );
+  printf( "wait for request count ( %" PRIu64 " )\n" ,wait_for_request_timeout );
 }
 
 

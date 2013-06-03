@@ -11,7 +11,7 @@ responder_thread( void *args, zctx_t *ctx, void *pipe ) {
   zsocket_set_sndhwm( responder, 10000 );
   zsocket_set_rcvhwm( responder, 10000 );
 
-  int rc = zsocket_connect( responder, "ipc://backend.ipc" );
+  int rc = zsocket_connect( responder, "tcp://localhost:8888" );
   if ( rc ) {
     printf( "Failed to connect responder errno %d:%s\n", errno, zmq_strerror( errno ) );
   }
@@ -38,7 +38,7 @@ responder_thread( void *args, zctx_t *ctx, void *pipe ) {
         if ( request[ 0 ] == '\0' ) {
           break;
         }
-      // printf( "Received request [ %s ]\n", request );
+        printf( "Received request [ %s ]\n", request );
         s_sendmore( responder, identity );
         s_sendmore( responder, "" );
         s_send( responder, request );
@@ -71,7 +71,7 @@ main( int argc, char **argv ) {
   ctx = zctx_new();
   void *responder = responder_init( ctx, identity );
   if ( responder != NULL ) {
-    uint64_t end = 3 * 60 * 1000 + zclock_time();
+    uint64_t end = 10 * 60 * 1000 + zclock_time();
     while ( !zctx_interrupted ) {
       zclock_sleep( 2 * 60 * 1000 );
       if ( zclock_time() >= end ) {

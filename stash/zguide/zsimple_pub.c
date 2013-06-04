@@ -6,7 +6,7 @@ publisher_thread( void *args, zctx_t *ctx, void *pipe ) {
   void *pub = zsocket_new( ctx, ZMQ_PUB );
   rc = zsocket_bind( pub, "tcp://*:6000" );
   if ( rc < 0 ) {
-    printf( "Failed to connect to XSUB %d\n", rc );
+    printf( "Failed to bind PUB %d\n", rc );
     return;
   }
 

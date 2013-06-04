@@ -83,7 +83,7 @@ requester_thread( void *args, zctx_t *ctx, void *pipe ) {
   printf( "reply timeout count( %" PRIu64 " )\n" ,reply_timeout_count );
 #endif
 
-  zclock_sleep( 10 * 1000 );
+  zclock_sleep( 100 * 1000 );
   uint64_t timeout = 0;
   uint64_t ok = 0;
   uint64_t reply_count = 0;
@@ -100,6 +100,7 @@ requester_thread( void *args, zctx_t *ctx, void *pipe ) {
       if ( !rc ) {
         reply = poll_recv( requester );
         if ( reply ) {
+printf( "%s\n", reply );
           reply_count++;
           free( reply );
         }
@@ -129,6 +130,7 @@ void *
 requester_init( zctx_t *ctx ) {
   return zthread_fork( ctx, requester_thread, NULL );
 }
+
 
 int
 main( int argc, char **argv ) {
@@ -165,11 +167,16 @@ main( int argc, char **argv ) {
   }
 #endif
   printf( "rcvhwm %d\n", zsocket_rcvhwm( requester ) );
+  printf( "sndhwm %d\n", zsocket_sndhwm( requester ) );
+  zsocket_set_sndtimeo( requester, 0 );
   int i;
-  for ( i = 0; i < 5000; i++ ) {
+  for ( i = 0; i < 2050; i++ ) {
     char string[ 32 ];
     sprintf( string, "%c-%09d", randof( 10 ) + 'A', i );
-    zstr_send( requester, string );
+    rc = zstr_send( string );
+    if ( rc == -1 ) {
+      printf( "send failed %s at %d\n", zmq_strerror( errno ), i );
+    }
   }
   printf( "complete send to pipe\n" );
   uint64_t now, after = 2 * 60 * 1000 + zclock_time();

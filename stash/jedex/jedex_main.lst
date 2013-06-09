@@ -1,0 +1,13 @@
+Using built-in specs.
+Target: i686-apple-darwin11
+Configured with: /private/var/tmp/llvmgcc42/llvmgcc42-2336.11~67/src/configure --disable-checking --enable-werror --prefix=/Applications/Xcode.app/Contents/Developer/usr/llvm-gcc-4.2 --mandir=/share/man --enable-languages=c,objc,c++,obj-c++ --program-prefix=llvm- --program-transform-name=/^[cg][^.-]*$/s/$/-4.2/ --with-slibdir=/usr/lib --build=i686-apple-darwin11 --enable-llvm=/private/var/tmp/llvmgcc42/llvmgcc42-2336.11~67/dst-llvmCore/Developer/usr/local --program-prefix=i686-apple-darwin11- --host=x86_64-apple-darwin11 --target=i686-apple-darwin11 --with-gxx-include-dir=/usr/include/c++/4.2.1
+Thread model: posix
+gcc version 4.2.1 (Based on Apple Inc. build 5658) (LLVM build 2336.11.00)
+ /usr/llvm-gcc-4.2/bin/../libexec/gcc/i686-apple-darwin11/4.2.1/collect2 -dynamic -arch x86_64 -macosx_version_min 10.8.3 -weak_reference_mismatches non-weak -o jedex_main -lcrt1.10.6.o -L. -L/usr/local/lib -L. -L/usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/x86_64 -L/Applications/Xcode.app/Contents/Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/x86_64 -L/usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1 -L/usr/llvm-gcc-4.2/bin/../lib/gcc -L/Applications/Xcode.app/Contents/Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1 -L/usr/llvm-gcc-4.2/bin/../lib/gcc/i686-apple-darwin11/4.2.1/../../.. -L/Applications/Xcode.app/Contents/Developer/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/../../.. jedex_main.o -levent -levent_core -levent_extra -levent_openssl -levent_pthreads -lgdbm -lgmp -lgmpxx -lhogweed -ljansson -llzma -lnettle -lruby -lsecurity_agent_client -lsecurity_agent_server -ltasn1 -lvirt-qemu -lvirt -lyajl_s -lyaml -lzmq -lpthread -lm -lstdc++ -levent -levent_core -levent_extra -levent_openssl -levent_pthreads -lgdbm -lgmp -lgmpxx -lhogweed -ljansson -llzma -lnettle -lruby -lsecurity_agent_client -lsecurity_agent_server -ltasn1 -lvirt-qemu -lvirt -lyajl_s -lyaml -lzmq -lpthread -lm -lstdc++ -lpthread -lm -lstdc++ -lSystem -lgcc -lSystem
+Undefined symbols for architecture x86_64:
+  "_jedex_allocator", referenced from:
+      _jedex_schema_record in jedex_main.o
+  "_jedex_schema_from_json_length", referenced from:
+      _main in jedex_main.o
+ld: symbol(s) not found for architecture x86_64
+collect2: ld returned 1 exit status

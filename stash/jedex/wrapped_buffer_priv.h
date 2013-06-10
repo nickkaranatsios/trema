@@ -16,9 +16,8 @@
  */
 
 
-#ifndef PRIV_H
-#define PRIV_H
-
+#ifndef WRAPPED_BUFFER_PRIV_H
+#define WRAPPED_BUFFER_PRIV_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,22 +27,21 @@ extern "C" {
 #endif
 
 
-#define UNUSED( var ) ( void ) var;
-#define check( rval, call ) { rval = call; if ( rval ) return rval; }
-#define check_param( result, test, name )         \
-  {               \
-    if ( !( test ) ) {            \
-      log_err( "Invalid " name " in %s",  \
-               __FUNCTION__ );     \
-      return result;          \
-    }             \
-  }
-#define container_of( ptr_, type_, member_ )  \
-    ( ( type_ * )( ( char * ) ptr_ - ( size_t )&( ( type_ * ) 0 )->member_ ) )
+struct jedex_wrapped_copy {
+	size_t  allocated_size;
+};
 
+
+struct jedex_wrapped_resizable {
+  size_t buf_size;
+};
+
+
+#define jedex_wrapped_resizable_size( sz ) \
+  ( sizeof( struct jedex_wrapped_resizable ) + ( sz ) )
 
 CLOSE_EXTERN
-#endif // PRIV_H
+#endif
 
 
 /*

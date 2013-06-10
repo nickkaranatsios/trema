@@ -61,9 +61,18 @@ struct jedex_map_schema {
 };
 
 
+
+struct jedex_union_schema {
+  struct jedex_obj obj;
+  st_table *branches;
+  st_table *branches_byname;
+};
+
+
 #define jedex_schema_to_record( schema_ ) ( container_of( schema_, struct jedex_record_schema, obj ) )
 #define jedex_schema_to_array( schema_ ) ( container_of( schema_, struct jedex_array_schema, obj ) )
 #define jedex_schema_to_map( schema_ ) ( container_of( schema_, struct jedex_map_schema, obj ) )
+#define jedex_schema_to_union( schema_ ) ( container_of( schema_, struct jedex_union_schema, obj ) )
 
 
 CLOSE_EXTERN

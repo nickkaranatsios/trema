@@ -21,8 +21,8 @@
 #include <pthread.h>
 #include <jansson.h>
 
-#include "../linked_list.h"
-#include "../linked_list.c"
+#include "linked_list.h"
+#include "linked_list.c"
 
 #include "jedex_schema.c"
 

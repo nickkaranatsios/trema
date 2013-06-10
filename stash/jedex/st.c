@@ -424,7 +424,7 @@ st_delete( register st_table *table, register st_data_t *key, st_data_t *value )
 				*value = tmp->record;
       }
 			*key = tmp->key;
-			jedex_free( st_table_entry, tmp );
+			jedex_free( tmp );
 			return 1;
 		}
 	}
@@ -530,7 +530,7 @@ st_foreach( st_table *table, int ( *func ) ( ANYARGS ), st_data_t arg ) {
 					last->next = ptr->next;
 				}
 				ptr = ptr->next;
-				jedex_free( st_table_entry, tmp );
+				jedex_free( tmp );
 				table->num_entries--;
 			}
 		}

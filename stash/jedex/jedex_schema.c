@@ -19,13 +19,16 @@
 #include <ctype.h>
 #include <string.h>
 #include "jansson.h"
-#include "../log_writer.h"
+#include "log_writer.h"
 
 #include "priv.h"
 #include "allocation.h"
 #include "basics.h"
 #include "schema_priv.h"
 #include "st.h"
+
+#include "allocation.c"
+#include "st.c"
 
 
 #define DEFAULT_TABLE_SIZE 32
@@ -58,6 +61,50 @@ is_jedex_id( const char *name ) {
   }
 
   return 0;
+}
+
+
+const char *
+jedex_schema_type_name( const jedex_schema *schema ) {
+  if ( is_jedex_record( schema ) ) {
+    return ( jedex_schema_to_record( schema ) )->name;
+  }
+  else if ( is_jedex_union( schema ) ) {
+    return "union";
+  }
+  else if ( is_jedex_array( schema ) ) {
+    return "array";
+  }
+  else if ( is_jedex_map( schema ) ) {
+    return "map";
+  }
+  else if ( is_jedex_int32( schema ) ) {
+    return "int";
+  }
+  else if ( is_jedex_int64( schema ) ) {
+    return "long";
+  }
+  else if ( is_jedex_float( schema ) ) {
+    return "float";
+  }
+  else if ( is_jedex_double( schema ) ) {
+    return "double";
+  }
+  else if ( is_jedex_boolean( schema ) ) {
+    return "boolean";
+  }
+  else if ( is_jedex_null( schema ) ) {
+    return "null";
+  }
+  else if ( is_jedex_string( schema ) ) {
+    return "string";
+  }
+  else if ( is_jedex_bytes( schema ) ) {
+    return "bytes";
+  }
+  log_err( "Unknown schema type" );
+
+  return NULL;
 }
 
 
@@ -329,66 +376,66 @@ jedex_schema_null( void ) {
 
 
 jedex_schema *
-jedex_schema_link( jedex_schema *to ) {
+jedex_schema_link() {
   // TODO named linked types not implemented.
   return NULL;
 }
 
 
 jedex_schema *
-jedex_schema_array( const jedex_schema *items ) {
-  struct jedex_schema_array *array = ( struct jedex_schema_array * ) jedex_new( struct jedex_schema_array );
+jedex_schema_array( jedex_schema *items ) {
+  struct jedex_array_schema *array = ( struct jedex_array_schema * ) jedex_new( struct jedex_array_schema );
   if ( !array ) {
     log_err( "Can not allocate new array schema" );
     return NULL;
   }
 
   array->items = items;
-  jedex_schema_init( array->obj, JEDEX_ARRAY );
+  jedex_schema_init( &array->obj, JEDEX_ARRAY );
   
   return &array->obj;
 }
 
 
 jedex_schema *
-jedex_schema_array_items( jedex_schema *array ) {
+jedex_schema_array_items( const jedex_schema *array ) {
   return jedex_schema_to_array( array )->items;
 }
 
 
 jedex_schema *
-jedex_schema_map( const jedex_schema *values ) {
-  struct jedex_schema_map *map = ( struct jedex_schema_map * ) jedex_new( struct jedex_schema_map );
+jedex_schema_map( jedex_schema *values ) {
+  struct jedex_map_schema *map = ( struct jedex_map_schema * ) jedex_new( struct jedex_map_schema );
   if ( !map ) {
     log_err( "Can not allocate new map schema" );
     return NULL;
   }
   map->values = values;
-  jedex_schema_init( map->obj, JEDEX_MAP );
+  jedex_schema_init( &map->obj, JEDEX_MAP );
 
   return &map->obj;
 }
 
 
 jedex_schema *
-jedex_schema_map( jedex_schema *map ) {
+jedex_schema_map_values( const jedex_schema *map ) {
   return jedex_schema_to_map( map )->values;
 }
 
 
 jedex_schema *
 jedex_schema_union( void ) {
-  struct jedex_schema_union *schema = ( struct jedex_schema_union * ) jedex_new( struct jedex_schema_union );
+  struct jedex_union_schema *schema = ( struct jedex_union_schema * ) jedex_new( struct jedex_union_schema );
   if ( !schema ) {
     log_err( "Can not allocate new union schema" );
-    return ENOMEM;
+    return NULL;
   }
 
   schema->branches = st_init_numtable_with_size( DEFAULT_TABLE_SIZE );
   if ( !schema->branches ) {
     log_err( "Can not allocate new union schema (branches)" );
     jedex_free( schema );
-    return ENOMEM;
+    return NULL;
   }
 
   schema->branches_byname = st_init_strtable_with_size( DEFAULT_TABLE_SIZE );
@@ -396,9 +443,9 @@ jedex_schema_union( void ) {
     log_err( "Can not allocate new union schema (branches_byname)" );
     st_free_table( schema->branches );
     jedex_free( schema );
-    return ENOMEM;
+    return NULL;
   }
-  jedex_schema_init( schema->obj, JEDEX_UNION );
+  jedex_schema_init( &schema->obj, JEDEX_UNION );
   
   return &schema->obj;
 }
@@ -569,6 +616,7 @@ jedex_schema_from_json_t( json_t *json, jedex_schema **schema, st_table *named_s
           return EINVAL;
         }
 
+        jedex_schema *json_field_type_schema = NULL;
         field_rval = jedex_schema_from_json_t( json_field_type,
                                                &json_field_type_schema,
                                                named_schemas );
@@ -577,8 +625,7 @@ jedex_schema_from_json_t( json_t *json, jedex_schema **schema, st_table *named_s
         }
 
         field_rval = jedex_schema_record_field_append( *schema,
-                                                       json_string_value,
-                                                       json_field_name,
+                                                       json_string_value( json_field_name ),
                                                        json_field_type_schema );
         if ( field_rval != 0 ) {
           return field_rval;

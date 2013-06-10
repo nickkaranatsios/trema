@@ -16,34 +16,28 @@
  */
 
 
-#ifndef PRIV_H
-#define PRIV_H
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+#include "jedex_schema.c"
+#include "generic_boolean.c"
+#include "generic_int.c"
+#include "generic_long.c"
+#include "generic_float.c"
+#include "generic_double.c"
+#include "generic_null.c"
+#include "generic_string.c"
+#include "generic_array.c"
 
 
-#ifdef __cplusplus
-extern "C" {
-#define CLOSE_EXTERN }
-#else
-#define CLOSE_EXTERN
-#endif
+int
+main( int argc, char **argv ) {
+  jedex_value_iface *iface = jedex_generic_boolean_class();
+  jedex_value_iface *iface1 = jedex_generic_boolean_class();
 
-
-#define UNUSED( var ) ( void ) var;
-#define check( rval, call ) { rval = call; if ( rval ) return rval; }
-#define check_param( result, test, name )         \
-  {               \
-    if ( !( test ) ) {            \
-      log_err( "Invalid " name " in %s",  \
-               __FUNCTION__ );     \
-      return result;          \
-    }             \
-  }
-#define container_of( ptr_, type_, member_ )  \
-    ( ( type_ * )( ( char * ) ptr_ - ( size_t )&( ( type_ * ) 0 )->member_ ) )
-
-
-CLOSE_EXTERN
-#endif // PRIV_H
+  assert( iface == iface1 );
+}
 
 
 /*

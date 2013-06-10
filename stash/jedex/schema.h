@@ -52,12 +52,12 @@ jedex_schema *jedex_schema_record_field_get_by_index( const jedex_schema *schema
 size_t jedex_schema_record_size( const jedex_schema *schema );
 
 
-jedex_schema *jedex_schema_map( const jedex_schema *values );
+jedex_schema *jedex_schema_map( jedex_schema *values );
 jedex_schema *jedex_schema_map_values( const jedex_schema *map );
 
 
-jedex_schema *jedex_schema_array( const jedex_schema *items );
-jedex_schema *jedex_schema_array_items( const jedex_schema array );
+jedex_schema *jedex_schema_array( jedex_schema *items );
+jedex_schema *jedex_schema_array_items( const jedex_schema *array );
 
 
 int jedex_schema_from_json_length( const char *jsontext, size_t length, jedex_schema **schema );

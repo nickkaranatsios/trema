@@ -112,8 +112,16 @@ jedex_generic_union_instance_size( const jedex_value_iface *viface ) {
 
 static int
 jedex_generic_union_init( const jedex_value_iface *viface, void *vself ) {
-  UNUSED( viface );
-  UNUSED( vself );
+  const jedex_generic_union_value_iface *iface = container_of( viface, jedex_generic_union_value_iface, parent );
+  jedex_generic_union *self = ( jedex_generic_union * ) vself;
+
+  size_t i;
+  int rval;
+  void *p = self;
+  for ( i = 0; i < iface->branch_count; i++ ) {
+    check( rval, jedex_value_init( iface->branch_ifaces[ i ], p ) );
+    p = ( ( char * ) self + jedex_generic_instance_size( iface->branch_ifaces[ i ] ) );
+  }
 
   return 0;
 }
@@ -176,7 +184,7 @@ jedex_generic_union_class( jedex_schema *schema )
 		goto error;
 	}
 
-	size_t max_branch_size = 0;
+	size_t tot_branch_size = 0;
 	size_t i;
 	for ( i = 0; i < iface->branch_count; i++ ) {
 		jedex_schema *branch_schema = jedex_schema_union_branch( schema, i );
@@ -192,12 +200,10 @@ jedex_generic_union_class( jedex_schema *schema )
 			goto error;
 		}
 
-		if ( branch_size > max_branch_size ) {
-			max_branch_size = branch_size;
-		}
+		tot_branch_size += branch_size;
 	}
 
-	iface->instance_size = sizeof( jedex_generic_union ) + max_branch_size;
+	iface->instance_size = sizeof( jedex_generic_union ) + tot_branch_size;
 
 	return &iface->parent;
 

@@ -77,7 +77,7 @@ main( int argc, char **argv ) {
 
     size_t field_count;
     jedex_value_get_size( &val, &field_count );
-    printf( "field count %u\n", field_count );
+    printf( "field count %ul\n", field_count );
 
     jedex_value field;
     jedex_value_get_by_index( &val, 0, &field, NULL );

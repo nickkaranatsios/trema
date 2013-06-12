@@ -118,7 +118,7 @@ jedex_generic_record_get_by_name( const jedex_value_iface *viface,
   }
 
   child->iface = &iface->field_ifaces[ index ]->parent;
-  child->self = jedex_generic_record_field( iface, self, index);
+  child->self = jedex_generic_record_field( iface, self, index );
   if ( index_out != NULL ) {
     *index_out = index;
   }

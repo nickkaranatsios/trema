@@ -74,7 +74,7 @@ typedef struct jedex_generic_value_iface {
 typedef struct jedex_generic_array_value_iface {
 	jedex_generic_value_iface parent;
 	jedex_schema *schema;
-	jedex_generic_value_iface  *child_giface;
+	jedex_generic_value_iface *child_giface;
 } jedex_generic_array_value_iface;
 
 
@@ -106,8 +106,6 @@ typedef struct jedex_generic_union {
 
 #define jedex_generic_union_field(iface, rec, index) \
   (((char *) (rec)) + (iface)->branch_ifaces[(index)])
-//#define jedex_generic_union_field( iface, rec, index ) \
-  ( ( ( char * ) ( rec ) ) + ( iface )->branch_ifaces[ ( index ) ] )
 
 /** Return a pointer to the active branch within a union struct. */
 #define jedex_generic_union_branch( _union, index ) \

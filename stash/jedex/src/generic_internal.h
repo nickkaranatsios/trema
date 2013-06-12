@@ -72,7 +72,7 @@ typedef struct jedex_generic_value_iface {
 
 
 typedef struct jedex_generic_array_value_iface {
-	jedex_generic_value_iface *parent;
+	jedex_generic_value_iface parent;
 	jedex_schema *schema;
 	jedex_generic_value_iface  *child_giface;
 } jedex_generic_array_value_iface;
@@ -101,29 +101,22 @@ typedef struct jedex_generic_union_value_iface {
 
 
 typedef struct jedex_generic_union {
-  /** The currently active branch of the union.  -1 if no branch
-   * is selected. */
-  int  discriminant;
-
-  /* The rest of the struct is taken up by the inline storage
-   * needed for the active branch. */
 } jedex_generic_union;
 
 
-/** Return the child interface for the active branch. */
-#define jedex_generic_union_branch_giface( iface, _union ) \
-  ( ( iface )->branch_ifaces[ ( _union )->discriminant ] )
-#define jedex_generic_union_branch_iface( iface, _union ) \
-  ( &( jedex_generic_union_branch_giface( ( iface ), ( _union ) ) )->parent )
+#define jedex_generic_union_field(iface, rec, index) \
+  (((char *) (rec)) + (iface)->branch_ifaces[(index)])
+//#define jedex_generic_union_field( iface, rec, index ) \
+  ( ( ( char * ) ( rec ) ) + ( iface )->branch_ifaces[ ( index ) ] )
 
 /** Return a pointer to the active branch within a union struct. */
-#define jedex_generic_union_branch( _union ) \
-  ( ( ( char * ) ( _union ) ) + sizeof( jedex_generic_union ) )
+#define jedex_generic_union_branch( _union, index ) \
+  ( ( ( char * ) ( _union ) ) + sizeof( jedex_generic_union ) * index )
 
 
 
 typedef struct jedex_generic_map_value_iface {
-  jedex_generic_value_iface *parent;
+  jedex_generic_value_iface parent;
   jedex_schema *schema;
   jedex_generic_value_iface *child_giface;
 } jedex_generic_map_value_iface;
@@ -142,7 +135,7 @@ typedef struct jedex_generic_map {
  */
 
 typedef struct jedex_generic_record_value_iface {
-  jedex_generic_value_iface *parent;
+  jedex_generic_value_iface parent;
   jedex_schema *schema;
 
   /** The total size of each value struct for this record. */
@@ -168,7 +161,7 @@ typedef struct jedex_generic_record {
 
 /** Return a pointer to the given field within a record struct. */
 #define jedex_generic_record_field( iface, rec, index ) \
-  ( ( ( char * ) ( rec ) ) + ( iface )->field_offsets[( index )] )
+  ( ( ( char * ) ( rec ) ) + ( iface )->field_offsets[ ( index ) ] )
 
 
 jedex_generic_value_iface *jedex_generic_class_from_schema_memoized( jedex_schema *schema );

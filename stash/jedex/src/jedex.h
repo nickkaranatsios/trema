@@ -34,9 +34,11 @@ extern "C" {
 #include <string.h>
 #include <assert.h>
 #include <pthread.h>
+#include <jansson.h>
 
 
 #include "log_writer.h"
+#include "linked_list.h"
 #include "priv.h"
 #include "allocation.h"
 #include "basics.h"

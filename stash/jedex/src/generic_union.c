@@ -39,7 +39,7 @@ jedex_generic_union_reset( const jedex_value_iface *viface, void *vself ) {
   for ( size_t i = 0; i < iface->branch_count; i++ ) {
     jedex_value value = {
       &iface->branch_ifaces[ i ]->parent,
-      jedex_generic_union_field( iface, self, i )
+      jedex_generic_union_branch( self, i )
     };
     check( rval, jedex_value_reset( &value ) );
   }
@@ -94,8 +94,8 @@ jedex_generic_union_get_branch( const jedex_value_iface *viface,
     return EINVAL;
   }
 
-  branch->iface = &iface->branch_ifaces[ index ];
-  branch->self = jedex_generic_union_field( iface, self, index );
+  branch->iface = &iface->branch_ifaces[ index ]->parent;
+  branch->self = jedex_generic_union_branch( self, index );
 
   return 0;
 }
@@ -126,7 +126,7 @@ jedex_generic_union_done( const jedex_value_iface *viface, void *vself ) {
 
   size_t i;
   for ( i = 0; i < iface->branch_count; i++ ) {
-    jedex_value_done( iface->branch_ifaces[ i ], jedex_generic_union_field( iface, self, i ) );
+    jedex_value_done( iface->branch_ifaces[ i ], jedex_generic_union_branch( self, i ) );
   }
 }
 

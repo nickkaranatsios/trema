@@ -78,7 +78,7 @@ struct jedex_value_iface {
    * Compound value getters
    */
 
-  /* Number of elements in array/map, or the number of fields in a
+  /* Number of elements in array/map/union, or the number of fields in a
    * record. */
   int ( *get_size ) ( const jedex_value_iface *iface, const void *self, size_t *size );
 
@@ -102,10 +102,8 @@ struct jedex_value_iface {
    */
   int ( *get_by_name ) ( const jedex_value_iface *iface, const void *self, const char *name, jedex_value *child, size_t *index );
 
-  /* Discriminant of current union value */
-  int ( *get_discriminant ) ( const jedex_value_iface *iface, const void *self, int *out );
   /* Current union value */
-  int ( *get_current_branch ) ( const jedex_value_iface *iface, const void *self, jedex_value *branch );
+  int ( *get_branch ) ( const jedex_value_iface *iface, const void *self, size_t index, jedex_value *branch );
 
   /*-------------------------------------------------------------
    * Compound value setters
@@ -131,7 +129,7 @@ struct jedex_value_iface {
     ( ( value )->iface->method == NULL ? ( dflt ) : \
      ( value )->iface->method( ( value )->iface, ( value )->self ) )
 
-#define avro_value_call( value, method, dflt, ... ) \
+#define jedex_value_call( value, method, dflt, ... ) \
     ( ( value )->iface->method == NULL ? ( dflt ) : \
      ( value )->iface->method( ( value )->iface, ( value )->self, __VA_ARGS__ ) )
 
@@ -156,7 +154,7 @@ struct jedex_value_iface {
 #define jedex_value_get_int( value, out ) \
     jedex_value_call( value, get_int, EINVAL, out )
 #define jedex_value_get_long( value, out ) \
-    avro_value_call(value, get_long, EINVAL, out)
+    jedex_value_call(value, get_long, EINVAL, out)
 #define jedex_value_get_null( value ) \
     jedex_value_call0( value, get_null, EINVAL )
 #define jedex_value_get_string( value, str, size ) \
@@ -171,10 +169,8 @@ struct jedex_value_iface {
     jedex_value_call( value, get_by_index, EINVAL, idx, child, name )
 #define jedex_value_get_by_name( value, name, child, index ) \
     jedex_value_call( value, get_by_name, EINVAL, name, child, index )
-#define jedex_value_get_discriminant( value, out ) \
-    jedex_value_call( value, get_discriminant, EINVAL, out )
-#define jedex_value_get_current_branch( value, branch ) \
-    jedex_value_call( value, get_current_branch, EINVAL, branch )
+#define jedex_value_get_branch( value, idx, branch ) \
+    jedex_value_call( value, get_branch, EINVAL, idx, branch )
 
 #define jedex_value_set_boolean( value, val ) \
     jedex_value_call( value, set_boolean, EINVAL, val )

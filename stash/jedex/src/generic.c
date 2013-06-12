@@ -17,7 +17,6 @@
 
 
 #include "jedex.h"
-#include "jedex_schema.c"
 #include "raw_string.c"
 #include "raw_array.c"
 #include "raw_map.c"
@@ -62,11 +61,17 @@ jedex_generic_class_from_schema_memoized( jedex_schema *schema ) {
     case JEDEX_NULL:
       result = jedex_generic_null_class();
     break;
+    case JEDEX_STRING:
+      result = jedex_generic_string_class();
+    break;
     case JEDEX_ARRAY:
       result = jedex_generic_array_class( schema );
     break;
     case JEDEX_RECORD:
       result = jedex_generic_record_class( schema );
+    break;
+    case JEDEX_UNION:
+      result = jedex_generic_union_class( schema );
     break;
     case JEDEX_MAP:
       result = jedex_generic_map_class( schema );
@@ -89,12 +94,43 @@ jedex_generic_class_from_schema( jedex_schema *schema ) {
 
 
 int
+jedex_generic_value_new( jedex_value_iface *iface, jedex_value *dest ) {
+  int rval;
+  jedex_generic_value_iface *giface = container_of( iface, jedex_generic_value_iface, parent );
+
+  size_t instance_size = jedex_value_instance_size( giface );
+  void *self = jedex_malloc( instance_size );
+  if ( self == NULL ) {
+    log_err( "Failed to allocate a generic value %s", strerror( ENOMEM ) );
+    dest->iface = NULL;
+    dest->self = NULL;
+    return ENOMEM;
+  }
+
+  rval = jedex_value_init( giface, self );
+  if ( rval != 0 ) {
+    jedex_free( self );
+    dest->iface = NULL;
+    dest->self = NULL;
+    return rval;
+  }
+
+  dest->iface = &giface->parent;
+  dest->self = self;
+
+  return 0;
+}
+
+
+#ifdef TEST
+int
 main( int argc, char **argv ) {
   jedex_value_iface *iface = jedex_value_boolean_class();
   jedex_value_iface *iface1 = jedex_value_boolean_class();
 
   assert( iface == iface1 );
 }
+#endif
 
 
 /*

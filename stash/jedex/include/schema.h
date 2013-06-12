@@ -34,6 +34,8 @@ extern "C" {
 typedef struct jedex_obj jedex_schema;
 
 
+const char *jedex_schema_type_name( const jedex_schema *schema );
+
 jedex_schema *jedex_schema_string( void );
 jedex_schema *jedex_schema_bytes( void );
 jedex_schema *jedex_schema_int( void );
@@ -59,6 +61,11 @@ jedex_schema *jedex_schema_map_values( const jedex_schema *map );
 jedex_schema *jedex_schema_array( jedex_schema *items );
 jedex_schema *jedex_schema_array_items( const jedex_schema *array );
 
+jedex_schema *jedex_schema_union( void );
+size_t jedex_schema_union_size( const jedex_schema *union_schema );
+int jedex_schema_union_append( const jedex_schema *union_schema, const jedex_schema *schema );
+jedex_schema *jedex_schema_union_branch( jedex_schema *union_schema, int branch_index );
+jedex_schema *jedex_schema_union_branch_by_name( jedex_schema *union_schema, int *branch_index, const char *name );
 
 int jedex_schema_from_json_length( const char *jsontext, size_t length, jedex_schema **schema );
 

@@ -32,15 +32,16 @@ make_generic_union_key( void ) {
 static int
 jedex_generic_union_reset( const jedex_value_iface *viface, void *vself ) {
   const jedex_generic_union_value_iface *iface = container_of( viface, jedex_generic_union_value_iface, parent );
-  jedex_generic_union *self = ( jedex_generic_union * ) vself;
-  /* Keep the same branch selected, for the common case that we're
-   * about to reuse it. */
-  if ( self->discriminant >= 0 ) {
+  jedex_generic_union *self = ( jedex_generic_union * ) vself; 
+   
+
+  int rval;
+  for ( size_t i = 0; i < iface->branch_count; i++ ) {
     jedex_value value = {
-      jedex_generic_union_branch_iface( iface, self ),
-      jedex_generic_union_branch( self )
+      &iface->branch_ifaces[ i ]->parent,
+      jedex_generic_union_field( iface, self, i )
     };
-    return jedex_value_reset(&value);
+    check( rval, jedex_value_reset( &value ) );
   }
 
   return 0;
@@ -67,60 +68,38 @@ jedex_generic_union_get_schema( const jedex_value_iface *viface, const void *vse
 
 
 static int
-jedex_generic_union_get_discriminant( const jedex_value_iface *viface, const void *vself, int *out ) {
-  UNUSED( viface );
+jedex_generic_union_get_size( const jedex_value_iface *viface, const void *vself, size_t *size ) {
+  UNUSED( vself );
 
-  const jedex_generic_union *self = ( const jedex_generic_union * ) vself;
-  *out = self->discriminant;
+  const jedex_generic_union_value_iface *iface = container_of( viface, jedex_generic_union_value_iface, parent );
+
+  if ( size != NULL ) {
+    *size = iface->branch_count;
+  }
 
   return 0;
 }
 
 
 static int
-jedex_generic_union_get_current_branch( const jedex_value_iface *viface, const void *vself, jedex_value *branch ) {
+jedex_generic_union_get_branch( const jedex_value_iface *viface, 
+                                const void *vself,
+                                size_t index,
+                                jedex_value *branch ) {
   const jedex_generic_union_value_iface *iface = container_of( viface, jedex_generic_union_value_iface, parent );
+
   const jedex_generic_union *self = ( const jedex_generic_union * ) vself;
-  if ( self->discriminant < 0 ) {
-    log_err( "Union has no selected branch" );
+
+  if ( index > iface->branch_count ) {
     return EINVAL;
   }
 
-  branch->iface = jedex_generic_union_branch_iface( iface, self );
-  branch->self = jedex_generic_union_branch( self );
+  branch->iface = &iface->branch_ifaces[ index ];
+  branch->self = jedex_generic_union_field( iface, self, index );
 
   return 0;
 }
 
-
-static int
-jedex_generic_union_set_branch( const jedex_value_iface *viface, void *vself, int discriminant, jedex_value *branch ) {
-  const jedex_generic_union_value_iface *iface = container_of( viface, jedex_generic_union_value_iface, parent );
-  int rval;
-  jedex_generic_union *self = ( jedex_generic_union * ) vself;
-
-  /*
-   * If the new desired branch is different than the currently
-   * active one, then finalize the old branch and initialize the
-   * new one.
-   */
-  if ( self->discriminant != discriminant ) {
-    if ( self->discriminant >= 0 ) {
-      jedex_value_done( jedex_generic_union_branch_giface( iface, self ), jedex_generic_union_branch( self ) );
-    }
-    self->discriminant = discriminant;
-    if ( discriminant >= 0 ) {
-      check( rval, jedex_value_init( jedex_generic_union_branch_giface( iface, self ), jedex_generic_union_branch( self ) ) );
-    }
-  }
-
-  if ( branch != NULL ) {
-    branch->iface = jedex_generic_union_branch_iface( iface, self );
-    branch->self = jedex_generic_union_branch( self );
-  }
-
-  return 0;
-}
 
 
 static size_t
@@ -134,9 +113,7 @@ jedex_generic_union_instance_size( const jedex_value_iface *viface ) {
 static int
 jedex_generic_union_init( const jedex_value_iface *viface, void *vself ) {
   UNUSED( viface );
-
-  jedex_generic_union *self = ( jedex_generic_union * ) vself;
-  self->discriminant = -1;
+  UNUSED( vself );
 
   return 0;
 }
@@ -146,14 +123,16 @@ static void
 jedex_generic_union_done( const jedex_value_iface *viface, void *vself ) {
   const jedex_generic_union_value_iface *iface = container_of( viface, jedex_generic_union_value_iface, parent );
   jedex_generic_union *self = ( jedex_generic_union * ) vself;
-  if ( self->discriminant >= 0 ) {
-    jedex_value_done( jedex_generic_union_branch_giface( iface, self ), jedex_generic_union_branch( self ) );
-    self->discriminant = -1;
+
+  size_t i;
+  for ( i = 0; i < iface->branch_count; i++ ) {
+    jedex_value_done( iface->branch_ifaces[ i ], jedex_generic_union_field( iface, self, i ) );
   }
 }
 
-jedex_generic_value_iface *
-jedex_generic_union_class( void ) {
+
+static jedex_generic_value_iface *
+generic_union_class( void ) {
   pthread_once( &generic_union_key_once, make_generic_union_key );
 
   jedex_generic_value_iface *generic_union = ( jedex_generic_value_iface * ) pthread_getspecific( generic_union_key ); 
@@ -164,11 +143,10 @@ jedex_generic_union_class( void ) {
     memset( &generic_union->parent, 0, sizeof( generic_union->parent ) );
     generic_union->parent.reset = jedex_generic_union_reset;
     generic_union->parent.get_type = jedex_generic_union_get_type;
+    generic_union->parent.get_size = jedex_generic_union_get_size;
     generic_union->parent.get_schema = jedex_generic_union_get_schema;
-    generic_union->parent.get_discriminant = jedex_generic_union_get_discriminant;
-    generic_union->parent.get_current_branch = jedex_generic_union_get_current_branch;
+    generic_union->parent.get_branch = jedex_generic_union_get_branch;
 
-    generic_union->parent.set_branch = jedex_generic_union_set_branch;
     generic_union->instance_size = jedex_generic_union_instance_size;
     generic_union->init = jedex_generic_union_init;
     generic_union->done = jedex_generic_union_done;
@@ -178,9 +156,58 @@ jedex_generic_union_class( void ) {
 }
 
 
-jedex_value_iface *
-jedex_value_union_class( void ) {
-  return &( jedex_generic_union_class() )->parent;
+jedex_generic_value_iface *
+jedex_generic_union_class( jedex_schema *schema )
+{
+	jedex_generic_union_value_iface *iface = ( jedex_generic_union_value_iface * ) jedex_new( jedex_generic_union_value_iface );
+	if ( iface == NULL ) {
+		return NULL;
+	}
+
+	memset( iface, 0, sizeof( jedex_generic_union_value_iface ) );
+  memcpy( &iface->parent, generic_union_class(), sizeof( iface->parent ) );
+	iface->schema = schema;
+
+	iface->branch_count = jedex_schema_union_size( schema );
+	size_t branch_ifaces_size = sizeof( jedex_generic_value_iface * ) * iface->branch_count;
+
+	iface->branch_ifaces = ( jedex_generic_value_iface ** ) jedex_malloc( branch_ifaces_size );
+	if ( iface->branch_ifaces == NULL ) {
+		goto error;
+	}
+
+	size_t max_branch_size = 0;
+	size_t i;
+	for ( i = 0; i < iface->branch_count; i++ ) {
+		jedex_schema *branch_schema = jedex_schema_union_branch( schema, i );
+
+		iface->branch_ifaces[ i ] = jedex_generic_class_from_schema_memoized( branch_schema );
+		if ( iface->branch_ifaces[ i ] == NULL) {
+			goto error;
+		}
+
+		size_t branch_size = jedex_value_instance_size( iface->branch_ifaces[ i ] );
+		if ( branch_size == 0 ) {
+			log_err( "Union branch class must provide instance_size" );
+			goto error;
+		}
+
+		if ( branch_size > max_branch_size ) {
+			max_branch_size = branch_size;
+		}
+	}
+
+	iface->instance_size = sizeof( jedex_generic_union ) + max_branch_size;
+
+	return &iface->parent;
+
+error:
+	if ( iface->branch_ifaces != NULL ) {
+		jedex_free( iface->branch_ifaces );
+	}
+	jedex_free( iface );
+
+	return NULL;
 }
 
 

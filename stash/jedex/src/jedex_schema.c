@@ -231,8 +231,10 @@ find_named_schemas( const char *name, st_table *st ) {
 
 
 static int
-jedex_type_from_json_t( json_t *json, jedex_type *type,
-  st_table *named_schemas, jedex_schema **named_type ) {
+jedex_type_from_json_t( json_t *json,
+                        jedex_type *type,
+                        st_table *named_schemas,
+                        jedex_schema **named_type ) {
   json_t *json_type;
 
   if ( json_is_array( json ) ) {
@@ -420,6 +422,33 @@ jedex_schema_map( jedex_schema *values ) {
 jedex_schema *
 jedex_schema_map_values( const jedex_schema *map ) {
   return jedex_schema_to_map( map )->values;
+}
+
+
+size_t
+jedex_schema_union_size( const jedex_schema *union_schema ) {
+	check_param( EINVAL, is_jedex_schema( union_schema ), "union schema" );
+	check_param( EINVAL, is_jedex_union( union_schema ), "union schema" );
+	struct jedex_union_schema *unionp = jedex_schema_to_union( union_schema );
+
+	return unionp->branches->num_entries;
+}
+
+
+jedex_schema *
+jedex_schema_union_branch( jedex_schema *unionp, int branch_index ) {
+	union {
+		st_data_t data;
+		jedex_schema *schema;
+	} val;
+
+	if ( st_lookup( jedex_schema_to_union( unionp )->branches, branch_index, &val.data ) ) {
+		return val.schema;
+	}
+  else {
+		log_err( "No union branch for discriminant %d", branch_index );
+		return NULL;
+	}
 }
 
 

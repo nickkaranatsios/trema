@@ -206,11 +206,11 @@ jedex_generic_array_class( jedex_schema *schema ) {
    * TODO: Maybe check that schema.items matches
    * child_iface.get_schema?
    */
-  iface->parent = generic_array_class();
+  memcpy( &iface->parent, generic_array_class(), sizeof( iface->parent ) );
   iface->schema = schema;
   iface->child_giface = child_giface;
 
-  return iface->parent;
+  return &iface->parent;
 }
 
 

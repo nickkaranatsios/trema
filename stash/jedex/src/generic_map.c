@@ -228,11 +228,11 @@ jedex_generic_map_class( jedex_schema *schema ) {
    * child_iface.get_schema?
    */
 
-  iface->parent = jedex_generic_map_get();
+  memcpy( &iface->parent, jedex_generic_map_get(), sizeof( iface->parent ) );
   iface->schema = schema;
   iface->child_giface = child_giface;
 
-  return iface->parent;
+  return &iface->parent;
 }
 
 

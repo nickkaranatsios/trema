@@ -37,7 +37,7 @@ jedex_generic_record_reset( const jedex_value_iface *viface, void *vself ) {
   size_t i;
 
   for ( i = 0; i < iface->field_count; i++ ) {
-    jedex_value  value = {
+    jedex_value value = {
       &iface->field_ifaces[ i ]->parent,
       jedex_generic_record_field( iface, self, i )
     };
@@ -62,7 +62,9 @@ jedex_generic_record_get_size( const jedex_value_iface *viface,
                                const void *vself,
                                size_t *size ) {
   UNUSED( vself );
+
   const jedex_generic_record_value_iface *iface = container_of( viface, jedex_generic_record_value_iface, parent );
+
   if ( size != NULL ) {
     *size = iface->field_count;
   }
@@ -79,6 +81,7 @@ jedex_generic_record_get_by_index( const jedex_value_iface *viface,
                                    const char **name ) {
   const jedex_generic_record_value_iface *iface = container_of( viface, jedex_generic_record_value_iface, parent );
   const jedex_generic_record *self = ( const jedex_generic_record * ) vself;
+
   if ( index >= iface->field_count ) {
     log_err( "Field index %zu out of range", index );
     return EINVAL;
@@ -202,7 +205,7 @@ jedex_generic_record_class( jedex_schema *schema ) {
   }
 
   memset( iface, 0, sizeof( jedex_generic_record_value_iface ) );
-  iface->parent = generic_record_class();
+  memcpy( &iface->parent, generic_record_class(), sizeof( iface->parent ) );
   iface->schema = schema;
 
   iface->field_count = jedex_schema_record_size( schema );
@@ -241,7 +244,7 @@ jedex_generic_record_class( jedex_schema *schema ) {
 
   iface->instance_size = next_offset;
 
-  return iface->parent;
+  return &iface->parent;
 
 error:
   if ( iface->field_offsets != NULL ) {

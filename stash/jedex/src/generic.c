@@ -17,22 +17,6 @@
 
 
 #include "jedex.h"
-#include "raw_string.c"
-#include "raw_array.c"
-#include "raw_map.c"
-#include "wrapped_buffer.c"
-#include "generic_boolean.c"
-#include "generic_int.c"
-#include "generic_long.c"
-#include "generic_float.c"
-#include "generic_double.c"
-#include "generic_null.c"
-#include "generic_string.c"
-#include "generic_bytes.c"
-#include "generic_array.c"
-#include "generic_record.c"
-#include "generic_union.c"
-#include "generic_map.c"
 
 
 jedex_generic_value_iface *
@@ -120,17 +104,6 @@ jedex_generic_value_new( jedex_value_iface *iface, jedex_value *dest ) {
 
   return 0;
 }
-
-
-#ifdef TEST
-int
-main( int argc, char **argv ) {
-  jedex_value_iface *iface = jedex_value_boolean_class();
-  jedex_value_iface *iface1 = jedex_value_boolean_class();
-
-  assert( iface == iface1 );
-}
-#endif
 
 
 /*

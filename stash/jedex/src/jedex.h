@@ -32,6 +32,7 @@ extern "C" {
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
+#include <ctype.h>
 #include <assert.h>
 #include <pthread.h>
 #include <jansson.h>
@@ -45,6 +46,7 @@ extern "C" {
 #include "data.h"
 #include "value.h"
 #include "schema.h"
+#include "schema_priv.h"
 #include "generic.h"
 #include "generic_internal.h"
 #include "wrapped_buffer_priv.h"

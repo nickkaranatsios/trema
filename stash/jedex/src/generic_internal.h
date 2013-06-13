@@ -95,6 +95,9 @@ typedef struct jedex_generic_union_value_iface {
    * this from schema, but this is easier. */
   size_t branch_count;
 
+  /** The offset of each branch within the union. */
+  size_t *branch_offsets;
+
   /** The value implementation for each branch. */
   jedex_generic_value_iface **branch_ifaces;
 } jedex_generic_union_value_iface;
@@ -104,13 +107,8 @@ typedef struct jedex_generic_union {
 } jedex_generic_union;
 
 
-#define jedex_generic_union_field(iface, rec, index) \
-  (((char *) (rec)) + (iface)->branch_ifaces[(index)])
-
-/** Return a pointer to the active branch within a union struct. */
-#define jedex_generic_union_branch( _union, index ) \
-  ( ( ( char * ) ( _union ) ) + sizeof( jedex_generic_union ) * index )
-
+#define jedex_generic_union_branch( iface, rec, index ) \
+  ( ( ( char * ) ( rec ) ) + ( iface )->branch_offsets[ ( index ) ] )
 
 
 typedef struct jedex_generic_map_value_iface {
@@ -173,6 +171,7 @@ jedex_generic_value_iface *jedex_generic_string_class( void );
 jedex_generic_value_iface *jedex_generic_null_class( void );
 jedex_generic_value_iface *jedex_generic_array_class( jedex_schema *schema );
 jedex_generic_value_iface *jedex_generic_record_class( jedex_schema *schema );
+jedex_generic_value_iface *jedex_generic_union_class( jedex_schema *schema );
 jedex_generic_value_iface *jedex_generic_map_class( jedex_schema *schema );
 
 

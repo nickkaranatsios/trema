@@ -119,10 +119,10 @@ struct jedex_value_iface {
 
   /* Creates a new map element, or returns an existing one. */
   int ( *add ) ( const jedex_value_iface *iface, void *self, const char *key, jedex_value *child, size_t *index, int *is_new );
-
-  /* Select a union branch. */
-  int ( *set_branch ) ( const jedex_value_iface *iface, void *self, int discriminant, jedex_value *branch );
 };
+
+
+int jedex_value_to_json( const jedex_value *value, int one_line, char **json_str );
 
 
 #define jedex_value_call0( value, method, dflt ) \
@@ -200,8 +200,6 @@ struct jedex_value_iface {
     jedex_value_call( value, append, EINVAL, child, new_index )
 #define jedex_value_add( value, key, child, index, is_new ) \
     jedex_value_call( value, add, EINVAL, key, child, index, is_new )
-#define jedex_value_set_branch( value, discriminant, branch ) \
-    jedex_value_call( value, set_branch, EINVAL, discriminant, branch )
 
 
 CLOSE_EXTERN

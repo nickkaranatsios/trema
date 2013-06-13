@@ -39,21 +39,12 @@ jedex_generic_union_reset( const jedex_value_iface *viface, void *vself ) {
   for ( size_t i = 0; i < iface->branch_count; i++ ) {
     jedex_value value = {
       &iface->branch_ifaces[ i ]->parent,
-      jedex_generic_union_branch( self, i )
+      jedex_generic_union_branch( iface, self, i )
     };
     check( rval, jedex_value_reset( &value ) );
   }
 
   return 0;
-}
-
-
-static jedex_type
-jedex_generic_union_get_type( const jedex_value_iface *viface, const void *vself ) {
-  UNUSED( viface );
-  UNUSED( vself );
-
-  return JEDEX_UNION;
 }
 
 
@@ -64,6 +55,15 @@ jedex_generic_union_get_schema( const jedex_value_iface *viface, const void *vse
   const jedex_generic_union_value_iface *iface = container_of( viface, jedex_generic_union_value_iface, parent );
 
   return iface->schema;
+}
+
+
+static jedex_type
+jedex_generic_union_get_type( const jedex_value_iface *viface, const void *vself ) {
+  UNUSED( viface );
+  UNUSED( vself );
+
+  return JEDEX_UNION;
 }
 
 
@@ -95,7 +95,7 @@ jedex_generic_union_get_branch( const jedex_value_iface *viface,
   }
 
   branch->iface = &iface->branch_ifaces[ index ]->parent;
-  branch->self = jedex_generic_union_branch( self, index );
+  branch->self = jedex_generic_union_branch( iface, self, index );
 
   return 0;
 }
@@ -117,10 +117,8 @@ jedex_generic_union_init( const jedex_value_iface *viface, void *vself ) {
 
   size_t i;
   int rval;
-  void *p = self;
   for ( i = 0; i < iface->branch_count; i++ ) {
-    check( rval, jedex_value_init( iface->branch_ifaces[ i ], p ) );
-    p = ( ( char * ) self + jedex_generic_instance_size( iface->branch_ifaces[ i ] ) );
+    check( rval, jedex_value_init( iface->branch_ifaces[ i ], jedex_generic_union_branch( iface, self, i ) ) );
   }
 
   return 0;
@@ -134,7 +132,7 @@ jedex_generic_union_done( const jedex_value_iface *viface, void *vself ) {
 
   size_t i;
   for ( i = 0; i < iface->branch_count; i++ ) {
-    jedex_value_done( iface->branch_ifaces[ i ], jedex_generic_union_branch( self, i ) );
+    jedex_value_done( iface->branch_ifaces[ i ], jedex_generic_union_branch( iface, self, i ) );
   }
 }
 
@@ -177,6 +175,7 @@ jedex_generic_union_class( jedex_schema *schema )
 	iface->schema = schema;
 
 	iface->branch_count = jedex_schema_union_size( schema );
+  size_t branch_offsets_size = sizeof( size_t ) * iface->branch_count;
 	size_t branch_ifaces_size = sizeof( jedex_generic_value_iface * ) * iface->branch_count;
 
 	iface->branch_ifaces = ( jedex_generic_value_iface ** ) jedex_malloc( branch_ifaces_size );
@@ -184,7 +183,12 @@ jedex_generic_union_class( jedex_schema *schema )
 		goto error;
 	}
 
-	size_t tot_branch_size = 0;
+  iface->branch_offsets = ( size_t * ) jedex_malloc( branch_offsets_size );
+  if ( iface->branch_offsets == NULL ) {
+    goto error;
+  }
+
+  size_t next_offset = sizeof( jedex_generic_union );
 	size_t i;
 	for ( i = 0; i < iface->branch_count; i++ ) {
 		jedex_schema *branch_schema = jedex_schema_union_branch( schema, i );
@@ -194,16 +198,17 @@ jedex_generic_union_class( jedex_schema *schema )
 			goto error;
 		}
 
+    iface->branch_offsets[ i ] = next_offset;
 		size_t branch_size = jedex_value_instance_size( iface->branch_ifaces[ i ] );
 		if ( branch_size == 0 ) {
 			log_err( "Union branch class must provide instance_size" );
 			goto error;
 		}
 
-		tot_branch_size += branch_size;
+    next_offset += branch_size;
 	}
 
-	iface->instance_size = sizeof( jedex_generic_union ) + tot_branch_size;
+	iface->instance_size = next_offset;
 
 	return &iface->parent;
 

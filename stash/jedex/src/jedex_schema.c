@@ -16,19 +16,7 @@
  */
 
 
-#include <ctype.h>
-#include <string.h>
-#include "jansson.h"
-#include "log_writer.h"
-
-#include "priv.h"
-#include "allocation.h"
-#include "basics.h"
-#include "schema_priv.h"
-#include "st.h"
-
-#include "allocation.c"
-#include "st.c"
+#include "jedex.h"
 
 
 #define DEFAULT_TABLE_SIZE 32
@@ -436,7 +424,7 @@ jedex_schema_union_size( const jedex_schema *union_schema ) {
 
 
 jedex_schema *
-jedex_schema_union_branch( jedex_schema *unionp, int branch_index ) {
+jedex_schema_union_branch( const jedex_schema *unionp, int branch_index ) {
 	union {
 		st_data_t data;
 		jedex_schema *schema;

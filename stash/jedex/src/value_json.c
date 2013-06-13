@@ -271,46 +271,64 @@ jedex_value_to_json_t( const jedex_value *value ) {
 			return result;
 		}
 
-		case JEDEX_UNION:
-		{
-			int disc;
-			jedex_value branch;
-			jedex_schema *union_schema;
-			jedex_schema *branch_schema;
-			const char *branch_name;
-
-			check_return( NULL, jedex_value_get_current_branch( value, &branch ) );
-
-			if ( jedex_value_get_type( &branch ) == JEDEX_NULL ) {
-				return_json( "null", json_null() );
-			}
-
-			check_return( NULL, jedex_value_get_discriminant( value, &disc ) );
-			union_schema = jedex_value_get_schema( value );
-			branch_schema = jedex_schema_union_branch( union_schema, disc );
-			branch_name = jedex_schema_type_name( branch_schema );
-
-			json_t *result = json_object();
+		case JEDEX_UNION: {
+			int rc;
+			size_t branch_count, i;
+			json_t *result = json_array();
 			if ( result == NULL ) {
-				log_err( "Cannot allocate JSON union" );
+				log_err( "Cannot allocate new JSON array" );
 				return NULL;
 			}
 
-			json_t *branch_json = jedex_value_to_json_t( &branch );
-			if ( branch_json == NULL ) {
+			rc = jedex_value_get_size( value, &branch_count );
+			if ( rc != 0 ) {
 				json_decref( result );
 				return NULL;
 			}
 
-			if ( json_object_set_new( result, branch_name, branch_json ) ) {
-				log_err( "Cannot append branch to union" );
-				json_decref( result );
-				return NULL;
+			jedex_schema *union_schema;
+			union_schema = jedex_value_get_schema( value );
+
+			for ( i = 0; i < branch_count; i++ ) {
+			  jedex_schema *branch_schema;
+			  const char *branch_name;
+
+			  branch_schema = jedex_schema_union_branch( union_schema, i );
+			  branch_name = jedex_schema_type_name( branch_schema );
+
+				jedex_value branch;
+        rc = jedex_value_get_branch( value, i, &branch );
+				if ( rc != 0 ) {
+					json_decref( result );
+					return NULL;
+				}
+        json_t *branch_obj = json_object();
+        if ( branch_obj == NULL ) {
+          log_err( "Can not allocate new JSON object" );
+          json_decref( result );
+          return NULL;
+        }
+
+				json_t *branch_json = jedex_value_to_json_t( &branch );
+				if ( branch_json == NULL ) {
+					json_decref( result );
+					return NULL;
+				}
+
+				if ( json_object_set_new( branch_obj, branch_name, branch_json ) ) {
+          log_err( "Cannot set branch object" );
+          json_decref( result );
+          return NULL;
+        }
+				if ( json_array_append_new( result, branch_obj ) ) {
+					log_err( "Cannot append branch to array" );
+					json_decref( result );
+					return NULL;
+				}
 			}
 
 			return result;
 		}
-
 		default:
 			return NULL;
 	}
@@ -339,6 +357,78 @@ jedex_value_to_json( const jedex_value *value, int one_line, char **json_str ) {
 	json_decref( json );
 
 	return 0;
+}
+
+
+int
+jedex_value_from_json_root( const json_t *json, const jedex_schema *schema, jedex_value *value ) {
+  json_type type;
+
+  if ( json_is_array( json ) ) {
+    size_t items;
+    items = json_array_size( json );
+    for ( size_t i = 0; i < items; i++ ) {
+      json_t *element = json_array_get( json, i );
+      const jedex_schema *items_schema = schema;
+      if ( is_jedex_array( schema ) ) {
+        items_schema = jedex_schema_array_items( schema );
+      }
+      int rval;
+      rval = jedex_value_from_json_root( element, items_schema, value );
+      if ( rval ) {
+        return rval;
+      }
+    }
+  } 
+  else if ( json_is_object( json ) ) {
+    if ( is_jedex_union( schema ) ) {
+      size_t branch_count = jedex_schema_union_size( schema );
+      for ( size_t i = 0; i < branch_count; i++ ) {
+        const jedex_schema *branch_schema = jedex_schema_union_branch( schema, i );
+        if ( is_jedex_record( branch_schema ) ) {
+          const char *name = ( jedex_schema_to_record( branch_schema ) )->name;
+          if ( name != NULL ) {
+            int rval;
+            rval = jedex_value_from_json_root( json_object_get( json, name ), branch_schema, value );
+            if ( rval ) {
+              return rval;
+            }
+          }
+        }
+      }
+    }
+
+    if ( is_jedex_record( schema ) ) {
+      size_t field_count = jedex_schema_record_size( schema );
+      for ( size_t i = 0; i < field_count; i++ ) {
+        const char *field_name = jedex_schema_record_field_name( schema, i );
+        if ( field_name != NULL ) {
+          jedex_schema *field_schema = jedex_schema_record_field_get_by_index( schema, i );
+          int rval;
+          rval = jedex_value_from_json_root( json_object_get( json, field_name ), field_schema, value );
+          if ( rval ) {
+            return rval;
+          }
+        }
+      }
+    }
+  }
+  else if ( json_is_string( json ) ) {
+    const char *value = json_string_value( json );
+    printf( "value = %s\n", value );
+  }
+  else if ( json_is_integer( json ) ) {
+    json_int_t int_val = json_integer_value( json );
+  }
+  else if ( json_is_real( json ) ) {
+    double real = json_real_value( json );
+    printf( "real %f\n", real );
+  }
+  else if ( json_is_boolean( json ) ) {
+    printf( "bool val %d\n", json_is_boolean( json ) );
+  }
+
+  return 0;
 }
 
 

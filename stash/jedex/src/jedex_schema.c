@@ -758,8 +758,20 @@ jedex_schema_from_json_length( const char *jsontext, size_t length, jedex_schema
     log_err( "Error parsing JSON %s", jsontext );
     return EINVAL;
   }
+  if ( json_is_array( root ) ) {
+    size_t array_size = json_array_size( root );
+    int rval = 0;
 
-  return jedex_schema_from_json_root( root, schema );
+    schema = ( jedex_schema ** ) jedex_malloc( array_size );
+    for ( size_t i = 0; i < array_size && !rval; i++, schema++ ) {
+      json_t *json = json_array_get( root, i );
+      rval = jedex_schema_from_json_root( json, schema );
+    }
+    return rval;
+  }
+  else {
+    return jedex_schema_from_json_root( root, schema );
+  }
 }
 
 

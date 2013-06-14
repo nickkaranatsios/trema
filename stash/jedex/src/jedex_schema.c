@@ -366,9 +366,31 @@ jedex_schema_null( void ) {
 
 
 jedex_schema *
-jedex_schema_link() {
-  // TODO named linked types not implemented.
-  return NULL;
+jedex_schema_link( jedex_schema *to ) {
+	if ( !is_jedex_named_type( to ) ) {
+		log_err( "Can only link to named types" );
+		return NULL;
+	}
+
+	struct jedex_link_schema *link = ( struct jedex_link_schema * ) jedex_new( struct jedex_link_schema );
+	if ( !link ) {
+		log_err( "Cannot allocate new link schema" );
+		return NULL;
+	}
+	link->to = to;
+	jedex_schema_init( &link->obj, JEDEX_LINK );
+
+	return &link->obj;
+}
+
+
+jedex_schema *
+jedex_schema_link_target( jedex_schema *schema ) {
+	check_param( NULL, is_jedex_schema( schema ), "schema" );
+	check_param( NULL, is_jedex_link( schema ), "schema" );
+
+	struct jedex_link_schema *link = jedex_schema_to_link( schema );
+	return link->to;
 }
 
 
@@ -539,7 +561,7 @@ jedex_schema_from_json_t( json_t *json, jedex_schema **schema, st_table *named_s
   }
   switch ( type ) {
     case JEDEX_LINK:
-      *schema = jedex_schema_link();
+      *schema = jedex_schema_link( named_type );
     break;
     case JEDEX_STRING:
       *schema = jedex_schema_string();
@@ -661,8 +683,8 @@ jedex_schema_from_json_t( json_t *json, jedex_schema **schema, st_table *named_s
       int items_rval;
 
       items_rval = jedex_schema_from_json_t( json_items,
-                                               &items_schema,
-                                               named_schemas );
+                                             &items_schema,
+                                             named_schemas );
       if ( items_rval ) {
         return items_rval;
       }
@@ -758,20 +780,7 @@ jedex_schema_from_json_length( const char *jsontext, size_t length, jedex_schema
     log_err( "Error parsing JSON %s", jsontext );
     return EINVAL;
   }
-  if ( json_is_array( root ) ) {
-    size_t array_size = json_array_size( root );
-    int rval = 0;
-
-    schema = ( jedex_schema ** ) jedex_malloc( array_size );
-    for ( size_t i = 0; i < array_size && !rval; i++, schema++ ) {
-      json_t *json = json_array_get( root, i );
-      rval = jedex_schema_from_json_root( json, schema );
-    }
-    return rval;
-  }
-  else {
-    return jedex_schema_from_json_root( root, schema );
-  }
+  return jedex_schema_from_json_root( root, schema );
 }
 
 

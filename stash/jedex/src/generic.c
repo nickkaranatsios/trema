@@ -20,9 +20,12 @@
 
 
 jedex_generic_value_iface *
-jedex_generic_class_from_schema_memoized( jedex_schema *schema ) {
+jedex_generic_class_from_schema_memoized( jedex_schema *schema, memoize_state *state ) {
   jedex_generic_value_iface *result = NULL;
 
+  if ( jedex_memoize_get( &state->mem, schema, NULL, ( void ** ) &result ) ) {
+    return result;
+  }
   switch ( schema->type ) {
     case JEDEX_BOOLEAN:
       result = jedex_generic_boolean_class();
@@ -49,21 +52,29 @@ jedex_generic_class_from_schema_memoized( jedex_schema *schema ) {
       result = jedex_generic_string_class();
     break;
     case JEDEX_ARRAY:
-      result = jedex_generic_array_class( schema );
+      result = jedex_generic_array_class( schema, state );
     break;
     case JEDEX_RECORD:
-      result = jedex_generic_record_class( schema );
+      result = jedex_generic_record_class( schema, state );
     break;
     case JEDEX_UNION:
-      result = jedex_generic_union_class( schema );
+      result = jedex_generic_union_class( schema, state );
     break;
     case JEDEX_MAP:
-      result = jedex_generic_map_class( schema );
+      result = jedex_generic_map_class( schema, state );
+    break;
+    case JEDEX_LINK: {
+      jedex_generic_link_value_iface *lresult = jedex_generic_link_class( schema );
+      lresult->next = state->links;
+      state->links = lresult;
+      result = &lresult->parent;
+    }
     break;
     default:
       log_err( "Unknown schema type" );
     break;
   }
+  jedex_memoize_set( &state->mem, schema, NULL, result );
 
   return result;
 }
@@ -71,7 +82,33 @@ jedex_generic_class_from_schema_memoized( jedex_schema *schema ) {
 
 jedex_value_iface *
 jedex_generic_class_from_schema( jedex_schema *schema ) {
-  jedex_generic_value_iface *result = jedex_generic_class_from_schema_memoized( schema );
+  memoize_state state;
+
+  jedex_memoize_init( &state.mem );
+  state.links = NULL;
+
+
+  jedex_generic_value_iface *result = jedex_generic_class_from_schema_memoized( schema, &state );
+  if (result == NULL) {
+    jedex_memoize_done( &state.mem );
+    return NULL;
+  }
+
+  while ( state.links != NULL ) {
+    jedex_generic_link_value_iface *link_iface = state.links;
+    jedex_schema *target_schema = jedex_schema_link_target( link_iface->schema );
+
+    jedex_generic_value_iface *target_iface = NULL;
+    if ( !jedex_memoize_get( &state.mem, target_schema, NULL, ( void ** ) &target_iface ) ) {
+      log_err( "Never created a value implementation for %s", jedex_schema_type_name( target_schema ) );
+      return NULL;
+    }
+
+    link_iface->target_giface = target_iface;
+    state.links = link_iface->next;
+    link_iface->next = NULL;
+  }
+  jedex_memoize_done( &state.mem );
 
   return &result->parent;
 }

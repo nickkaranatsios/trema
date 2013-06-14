@@ -40,25 +40,25 @@ extern "C" {
  */
 
 typedef struct jedex_generic_value_iface {
-	jedex_value_iface parent;
+  jedex_value_iface parent;
 
-	/**
-	 * Return the size of an instance of this value type.  If this
-	 * returns 0, then this value type can't be used with any
-	 * function or type (like jedex_value_new) that expects to
-	 * allocate space for the value itself.
-	 */
-	size_t ( *instance_size ) ( const jedex_value_iface *iface );
+  /**
+   * Return the size of an instance of this value type.  If this
+   * returns 0, then this value type can't be used with any
+   * function or type (like jedex_value_new) that expects to
+   * allocate space for the value itself.
+   */
+  size_t ( *instance_size ) ( const jedex_value_iface *iface );
 
-	/**
-	 * Initialize a new value instance.
-	 */
-	int ( *init ) ( const jedex_value_iface *iface, void *self );
+  /**
+   * Initialize a new value instance.
+   */
+  int ( *init ) ( const jedex_value_iface *iface, void *self );
 
-	/**
-	 * Finalize a value instance.
-	 */
-	void ( *done ) ( const jedex_value_iface *iface, void *self );
+  /**
+   * Finalize a value instance.
+   */
+  void ( *done ) ( const jedex_value_iface *iface, void *self );
 } jedex_generic_value_iface;
 
 
@@ -72,15 +72,15 @@ typedef struct jedex_generic_value_iface {
 
 
 typedef struct jedex_generic_array_value_iface {
-	jedex_generic_value_iface parent;
-	jedex_schema *schema;
-	jedex_generic_value_iface *child_giface;
+  jedex_generic_value_iface parent;
+  jedex_schema *schema;
+  jedex_generic_value_iface *child_giface;
 } jedex_generic_array_value_iface;
 
 
 
 typedef struct jedex_generic_array {
-	jedex_raw_array array;
+  jedex_raw_array array;
 } jedex_generic_array;
 
 
@@ -160,7 +160,35 @@ typedef struct jedex_generic_record {
   ( ( ( char * ) ( rec ) ) + ( iface )->field_offsets[ ( index ) ] )
 
 
-jedex_generic_value_iface *jedex_generic_class_from_schema_memoized( jedex_schema *schema );
+typedef struct jedex_generic_link_value_iface jedex_generic_link_value_iface;
+
+
+typedef struct memoize_state {
+  jedex_memoize mem;
+  jedex_generic_link_value_iface *links;
+} memoize_state;
+
+
+struct jedex_generic_link_value_iface {
+  jedex_generic_value_iface parent;
+
+  /** The schema for this interface. */
+  jedex_schema *schema;
+
+  /** The target's implementation. */
+  jedex_generic_value_iface *target_giface;
+
+  /**
+   * A pointer to the “next” link interface that we've had to
+   * create.  We use this as we're creating the overall top-level
+   * value interface to keep track of which ones we have to fix up
+   * afterwards.
+   */
+  jedex_generic_link_value_iface *next;
+};
+
+
+jedex_generic_value_iface *jedex_generic_class_from_schema_memoized( jedex_schema *schema, memoize_state *state );
 jedex_generic_value_iface *jedex_generic_boolean_class( void );
 jedex_generic_value_iface *jedex_generic_bytes_class( void );
 jedex_generic_value_iface *jedex_generic_double_class( void );
@@ -169,10 +197,11 @@ jedex_generic_value_iface *jedex_generic_int_class( void );
 jedex_generic_value_iface *jedex_generic_long_class( void );
 jedex_generic_value_iface *jedex_generic_string_class( void );
 jedex_generic_value_iface *jedex_generic_null_class( void );
-jedex_generic_value_iface *jedex_generic_array_class( jedex_schema *schema );
-jedex_generic_value_iface *jedex_generic_record_class( jedex_schema *schema );
-jedex_generic_value_iface *jedex_generic_union_class( jedex_schema *schema );
-jedex_generic_value_iface *jedex_generic_map_class( jedex_schema *schema );
+jedex_generic_value_iface *jedex_generic_array_class( jedex_schema *schema, memoize_state *state );
+jedex_generic_value_iface *jedex_generic_record_class( jedex_schema *schema, memoize_state *state );
+jedex_generic_value_iface *jedex_generic_union_class( jedex_schema *schema, memoize_state *state );
+jedex_generic_value_iface *jedex_generic_map_class( jedex_schema *schema, memoize_state *state );
+jedex_generic_link_value_iface *jedex_generic_link_class( jedex_schema *schema );
 
 
 CLOSE_EXTERN

@@ -198,7 +198,7 @@ generic_record_class( void ) {
 
 
 jedex_generic_value_iface *
-jedex_generic_record_class( jedex_schema *schema ) {
+jedex_generic_record_class( jedex_schema *schema, memoize_state *state ) {
   jedex_generic_record_value_iface *iface = ( jedex_generic_record_value_iface * ) jedex_new( jedex_generic_record_value_iface );
   if ( iface == NULL ) {
     return NULL;
@@ -229,7 +229,7 @@ jedex_generic_record_class( jedex_schema *schema ) {
 
     iface->field_offsets[ i ] = next_offset;
 
-    iface->field_ifaces[ i ] = jedex_generic_class_from_schema_memoized( field_schema );
+    iface->field_ifaces[ i ] = jedex_generic_class_from_schema_memoized( field_schema, state );
     if ( iface->field_ifaces[ i ] == NULL ) {
       goto error;
     }

@@ -35,6 +35,8 @@ extern "C" {
 #include <ctype.h>
 #include <assert.h>
 #include <pthread.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <jansson.h>
 
 

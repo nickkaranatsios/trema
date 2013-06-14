@@ -163,7 +163,7 @@ generic_union_class( void ) {
 
 
 jedex_generic_value_iface *
-jedex_generic_union_class( jedex_schema *schema )
+jedex_generic_union_class( jedex_schema *schema, memoize_state *state )
 {
 	jedex_generic_union_value_iface *iface = ( jedex_generic_union_value_iface * ) jedex_new( jedex_generic_union_value_iface );
 	if ( iface == NULL ) {
@@ -193,7 +193,7 @@ jedex_generic_union_class( jedex_schema *schema )
 	for ( i = 0; i < iface->branch_count; i++ ) {
 		jedex_schema *branch_schema = jedex_schema_union_branch( schema, i );
 
-		iface->branch_ifaces[ i ] = jedex_generic_class_from_schema_memoized( branch_schema );
+		iface->branch_ifaces[ i ] = jedex_generic_class_from_schema_memoized( branch_schema, state );
 		if ( iface->branch_ifaces[ i ] == NULL) {
 			goto error;
 		}

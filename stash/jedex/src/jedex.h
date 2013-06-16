@@ -37,6 +37,7 @@ extern "C" {
 #include <pthread.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <limits.h>
 #include <jansson.h>
 
 
@@ -53,6 +54,7 @@ extern "C" {
 #include "generic_internal.h"
 #include "wrapped_buffer_priv.h"
 #include "st.h"
+#include "parcel.h"
 
 
 CLOSE_EXTERN

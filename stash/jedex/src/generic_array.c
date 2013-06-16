@@ -112,6 +112,7 @@ jedex_generic_array_append( const jedex_value_iface *viface,
                             size_t *new_index ) {
   int rval;
   const jedex_generic_array_value_iface *iface = container_of( viface, jedex_generic_array_value_iface, parent );
+
   jedex_generic_array *self = ( jedex_generic_array * ) vself;
   child->iface = &iface->child_giface->parent;
   child->self = jedex_raw_array_append( &self->array );
@@ -121,7 +122,7 @@ jedex_generic_array_append( const jedex_value_iface *viface,
   }
   check( rval, jedex_value_init( iface->child_giface, child->self ) );
   if ( new_index != NULL ) {
-    *new_index = jedex_raw_array_size(& self->array ) - 1;
+    *new_index = jedex_raw_array_size( &self->array ) - 1;
   }
 
   return 0;

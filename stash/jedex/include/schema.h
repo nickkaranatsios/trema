@@ -67,6 +67,7 @@ int jedex_schema_union_append( const jedex_schema *union_schema, const jedex_sch
 jedex_schema *jedex_schema_union_branch( const jedex_schema *union_schema, int branch_index );
 jedex_schema *jedex_schema_union_branch_by_name( jedex_schema *union_schema, int *branch_index, const char *name );
 
+int jedex_schema_from_json( const char *jsontext, jedex_schema **schema );
 int jedex_schema_from_json_length( const char *jsontext, size_t length, jedex_schema **schema );
 
 #define jedex_schema_from_json_literal( json, schema ) \

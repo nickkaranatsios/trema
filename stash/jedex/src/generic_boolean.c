@@ -137,6 +137,16 @@ jedex_value_boolean_class( void ) {
 }
 
 
+int
+jedex_generic_boolean_new( jedex_value *value, int val ) {
+  int rval;
+
+  check( rval, jedex_generic_value_new( jedex_value_boolean_class(), value ) );  
+
+  return jedex_generic_boolean_set( value->iface, value->self, val );
+}
+
+
 /*
  * Local variables:
  * c-basic-offset: 2

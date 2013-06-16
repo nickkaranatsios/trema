@@ -550,6 +550,64 @@ jedex_schema_record_field_append( const jedex_schema *record_schema,
 }
 
 
+jedex_schema *
+jedex_schema_get_subschema( const jedex_schema *schema, const char *name ) {
+  if ( is_jedex_record( schema ) ) {
+    const struct jedex_record_schema *rschema = jedex_schema_to_record( schema );
+    union {
+      st_data_t data;
+      struct jedex_record_field *field;
+    } field;
+
+    if ( st_lookup( rschema->fields_byname, ( st_data_t ) name, &field.data ) ) {
+      return field.field->type;
+    }
+
+    log_err( "No record field named %s", name );
+    return NULL;
+  }
+  else if ( is_jedex_union( schema ) ) {
+    const struct jedex_union_schema *uschema = jedex_schema_to_union( schema );
+    long i;
+
+    for ( i = 0; i < uschema->branches->num_entries; i++ ) {
+      union {
+        st_data_t data;
+        jedex_schema *schema;
+      } val;
+      st_lookup( uschema->branches, i, &val.data );
+      if ( strcmp( jedex_schema_type_name( val.schema ), name ) == 0 ) {
+        return val.schema;
+      }
+    }
+
+    log_err( "No union branch named %s", name );
+    return NULL;
+  }
+  else if ( is_jedex_array( schema ) ) {
+    if ( strcmp( name, "[]" ) == 0 ) {
+      const struct jedex_array_schema *aschema = jedex_schema_to_array( schema );
+      return aschema->items;
+    }
+
+    log_err( "Array subschema must be called \"[]\"" );
+    return NULL;
+  }
+  else if ( is_jedex_map( schema ) ) {
+    if ( strcmp( name, "{}" ) == 0 ) {
+      const struct jedex_map_schema *mschema = jedex_schema_to_map( schema );
+      return mschema->values;
+    }
+
+    log_err( "Map subschema must be called \"{}\"" );
+    return NULL;
+  }
+
+  log_err( "Can only retrieve subschemas from record, union, array, or map" );
+  return NULL;
+}
+
+
 static int
 jedex_schema_from_json_t( json_t *json, jedex_schema **schema, st_table *named_schemas ) {
   jedex_type type = JEDEX_INVALID;
@@ -771,11 +829,29 @@ jedex_schema_from_json_root( json_t *root, jedex_schema **schema ) {
 
 
 int
+jedex_schema_from_json( const char *jsontext, jedex_schema **schema ) {
+  check_param( EINVAL, jsontext, "JSON text" );
+  check_param( EINVAL, schema, "schema pointer" );
+
+  json_t *root;
+  json_error_t json_error;
+
+  root = json_loads( jsontext, 0, &json_error );
+  if (!root) {
+    log_err( "Error parsing JSON: %s", json_error.text );
+    return EINVAL;
+  }
+
+  return jedex_schema_from_json_root( root, schema );
+}
+
+
+int
 jedex_schema_from_json_length( const char *jsontext, size_t length, jedex_schema **schema ) {
   json_t *root;
   json_error_t json_error;
   
-  root = json_loadb( jsontext, length, 0, &json_error );
+  root = json_loadb( jsontext, length, JSON_DISABLE_EOF_CHECK, &json_error );
   if ( root == NULL ) {
     log_err( "Error parsing JSON %s", jsontext );
     return EINVAL;

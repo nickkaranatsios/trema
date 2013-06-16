@@ -16,8 +16,8 @@
  */
 
 
-#ifndef PRIV_H
-#define PRIV_H
+#ifndef PARCEL_H
+#define PARCEL_H
 
 
 #ifdef __cplusplus
@@ -28,34 +28,18 @@ extern "C" {
 #endif
 
 
-#define UNUSED( var ) ( void ) var;
+#include "linked_list.h"
+#include "value.h"
 
-#define check( rval, call ) { rval = call; if ( rval ) return rval; }
 
-#define check_param( result, test, name )         \
-  {               \
-    if ( !( test ) ) {            \
-      log_err( "Invalid " name " in %s",  \
-               __FUNCTION__ );     \
-      return result;          \
-    }             \
-  }
-
-#define check_return( retval, call ) \
-  do { \
-    int  __rc; \
-    __rc = call; \
-    if ( __rc != 0 ) { \
-      return retval; \
-    } \
-  } while ( 0 )
-
-#define container_of( ptr_, type_, member_ )  \
-    ( ( type_ * )( ( char * ) ptr_ - ( size_t )&( ( type_ * ) 0 )->member_ ) )
+typedef struct jedex_parcel {
+  const jedex_schema *schema;
+  list *values_list;
+} jedex_parcel;
 
 
 CLOSE_EXTERN
-#endif // PRIV_H
+#endif // PARCEL_H
 
 
 /*

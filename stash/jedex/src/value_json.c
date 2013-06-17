@@ -230,6 +230,9 @@ jedex_value_to_json_t( const jedex_value *value ) {
         return NULL;
       }
 
+      // the following two lines are schema identification information temporary inserted. 
+      const char *record_name = jedex_schema_type_name( jedex_value_get_schema( value ) );
+      json_object_set_new( result, "schema", json_string( record_name ) );
       rc = jedex_value_get_size( value, &field_count );
       if ( rc != 0 ) {
         json_decref( result );

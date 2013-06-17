@@ -70,6 +70,31 @@ file_read( const char *dirpath, const char *fn ) {
 
 
 void
+set_menu_record_value( jedex_value *val ) {
+  size_t field_count;
+
+  jedex_value_get_size( val, &field_count );
+
+  for ( size_t i = 0; i < field_count; i++ ) {
+    jedex_value field;
+    const char *field_name;
+
+    jedex_value_get_by_index( val, i, &field, &field_name ); 
+    if ( !strcmp( field_name, "header" ) ) {
+      jedex_value_set_string( &field, "Save us menu" );
+    }
+    if ( !strcmp( field_name, "items" ) ) {
+      jedex_value element;
+      jedex_value_append( &field, &element, NULL );
+      jedex_value_set_string( &element, "save the children" );
+      jedex_value_append( &field, &element, NULL );
+      jedex_value_set_string( &element, "save the world" );
+    }
+  }
+}
+
+
+void
 set_union_value( jedex_value *val ) {
   size_t branch_count;
   
@@ -118,7 +143,7 @@ set_union_value( jedex_value *val ) {
 
 
 void
-union_to_json( jedex_value *val ) {
+any_value_to_json( jedex_value *val ) {
   char *json;
 
   jedex_value_to_json( val, 1, &json );
@@ -139,33 +164,39 @@ jedex_initialize( const char *schema_name ) {
   char schema_fn[ FILENAME_MAX ];
   char *jsontext;
 
-  if ( !strcmp( schema_name, "" ) )  {
+  if ( !strcmp( schema_name, "" ) ) {
     strncpy( schema_fn, DEFAULT_SCHEMA_FN, sizeof( schema_fn ) - 1 );
-    schema_fn[ sizeof( schema_fn ) - 1 ] = '\0';
   }
-  jsontext = file_read( DEFAULT_SCHEMA_DIR, schema_fn );
+  else {
+    strncpy( schema_fn, schema_name, sizeof( schema_fn ) - 1 );
+  }
+  schema_fn[ sizeof( schema_fn ) - 1 ] = '\0';
 
+  jsontext = file_read( DEFAULT_SCHEMA_DIR, schema_fn );
   jedex_schema *schema = NULL;
   if ( jsontext != NULL ) {
     jedex_schema_from_json( jsontext, &schema );
     free( jsontext );
   }
 
-  return schema;
+  return schema == NULL ? NULL : schema;
 }
 
 
 jedex_parcel *
-jedex_parcel_create( const jedex_schema *schema, const char *sub_schema_name ) {
-  if ( !strcmp( sub_schema_name, "" ) ) {
-    return NULL;
-  }
-  jedex_schema *sub_schema = jedex_schema_get_subschema( schema, sub_schema_name );
-  if ( sub_schema == NULL ) {
-    return NULL;
-  }
+jedex_parcel_create( jedex_schema *schema, const char *sub_schema_name ) {
+  jedex_value_iface *val_iface = NULL;
 
-  jedex_value_iface *val_iface = jedex_generic_class_from_schema( sub_schema );
+  if ( !strcmp( sub_schema_name, "" ) ) {
+    val_iface = jedex_generic_class_from_schema( schema );
+  }
+  else {
+    jedex_schema *sub_schema = jedex_schema_get_subschema( schema, sub_schema_name );
+    if ( sub_schema == NULL ) {
+      return NULL;
+    }
+    val_iface = jedex_generic_class_from_schema( sub_schema );
+  }
   if ( val_iface == NULL ) {
     return NULL;
   }
@@ -184,7 +215,18 @@ jedex_parcel_create( const jedex_schema *schema, const char *sub_schema_name ) {
 
 
 jedex_value *
+first_element( const jedex_parcel *parcel ) {
+  list_element *e = parcel->values_list->head;
+
+  return e == NULL ? NULL : e->data;
+}
+
+
+jedex_value *
 lookup_schema_name( const jedex_parcel *parcel, const char *schema_name ) {
+  if ( !strcmp( schema_name, "" ) ) {
+    return first_element( parcel );
+  }
   for ( list_element *e = parcel->values_list->head; e != NULL; e = e->next ) {
     jedex_value *item = e->data;
     jedex_schema *item_schema = jedex_value_get_schema( item );
@@ -210,15 +252,19 @@ jedex_parcel_value( const jedex_parcel *parcel, const char *schema_name ) {
 
 int
 main( int argc, char **argv ) {
-  jedex_schema *schema = jedex_initialize( "" );
+  jedex_schema *schema = jedex_initialize( "test_menu_schema" );
 
   assert( schema );
 
-  jedex_parcel *parcel = jedex_parcel_create( schema, "menu" );
+  jedex_parcel *parcel = jedex_parcel_create( schema, "" );
   assert( parcel );
 
-  jedex_value *val = jedex_parcel_value( parcel, "menu" );
+  jedex_value *val = jedex_parcel_value( parcel, "" );
   assert( val );
+
+  set_menu_record_value( val );
+
+  any_value_to_json( val );
 
 
 #ifdef TO_DELETE

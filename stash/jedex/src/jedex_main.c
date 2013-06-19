@@ -69,6 +69,24 @@ file_read( const char *dirpath, const char *fn ) {
 }
 
 
+static int
+unpack_int( const char *key, json_t *value ) {
+  int rc = EINVAL;
+
+  if ( !strcmp( key, "int32" ) ) {
+    int val;
+    
+    rc = json_unpack( value, "i", &val ); 
+    if ( rc == 0 ) {
+      jedex_value int_val;
+      jedex_generic_int_new( &int_val, val );
+    }
+  }
+
+  return rc;
+}
+
+
 void
 any_value_to_json( jedex_value *val ) {
   char *json;
@@ -77,6 +95,15 @@ any_value_to_json( jedex_value *val ) {
   if ( json != NULL ) {
     json_error_t json_error;
     json_t *root = json_loads( json, JSON_DECODE_ANY, &json_error );
+    if ( root != NULL ) {
+      const char *key;
+      json_t *value;
+
+      json_object_foreach( root, key, value ) {
+        const char *schema = key;
+        unpack_int( schema, value );
+      }
+    }
     printf( "root %p\n", ( void * ) root ); 
   }
 } 

@@ -103,7 +103,9 @@ struct jedex_value_iface {
   int ( *get_by_name ) ( const jedex_value_iface *iface, const void *self, const char *name, jedex_value *child, size_t *index );
 
   /* Current union value */
-  int ( *get_branch ) ( const jedex_value_iface *iface, const void *self, size_t index, jedex_value *branch );
+  int ( *get_branch ) ( const jedex_value_iface *iface, void *self, size_t index, jedex_value *branch );
+  /* current selected branch index */
+  int ( *get_discriminant ) ( const jedex_value_iface *iface, const void *self, int *out );
 
   /*-------------------------------------------------------------
    * Compound value setters
@@ -169,6 +171,9 @@ int jedex_value_to_json( const jedex_value *value, int one_line, char **json_str
     jedex_value_call( value, get_by_index, EINVAL, idx, child, name )
 #define jedex_value_get_by_name( value, name, child, index ) \
     jedex_value_call( value, get_by_name, EINVAL, name, child, index )
+
+#define jedex_value_get_discriminant( value, out) \
+    jedex_value_call( value, get_discriminant, EINVAL, out )
 #define jedex_value_get_branch( value, idx, branch ) \
     jedex_value_call( value, get_branch, EINVAL, idx, branch )
 

@@ -1,3 +1,4 @@
+[
 {
   "type": "record",
   "name": "menu",
@@ -5,4 +6,9 @@
     { "name": "header", "type": "string" },
     { "name": "items", "type": { "type": "array", "items": "string" } }
   ]
+},
+{ 
+  "type": "array",
+  "items": "menu"
 }
+]

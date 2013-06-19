@@ -88,14 +88,16 @@ typedef struct jedex_generic_union_value_iface {
   jedex_generic_value_iface parent;
   jedex_schema *schema;
 
-  /** The total size of each value struct for this union. */
+  /* The total size of each value struct for this union. */
   size_t instance_size;
 
-  /** The number of branches in this union.  Yes, we could get
-   * this from schema, but this is easier. */
+  /*
+   * The number of branches in this union.  Yes, we could get
+   * this from schema, but this is easier.
+  */
   size_t branch_count;
 
-  /** The offset of each branch within the union. */
+  /* The offset of each branch within the union. */
   size_t *branch_offsets;
 
   /** The value implementation for each branch. */
@@ -104,6 +106,10 @@ typedef struct jedex_generic_union_value_iface {
 
 
 typedef struct jedex_generic_union {
+  /* the current selected branch */
+  int discriminant;
+  /* keep track of all selected branches */
+  int *selected_branches;
 } jedex_generic_union;
 
 
@@ -188,6 +194,13 @@ struct jedex_generic_link_value_iface {
 };
 
 
+int jedex_generic_union_get_next_branch( const jedex_value_iface *viface,
+                                         const void *vself,
+                                         size_t *index,
+                                         jedex_value *branch );
+
+#define jedex_generic_next_branch( value, idx, branch ) \
+  jedex_generic_union_get_next_branch( ( value )->iface, ( value )->self, idx, branch )
 jedex_generic_value_iface *jedex_generic_class_from_schema_memoized( jedex_schema *schema, memoize_state *state );
 jedex_generic_value_iface *jedex_generic_boolean_class( void );
 jedex_generic_value_iface *jedex_generic_bytes_class( void );

@@ -28,6 +28,15 @@
     return result;            \
   }
 
+#define set_fail( reference, type ) \
+  do { \
+    log_err( "Cannot set " type ); \
+    json_decref( ( reference ) ); \
+    *failed = EINVAL; \
+    return NULL; \
+  } while ( 0 )
+  
+
 
 static int
 encode_utf8_bytes( const void *src, size_t src_len, void **dest, size_t *dest_len ) {
@@ -267,13 +276,13 @@ jedex_value_to_json_t( const jedex_value *value ) {
 
     case JEDEX_UNION: {
       int rc;
-      size_t branch_count, i;
       json_t *result = json_array();
       if ( result == NULL ) {
         log_err( "Cannot allocate new JSON array" );
         return NULL;
       }
 
+      size_t branch_count;
       rc = jedex_value_get_size( value, &branch_count );
       if ( rc != 0 ) {
         json_decref( result );
@@ -283,19 +292,13 @@ jedex_value_to_json_t( const jedex_value *value ) {
       jedex_schema *union_schema;
       union_schema = jedex_value_get_schema( value );
 
-      for ( i = 0; i < branch_count; i++ ) {
+      size_t i = UINT32_MAX;
+      jedex_value branch;
+      while ( !jedex_generic_next_branch( value, &i, &branch ) ) {
         jedex_schema *branch_schema;
         const char *branch_name;
 
         branch_schema = jedex_schema_union_branch( union_schema, i );
-        branch_name = jedex_schema_type_name( branch_schema );
-
-        jedex_value branch;
-        rc = jedex_value_get_branch( value, i, &branch );
-        if ( rc != 0 ) {
-          json_decref( result );
-          return NULL;
-        }
         json_t *branch_obj = json_object();
         if ( branch_obj == NULL ) {
           log_err( "Can not allocate new JSON object" );
@@ -309,6 +312,7 @@ jedex_value_to_json_t( const jedex_value *value ) {
           return NULL;
         }
 
+        branch_name = jedex_schema_type_name( branch_schema );
         if ( json_object_set_new( branch_obj, branch_name, branch_json ) ) {
           log_err( "Cannot set branch object" );
           json_decref( result );
@@ -329,14 +333,128 @@ jedex_value_to_json_t( const jedex_value *value ) {
 }
 
 
+static json_t *
+jedex_value_primitive( const jedex_value *value, int *failed ) {
+  json_t *result = json_object();
+
+  switch ( jedex_value_get_type( value ) ) {
+    case JEDEX_BOOLEAN: {
+      int val;
+      check_return( NULL, jedex_value_get_boolean( value, &val ) );
+      if ( json_object_set_new( result, "boolean", val? json_true() : json_false() ) ) {
+        set_fail( result, "boolean" );
+      }
+
+      return result;
+    }
+    case JEDEX_BYTES: {
+      const void *val;
+      size_t size;
+      void *encoded = NULL;
+      size_t encoded_size = 0;
+
+      check_return( NULL, jedex_value_get_bytes( value, &val, &size ) );
+
+      if ( encode_utf8_bytes( val, size, &encoded, &encoded_size ) ) {
+        return NULL;
+      }
+
+      json_t *string = json_string_nocheck( ( const char * ) encoded );
+      jedex_free( encoded );
+      if ( string == NULL ) {
+        set_fail( result, "bytes" );
+      }
+      if ( json_object_set_new( result, "bytes", string ) ) {
+        set_fail( result, "bytes" );
+      }
+  
+      return result;
+    }
+    case JEDEX_DOUBLE: {
+      double val;
+      check_return( NULL, jedex_value_get_double( value, &val ) );
+      if ( json_object_set_new( result, "double", json_real( val ) ) ) {
+        set_fail( result, "double" );
+      }
+
+      return result;
+    }
+
+    case JEDEX_FLOAT: {
+      float val;
+      check_return( NULL, jedex_value_get_float( value, &val ) );
+      if ( json_object_set_new( result, "float", json_real( val ) ) ) {
+        set_fail( result, "float" );
+      }
+
+      return result;
+    }
+
+    case JEDEX_INT32: {
+      int32_t val;
+      check_return( NULL, jedex_value_get_int( value, &val ) );
+      if ( json_object_set_new( result, "int32", json_integer( val ) ) ) {
+        set_fail( result, "int32" );
+      }
+
+      return result;
+    }
+
+    case JEDEX_INT64: {
+      int64_t val;
+      check_return( NULL, jedex_value_get_long( value, &val ) );
+      if ( json_object_set_new( result, "int64", json_integer( val ) ) ) {
+        set_fail( result, "int64" );
+      }
+
+      return result;
+    }
+
+    case JEDEX_NULL: {
+      check_return( NULL, jedex_value_get_null( value ) );
+      if ( json_object_set_new( result, "null", json_null() ) ) {
+        set_fail( result, "null" );
+      }
+
+      return result;
+    }
+
+    case JEDEX_STRING: {
+      const char *val;
+      size_t size;
+      check_return( NULL, jedex_value_get_string( value, &val, &size ) );
+      if ( json_object_set_new( result, "string", json_string( val ) ) ) {
+        set_fail( result, "string" );
+      }
+
+      return result;
+    }
+    default: {
+      json_decref( result );
+  
+      return NULL;
+    }
+  }
+}
+
+
 int
 jedex_value_to_json( const jedex_value *value, int one_line, char **json_str ) {
   check_param( EINVAL, value, "value" );
   check_param( EINVAL, json_str, "string buffer" );
 
-  json_t  *json = jedex_value_to_json_t( value );
-  if ( json == NULL ) {
+  json_t *json;
+  int failed = 0;
+
+  json = jedex_value_primitive( value, &failed );
+  if ( failed ) {
     return ENOMEM;
+  }
+  else if ( json == NULL ) {
+    json = jedex_value_to_json_t( value );
+    if ( json == NULL ) {
+      return ENOMEM;
+    }
   }
 
   /*

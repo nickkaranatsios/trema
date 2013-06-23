@@ -103,7 +103,11 @@ packet_in_datapath_id( VALUE self ) {
 /*
  * For this asynchronous message the transaction_id is set to zero.
  *
+<<<<<<< HEAD
  * @return [Number] the value of transaction_id.
+=======
+ * @return [Number] the value of attribute transaction_id.
+>>>>>>> 565363f0ea4d4edbfba7cfb3ac6d3bb37a0cf280
  */
 static VALUE
 packet_in_transaction_id( VALUE self ) {

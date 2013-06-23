@@ -16,39 +16,20 @@
  */
 
 
-#ifndef ALLOCATION_H
-#define ALLOCATION_H
+#include "emirates.h"
 
 
-#ifdef __cplusplus
-extern "C" {
-#define CLOSE_EXTERN }
-#else
-#define CLOSE_EXTERN
-#endif
+int
+main( int argc, char **argv ) {
+  emirates_iface *iface = emirates_initialize();
+  if ( iface != NULL ) {
+    printf( "GOOD iface ptr\n" );
+  }
 
+  emirates_finalize( &iface );
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-
-void *jedex_allocator( void *ptr, size_t nsize );
-
-
-#define jedex_realloc( ptr, nsz ) \
-  jedex_allocator( ( ptr ), ( nsz ) )
-
-#define jedex_malloc( sz ) ( jedex_realloc( NULL, ( sz ) ) )
-#define jedex_free( ptr ) ( jedex_realloc( ( ptr ), 0 ) )
-#define jedex_new( type ) ( jedex_realloc( NULL, sizeof( type ) ) )
-
-
-void *jedex_calloc( size_t count, size_t size );
-
-
-CLOSE_EXTERN
-#endif // ALLOCATION_H
+  return 0;
+}
 
 
 /*

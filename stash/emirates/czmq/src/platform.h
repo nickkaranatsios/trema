@@ -17,7 +17,7 @@
 /* #undef CZMQ_HAVE_HPUX */
 
 /* Have Linux OS */
-#define CZMQ_HAVE_LINUX 1
+/* #undef CZMQ_HAVE_LINUX */
 
 /* Have MinGW32 */
 /* #undef CZMQ_HAVE_MINGW32 */
@@ -29,7 +29,7 @@
 /* #undef CZMQ_HAVE_OPENBSD */
 
 /* Have DarwinOSX OS */
-/* #undef CZMQ_HAVE_OSX */
+#define CZMQ_HAVE_OSX 1
 
 /* Have QNX Neutrino OS */
 /* #undef CZMQ_HAVE_QNXNTO */
@@ -74,7 +74,7 @@
 #define HAVE_LIMITS_H 1
 
 /* Define to 1 if you have the <linux/wireless.h> header file. */
-#define HAVE_LINUX_WIRELESS_H 1
+/* #undef HAVE_LINUX_WIRELESS_H */
 
 /* Define to 1 if you have the <memory.h> header file. */
 #define HAVE_MEMORY_H 1
@@ -92,7 +92,7 @@
 #define HAVE_NET_IF_H 1
 
 /* Define to 1 if you have the <net/if_media.h> header file. */
-/* #undef HAVE_NET_IF_MEDIA_H */
+#define HAVE_NET_IF_MEDIA_H 1
 
 /* Define to 1 if you have the `perror' function. */
 #define HAVE_PERROR 1

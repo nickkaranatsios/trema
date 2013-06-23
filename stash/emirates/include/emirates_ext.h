@@ -16,8 +16,8 @@
  */
 
 
-#ifndef ALLOCATION_H
-#define ALLOCATION_H
+#ifndef EMIRATES_EXT_H
+#define EMIRATES_EXT_H
 
 
 #ifdef __cplusplus
@@ -28,27 +28,22 @@ extern "C" {
 #endif
 
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "emirates_priv.h"
 
 
-void *jedex_allocator( void *ptr, size_t nsize );
+typedef struct emirates_iface {
+  emirates_priv *priv;
+  zctx_t ( *get_ctx ) ( void ); 
+  void ( *get_publisher ) ( void );
+} emirates_iface;
 
 
-#define jedex_realloc( ptr, nsz ) \
-  jedex_allocator( ( ptr ), ( nsz ) )
-
-#define jedex_malloc( sz ) ( jedex_realloc( NULL, ( sz ) ) )
-#define jedex_free( ptr ) ( jedex_realloc( ( ptr ), 0 ) )
-#define jedex_new( type ) ( jedex_realloc( NULL, sizeof( type ) ) )
-
-
-void *jedex_calloc( size_t count, size_t size );
+emirates_iface *emirates_initialize( void );
+void emirates_finalize( emirates_iface **iface );
 
 
 CLOSE_EXTERN
-#endif // ALLOCATION_H
+#endif // EMIRATES_EXT_H
 
 
 /*

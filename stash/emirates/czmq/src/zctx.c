@@ -84,24 +84,25 @@ s_signal_handler (int signal_value)
 //  Constructor
 
 zctx_t *
-zctx_new (void)
-{
-    zctx_t
-        *self;
+zctx_new( void ) {
+  zctx_t *self;
 
-    self = (zctx_t *) zmalloc (sizeof (zctx_t));
-    if (!self)
-        return NULL;
+  self = ( zctx_t * ) zmalloc( sizeof( zctx_t ) );
+  if ( !self ) {
+    return NULL;
+  }
 
-    self->sockets = zlist_new ();
-    if (!self->sockets) {
-        free (self);
-        return NULL;
-    }
-    self->iothreads = 1;
-    self->main = true;
-    zsys_handler_set (s_signal_handler);
-    return self;
+  self->sockets = zlist_new();
+  if ( !self->sockets ) {
+    free( self );
+    return NULL;
+  }
+
+  self->iothreads = 1;
+  self->main = true;
+  zsys_handler_set( s_signal_handler );
+
+  return self;
 }
 
 
@@ -109,19 +110,20 @@ zctx_new (void)
 //  Destructor
 
 void
-zctx_destroy (zctx_t **self_p)
-{
-    assert (self_p);
-    if (*self_p) {
-        zctx_t *self = *self_p;
-        while (zlist_size (self->sockets))
-            zctx__socket_destroy (self, zlist_first (self->sockets));
-        zlist_destroy (&self->sockets);
-        if (self->main && self->context)
-            zmq_term (self->context);
-        free (self);
-        *self_p = NULL;
+zctx_destroy (zctx_t **self_p) {
+  assert( self_p );
+  if ( *self_p ) {
+    zctx_t *self = *self_p;
+    while ( zlist_size( self->sockets ) ) {
+      zctx__socket_destroy( self, zlist_first( self->sockets ) );
     }
+    zlist_destroy( &self->sockets );
+    if ( self->main && self->context ) {
+      zmq_term( self->context );
+    }
+    free( self );
+    *self_p = NULL;
+  }
 }
 
 

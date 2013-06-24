@@ -1,4 +1,4 @@
-#include "czmq.h"
+#include "emirates.h"
 
 static void 
 publisher_thread( void *args, zctx_t *ctx, void *pipe ) {

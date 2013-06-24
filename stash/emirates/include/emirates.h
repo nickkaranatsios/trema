@@ -16,8 +16,8 @@
  */
 
 
-#ifndef ALLOCATION_H
-#define ALLOCATION_H
+#ifndef EMIRATES_H
+#define EMIRATES_H
 
 
 #ifdef __cplusplus
@@ -30,25 +30,23 @@ extern "C" {
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <string.h>
+#include <ctype.h>
+#include <assert.h>
+#include <pthread.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <limits.h>
 
-
-void *jedex_allocator( void *ptr, size_t nsize );
-
-
-#define jedex_realloc( ptr, nsz ) \
-  jedex_allocator( ( ptr ), ( nsz ) )
-
-#define jedex_malloc( sz ) ( jedex_realloc( NULL, ( sz ) ) )
-#define jedex_free( ptr ) ( jedex_realloc( ( ptr ), 0 ) )
-#define jedex_new( type ) ( jedex_realloc( NULL, sizeof( type ) ) )
-
-
-void *jedex_calloc( size_t count, size_t size );
+#include "czmq.h"
+#include "log_writer.h"
+#include "emirates_ext.h"
+#include "emirates_priv.h"
 
 
 CLOSE_EXTERN
-#endif // ALLOCATION_H
+#endif // EMIRATES_H
 
 
 /*

@@ -34,13 +34,23 @@ extern "C" {
 #define PUB_BASE_PORT 6000
 #define SUB_BASE_PORT 6001
 
+typedef void ( subscriber_callback )( void *args );
+
+typedef struct sub_callback {
+  subscriber_callback *callback;
+  const char *service;
+} sub_callback;
+
 
 typedef struct emirates_priv {
   zctx_t *ctx;
   void *pub;
+  void *pub_raw;
   void *sub;
+  void *sub_raw;
   uint32_t pub_port; // publisher's assigned port
   uint32_t sub_port; // subscriber's assigned port
+  zlist_t *sub_callbacks;
 } emirates_priv;
 
 

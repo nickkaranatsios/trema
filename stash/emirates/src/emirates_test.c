@@ -19,14 +19,36 @@
 #include "emirates.h"
 
 
+static void
+service_profile_callback( void *args ) {
+}
+
+
+static void
+user_profile_callback( void *args ) {
+}
+
+
 int
 main( int argc, char **argv ) {
   emirates_iface *iface = emirates_initialize();
   if ( iface != NULL ) {
     printf( "GOOD iface ptr\n" );
-  }
 
-  emirates_finalize( &iface );
+    subscribe_service_profile( iface, service_profile_callback );
+    int i = 0;
+    while( !zctx_interrupted ) {
+      if ( !i ) {
+        subscribe_user_profile( iface, user_profile_callback );
+      }
+      if ( i++ == 5 ) {
+        publish_service_profile( iface );
+      }
+      zclock_sleep( 1 * 1000 );
+    }
+
+    emirates_finalize( &iface );
+  }
 
   return 0;
 }

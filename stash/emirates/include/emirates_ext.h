@@ -40,6 +40,9 @@ typedef struct emirates_iface {
 
 emirates_iface *emirates_initialize( void );
 void emirates_finalize( emirates_iface **iface );
+void subscribe_service_profile( emirates_iface *iface, subscriber_callback *user_callback );
+void subscribe_user_profile( emirates_iface *iface, subscriber_callback *user_callback );
+void publish_service_profile( emirates_iface *iface );
 
 
 CLOSE_EXTERN

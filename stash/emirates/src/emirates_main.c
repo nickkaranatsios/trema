@@ -80,11 +80,12 @@ publish_output( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
   //zmsg_t *dup_msg = zmsg_dup( msg );
 
   zframe_t *service_frame = zmsg_first( msg );
-  if ( zframe_more( service_frame ) ) {
-    zframe_t *service_data = zmsg_next( msg );
-    if ( service_data != NULL ) {
-      zmsg_send( &msg, pub );
-    }
+  zframe_t *service_data = zmsg_next( msg );
+  if ( service_data != NULL ) {
+    zmsg_send( &msg, pub );
+  }
+  else {
+    return EINVAL;
   }
   zmsg_destroy( &msg );
   //zmsg_destroy( &dup_msg );
@@ -92,6 +93,15 @@ publish_output( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
   return 0;
 }
 
+
+static void
+start_publishing( void *pipe, void *pub ) {
+  zloop_t *loop = zloop_new();
+  zmq_pollitem_t poller = { pipe, 0, ZMQ_POLLIN, 0 };
+  zloop_poller( loop, &poller, publish_output, pub );
+  zloop_start( loop );
+}
+ 
 
 static void 
 publisher_thread( void *args, zctx_t *ctx, void *pipe ) {
@@ -107,10 +117,7 @@ publisher_thread( void *args, zctx_t *ctx, void *pipe ) {
   }
 
   send_ok_status( pipe );
-  zloop_t *loop = zloop_new();
-  zmq_pollitem_t poller = { pipe, 0, ZMQ_POLLIN, 0 };
-  zloop_poller( loop, &poller, publish_output, pub );
-  zloop_start( loop );
+  start_publishing( pipe, pub );
 }
 
 
@@ -119,7 +126,6 @@ subscriber_parent_recv( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
   emirates_priv *priv = arg;
 
   zmsg_t *msg = zmsg_recv( poller->socket );
-
   if ( msg == NULL ) {
     return EINVAL;
   }
@@ -133,7 +139,7 @@ subscriber_parent_recv( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
   if ( zframe_streq( sub_frame, SUBSCRIPTION_MSG ) && zframe_more( sub_frame ) ) {
     zframe_t *subscription_frame = zmsg_next( msg );
     if ( subscription_frame ) {
-      zsockopt_set_subscribe( priv->sub_raw, ( const char * ) zframe_data( subscription_frame ) );
+      zsockopt_set_subscribe( priv->sub_raw, ( char * ) zframe_data( subscription_frame ) );
     }
   }
   else if ( zframe_streq( sub_frame, EXIT_MSG ) ) {
@@ -153,7 +159,7 @@ subscriber_parent_recv( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
 
 
 static int
-subscriber_main_recv( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
+subscriber_child_recv( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
   void *pipe = arg;
 
   zmsg_t *msg = zmsg_recv( poller->socket );
@@ -175,6 +181,25 @@ subscriber_main_recv( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
 
 
 static void
+start_subscribing( void *pipe, emirates_priv *priv ) {
+  zloop_t *sub_loop = zloop_new();
+
+  zmq_pollitem_t poller = { 0, 0, ZMQ_POLLIN, 0 };
+  poller.socket = pipe;
+  // wait for data from the parent thread
+  zloop_poller( sub_loop, &poller, subscriber_parent_recv, priv );
+
+  
+  poller.socket = priv->sub_raw;
+  // wait for any matched publishing data
+  zloop_poller( sub_loop, &poller, subscriber_child_recv, pipe );
+
+  zloop_start( sub_loop );
+  send_ng_status( pipe );
+}
+
+
+static void
 subscriber_thread( void *args, zctx_t *ctx, void *pipe ) {
   emirates_priv *priv = args;
   uint32_t port = priv->sub_port;
@@ -189,16 +214,7 @@ subscriber_thread( void *args, zctx_t *ctx, void *pipe ) {
   }
   priv->sub_raw = sub_raw;
   send_ok_status( pipe );
-
-  zloop_t *sub_loop = zloop_new();
-  zmq_pollitem_t poller = { 0, 0, ZMQ_POLLIN, 0 };
-  poller.socket = pipe;
-  zloop_poller( sub_loop, &poller, subscriber_parent_recv, priv );
-  poller.socket = sub_raw;
-  zloop_poller( sub_loop, &poller, subscriber_main_recv, pipe );
-
-  zloop_start( sub_loop );
-  send_ng_status( pipe );
+  start_subscribing( pipe, priv );
 }
 
 

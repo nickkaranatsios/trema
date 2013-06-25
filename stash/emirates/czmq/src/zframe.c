@@ -66,7 +66,12 @@ zframe_new( const void *data, size_t size ) {
   if ( size ) {
      zmq_msg_init_size( &self->zmsg, size );
      if ( data ) {
-       memcpy( zmq_msg_data( &self->zmsg ), data, size );
+       size_t actual_size = zmq_msg_size( &self->zmsg );
+       if ( actual_size >= size ) {
+         memcpy( zmq_msg_data( &self->zmsg ), data, size );
+         void *test = zmq_msg_data( &self->zmsg );
+         assert( test );
+       }
      }
   }
   else {

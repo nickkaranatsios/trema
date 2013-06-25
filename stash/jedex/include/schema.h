@@ -71,6 +71,7 @@ jedex_schema *jedex_schema_link_target( jedex_schema *schema );
 
 int jedex_schema_from_json( const char *jsontext, jedex_schema **schema );
 int jedex_schema_from_json_length( const char *jsontext, size_t length, jedex_schema **schema );
+jedex_schema *jedex_schema_get_subschema( const jedex_schema *schema, const char *name );
 
 #define jedex_schema_from_json_literal( json, schema ) \
   jedex_schema_from_json_length( ( json ), sizeof( ( json ) ) - 1, ( schema ) )

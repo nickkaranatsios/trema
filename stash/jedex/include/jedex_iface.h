@@ -16,8 +16,8 @@
  */
 
 
-#ifndef EMIRATES_EXT_H
-#define EMIRATES_EXT_H
+#ifndef JEDEX_IFACE_H
+#define JEDEX_IFACE_H
 
 
 #ifdef __cplusplus
@@ -28,26 +28,17 @@ extern "C" {
 #endif
 
 
-#include "emirates_priv.h"
-#include "jedex_iface.h"
+#include <jansson.h>
+#include "schema.h"
+#include "value.h"
+#include "parcel.h"
 
 
-typedef struct emirates_iface {
-  emirates_priv *priv;
-  zctx_t ( *get_ctx ) ( void ); 
-  void ( *get_publisher ) ( void );
-} emirates_iface;
-
-
-emirates_iface *emirates_initialize( void );
-void emirates_finalize( emirates_iface **iface );
-void subscribe_service_profile( emirates_iface *iface, subscriber_callback *user_callback );
-void subscribe_user_profile( emirates_iface *iface, subscriber_callback *user_callback );
-void publish_service_profile( emirates_iface *iface, jedex_parcel *parcel );
+jedex_schema *jedex_initialize( const char *schema_name );
 
 
 CLOSE_EXTERN
-#endif // EMIRATES_EXT_H
+#endif // JEDEX_IFACE_H
 
 
 /*

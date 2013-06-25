@@ -122,8 +122,37 @@ publisher_thread( void *args, zctx_t *ctx, void *pipe ) {
 
 
 static int
+subscriber_handler( zmq_pollitem_t *poller, void *arg ) {
+  emirates_iface *iface = arg;
+
+  zmsg_t *msg = zmsg_recv( poller->socket );
+  if ( msg == NULL ) {
+    return EINVAL;
+  }
+  
+  size_t nr_frames = zmsg_size( msg );
+  assert( nr_frames == 2 );
+
+  int rc = 0;
+
+  zframe_t *sub_frame = zmsg_first( msg );
+  if ( sub_frame != NULL ) {
+    // match subscription and send to application
+    sub_callback *item = lookup_subscription_service( iface->priv->sub_callbacks, ( const char * ) zframe_data( sub_frame ) );  
+    if ( item != NULL ) {
+      zframe_t *service_data = zmsg_next( msg );
+      item->callback( iface->priv );
+    }
+  }
+  zmsg_destroy( &msg );
+
+  return rc;
+}
+
+
+static int
 subscriber_parent_recv( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
-  emirates_priv *priv = arg;
+  void *sub = arg;
 
   zmsg_t *msg = zmsg_recv( poller->socket );
   if ( msg == NULL ) {
@@ -139,18 +168,13 @@ subscriber_parent_recv( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
   if ( zframe_streq( sub_frame, SUBSCRIPTION_MSG ) && zframe_more( sub_frame ) ) {
     zframe_t *subscription_frame = zmsg_next( msg );
     if ( subscription_frame ) {
-      zsockopt_set_subscribe( priv->sub_raw, ( char * ) zframe_data( subscription_frame ) );
+      zsockopt_set_subscribe( sub, ( char * ) zframe_data( subscription_frame ) );
     }
-  }
-  else if ( zframe_streq( sub_frame, EXIT_MSG ) ) {
-    rc = EINVAL;
   }
   else {
-    // match subscription and send to application
-    sub_callback *item = lookup_subscription_service( priv->sub_callbacks, ( const char * ) zframe_data( sub_frame ) );  
-    if ( item != NULL ) {
-      item->callback( priv );
-    }
+   if ( zframe_streq( sub_frame, EXIT_MSG ) ) {
+     rc = EINVAL;
+   }
   }
   zmsg_destroy( &msg );
 
@@ -181,40 +205,38 @@ subscriber_child_recv( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
 
 
 static void
-start_subscribing( void *pipe, emirates_priv *priv ) {
+start_subscribing( void *sub, void *pipe ) {
   zloop_t *sub_loop = zloop_new();
 
-  zmq_pollitem_t poller = { 0, 0, ZMQ_POLLIN, 0 };
-  poller.socket = pipe;
-  // wait for data from the parent thread
-  zloop_poller( sub_loop, &poller, subscriber_parent_recv, priv );
-
-  
-  poller.socket = priv->sub_raw;
+  zmq_pollitem_t poller = { sub, 0, ZMQ_POLLIN, 0 };
   // wait for any matched publishing data
   zloop_poller( sub_loop, &poller, subscriber_child_recv, pipe );
+  poller.socket = pipe;
+  zloop_poller( sub_loop, &poller, subscriber_parent_recv, sub );
 
-  zloop_start( sub_loop );
+  zloop_set_verbose( sub_loop, true );
+  int rc = zloop_start( sub_loop );
+  if ( rc == -1 ) {
+    log_err( "Subscriber child thread stopped" );
+  }
   send_ng_status( pipe );
 }
 
 
 static void
 subscriber_thread( void *args, zctx_t *ctx, void *pipe ) {
-  emirates_priv *priv = args;
-  uint32_t port = priv->sub_port;
+  uint32_t *port = args;
   int rc;
 
-  void *sub_raw = zsocket_new( ctx, ZMQ_SUB );
-  rc = zsocket_connect( sub_raw, "tcp://localhost:%u", port );
+  void *sub = zsocket_new( ctx, ZMQ_SUB );
+  rc = zsocket_connect( sub, "tcp://localhost:%u", *port );
   if ( rc < 0 ) {
-    log_err( "Failed to connect to XPUB %d %u", rc, port );
+    log_err( "Failed to connect to XPUB %d %u", rc, *port );
     send_ng_status( pipe );
     return;
   }
-  priv->sub_raw = sub_raw;
   send_ok_status( pipe );
-  start_subscribing( pipe, priv );
+  start_subscribing( sub, pipe );
 }
 
 
@@ -263,11 +285,12 @@ emirates_initialize( void ) {
   }
     
   iface->priv->sub_port = SUB_BASE_PORT;
-  iface->priv->sub = zthread_fork( iface->priv->ctx, subscriber_thread, iface->priv );
+  iface->priv->sub = zthread_fork( iface->priv->ctx, subscriber_thread, &iface->priv->sub_port );
   if( check_status( iface->priv->sub ) ) {
     zctx_destroy( &iface->priv->ctx );
     return NULL;
   }
+  iface->priv->sub_handler = subscriber_handler;
   iface->priv->sub_callbacks = NULL;
   
   return iface;
@@ -329,20 +352,35 @@ subscribe_to_service( const char *service, emirates_iface *iface, subscriber_cal
 }
 
 
-static void
-publish_service( const char *service, emirates_iface *iface ) {
-  emirates_priv *priv = iface->priv;
+static char *
+any_value_to_json( jedex_value *val ) {
+  char *json;
 
-  zmsg_t *msg = zmsg_new();
-  zmsg_addstr( msg, service );
-  zmsg_addstr( msg, "this is a test" );
-  zmsg_send( &msg, priv->pub );
-  zmsg_destroy( &msg );
+  jedex_value_to_json( val, 1, &json );
 
-  return;
+  return json;
 }
 
 
+static void
+publish_service( const char *service, emirates_iface *iface, jedex_parcel *parcel ) {
+  emirates_priv *priv = iface->priv;
+
+  for ( list_element *e = parcel->values_list->head; e != NULL; e = e->next ) {
+    jedex_value *item = e->data;
+    char *json;
+    jedex_value_to_json( item, 1, &json );
+    if ( json ) {
+      zmsg_t *msg = zmsg_new();
+      zmsg_addmem( msg, service, strlen( service ) );
+      zmsg_addmem( msg, json, strlen( json ) );
+      zmsg_send( &msg, priv->pub );
+      zmsg_destroy( &msg );
+    }
+  }
+
+  return;
+}
 
 
 void
@@ -358,8 +396,8 @@ subscribe_user_profile( emirates_iface *iface, subscriber_callback *user_callbac
 
 
 void
-publish_service_profile( emirates_iface *iface ) {
-  publish_service( "service_profile", iface );
+publish_service_profile( emirates_iface *iface, jedex_parcel *parcel ) {
+  publish_service( "service_profile", iface, parcel );
 }
 
 

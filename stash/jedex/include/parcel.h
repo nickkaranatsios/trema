@@ -38,6 +38,10 @@ typedef struct jedex_parcel {
 } jedex_parcel;
 
 
+jedex_parcel *jedex_parcel_create( jedex_schema *schema, const char *sub_schema_names[] );
+jedex_value *jedex_parcel_value( const jedex_parcel *parcel, const char *schema_name );
+
+
 CLOSE_EXTERN
 #endif // PARCEL_H
 

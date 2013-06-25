@@ -35,6 +35,7 @@ extern "C" {
 #define SUB_BASE_PORT 6001
 
 typedef void ( subscriber_callback )( void *args );
+typedef int ( poll_handler )( zmq_pollitem_t *item, void *arg );
 
 typedef struct sub_callback {
   subscriber_callback *callback;
@@ -45,12 +46,11 @@ typedef struct sub_callback {
 typedef struct emirates_priv {
   zctx_t *ctx;
   void *pub;
-  void *pub_raw;
   void *sub;
-  void *sub_raw;
   uint32_t pub_port; // publisher's assigned port
   uint32_t sub_port; // subscriber's assigned port
   zlist_t *sub_callbacks;
+  poll_handler *sub_handler;
 } emirates_priv;
 
 

@@ -379,14 +379,23 @@ done
 
 if [ "$LINKUP" = "yes" -o /$1/ = // ]; then
     LIBLIST=""
+    JANSSON=""
+    JEDEX=""
     for LIBRARY in lib*.a $LOCALLIBDIR/lib*.a $LIBDIR/lib*.a; do
         if [ ! -f $LIBRARY ]; then
             continue
         fi
         #   Pull out the xxx from libxxx.a (or similar)
         LIBNAME=`basename $LIBRARY | sed -e 's/^...\([^\.]*\)\..*$/\1/'`
-        LIBLIST="$LIBLIST -l$LIBNAME"
+        if [ "$LIBNAME" = "jansson" ]; then
+          JANSSON=$LIBNAME
+        elif [ "$LIBNAME" = "jedex" ]; then
+            JEDEX=$LIBNAME
+        else
+          LIBLIST="$LIBLIST -l$LIBNAME"
+        fi
     done
+    LIBLIST="$LIBLIST -l$JEDEX -l$JANSSON"
     LIBLIST="$LIBLIST $STDLIBS $CCLIBS"
 fi
 

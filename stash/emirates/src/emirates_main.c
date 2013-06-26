@@ -77,8 +77,6 @@ publish_output( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
   size_t nr_frames = zmsg_size( msg );
   assert( nr_frames == 2 );
 
-  //zmsg_t *dup_msg = zmsg_dup( msg );
-
   zframe_t *service_frame = zmsg_first( msg );
   zframe_t *service_data = zmsg_next( msg );
   if ( service_data != NULL ) {
@@ -88,7 +86,6 @@ publish_output( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
     return EINVAL;
   }
   zmsg_destroy( &msg );
-  //zmsg_destroy( &dup_msg );
 
   return 0;
 }
@@ -122,7 +119,7 @@ publisher_thread( void *args, zctx_t *ctx, void *pipe ) {
 
 
 static int
-subscriber_handler( zmq_pollitem_t *poller, void *arg ) {
+subscriber_data_handler( zmq_pollitem_t *poller, void *arg ) {
   emirates_iface *iface = arg;
 
   zmsg_t *msg = zmsg_recv( poller->socket );
@@ -140,8 +137,11 @@ subscriber_handler( zmq_pollitem_t *poller, void *arg ) {
     // match subscription and send to application
     sub_callback *item = lookup_subscription_service( iface->priv->sub_callbacks, ( const char * ) zframe_data( sub_frame ) );  
     if ( item != NULL ) {
-      zframe_t *service_data = zmsg_next( msg );
-      item->callback( iface->priv );
+      zframe_t *service_frame = zmsg_next( msg );
+      const char *json_data = ( const char * ) zframe_data( service_frame );
+      json_to_jedex_value( item->schema, item->sub_schema_names, json_data );
+      
+      item->callback( service_frame );
     }
   }
   zmsg_destroy( &msg );
@@ -151,7 +151,7 @@ subscriber_handler( zmq_pollitem_t *poller, void *arg ) {
 
 
 static int
-subscriber_parent_recv( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
+subscriber_ctrl_recv( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
   void *sub = arg;
 
   zmsg_t *msg = zmsg_recv( poller->socket );
@@ -183,7 +183,7 @@ subscriber_parent_recv( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
 
 
 static int
-subscriber_child_recv( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
+subscriber_data_recv( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
   void *pipe = arg;
 
   zmsg_t *msg = zmsg_recv( poller->socket );
@@ -210,9 +210,9 @@ start_subscribing( void *sub, void *pipe ) {
 
   zmq_pollitem_t poller = { sub, 0, ZMQ_POLLIN, 0 };
   // wait for any matched publishing data
-  zloop_poller( sub_loop, &poller, subscriber_child_recv, pipe );
+  zloop_poller( sub_loop, &poller, subscriber_data_recv, pipe );
   poller.socket = pipe;
-  zloop_poller( sub_loop, &poller, subscriber_parent_recv, sub );
+  zloop_poller( sub_loop, &poller, subscriber_ctrl_recv, sub );
 
   zloop_set_verbose( sub_loop, true );
   int rc = zloop_start( sub_loop );
@@ -290,7 +290,7 @@ emirates_initialize( void ) {
     zctx_destroy( &iface->priv->ctx );
     return NULL;
   }
-  iface->priv->sub_handler = subscriber_handler;
+  iface->priv->sub_handler = subscriber_data_handler;
   iface->priv->sub_callbacks = NULL;
   
   return iface;
@@ -331,24 +331,40 @@ subscription_callback_add( emirates_iface *iface, sub_callback *cb ) {
 
 
 static void
-subscribe_to_service( const char *service, emirates_iface *iface, subscriber_callback *user_callback ) {
+subscribe_to_service( const char *service, emirates_iface *iface, const char **sub_schema_names, subscriber_callback *user_callback ) {
   sub_callback *cb = ( sub_callback * ) zmalloc( sizeof( sub_callback ) );
   if ( cb == NULL ) {
     return;
   }
   cb->callback = user_callback;
   cb->service = service;
-  subscription_callback_add( iface, cb );
-  
-  emirates_priv *priv = iface->priv;
-
-  zmsg_t *set_subscription = zmsg_new();
-  zmsg_addstr( set_subscription, SUBSCRIPTION_MSG );
-  zmsg_addstr( set_subscription, service );
-  zmsg_send( &set_subscription, priv->sub );
-  zmsg_destroy( &set_subscription );
-  
-  return;
+  if ( *sub_schema_names ) {
+    int nr_sub_schema_names = 0;
+    while ( *( sub_schema_names + nr_sub_schema_names ) ) {
+      nr_sub_schema_names++;
+    }
+    size_t schema_size = sizeof( const char * ) * nr_sub_schema_names;
+    cb->sub_schema_names = ( const char ** ) zmalloc( schema_size );
+    for ( int i = 0; i < nr_sub_schema_names; i++ ) {
+      if ( !i ) {
+        cb->schema = jedex_initialize( sub_schema_names[ i ] );
+        continue;
+      }
+      *( cb->sub_schema_names + i ) = sub_schema_names[ i ];
+    }
+  }
+    
+  if ( !subscription_callback_add( iface, cb ) ) {
+    zmsg_t *set_subscription = zmsg_new();
+    zmsg_addstr( set_subscription, SUBSCRIPTION_MSG );
+    zmsg_addstr( set_subscription, service );
+    zmsg_send( &set_subscription, iface->priv->sub );
+    zmsg_destroy( &set_subscription );
+  }
+  else {
+    free( cb->sub_schema_names );
+    free( cb );
+  }
 }
 
 
@@ -384,14 +400,14 @@ publish_service( const char *service, emirates_iface *iface, jedex_parcel *parce
 
 
 void
-subscribe_service_profile( emirates_iface *iface, subscriber_callback *user_callback ) {
-  subscribe_to_service( "service_profile", iface, user_callback );
+subscribe_service_profile( emirates_iface *iface, const char **sub_schema_names, subscriber_callback *user_callback ) {
+  subscribe_to_service( "service_profile", iface, sub_schema_names, user_callback );
 }
 
 
 void
-subscribe_user_profile( emirates_iface *iface, subscriber_callback *user_callback ) {
-  subscribe_to_service( "user_profile", iface, user_callback );
+subscribe_user_profile( emirates_iface *iface, const char **sub_schema_names, subscriber_callback *user_callback ) {
+  subscribe_to_service( "user_profile", iface, sub_schema_names, user_callback );
 }
 
 

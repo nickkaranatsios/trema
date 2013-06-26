@@ -74,7 +74,7 @@ first_element( const jedex_parcel *parcel ) {
 
 static jedex_value *
 lookup_schema_name( const jedex_parcel *parcel, const char *schema_name ) {
-  if ( !strcmp( schema_name, "" ) ) {
+  if ( !schema_name || !strcmp( schema_name, "" ) ) {
     return first_element( parcel );
   }
   for ( list_element *e = parcel->values_list->head; e != NULL; e = e->next ) {
@@ -94,7 +94,7 @@ lookup_schema_name( const jedex_parcel *parcel, const char *schema_name ) {
 
 
 static int
-append_to_parcel( jedex_parcel **parcel, jedex_schema *schema, jedex_value *val ) {
+append_to_parcel( jedex_parcel **parcel, jedex_schema *schema, jedex_value_iface *val_iface ) {
   if ( *parcel == NULL ) {
     *parcel = ( jedex_parcel * ) jedex_new( jedex_parcel );
     if ( *parcel == NULL ) {
@@ -103,11 +103,22 @@ append_to_parcel( jedex_parcel **parcel, jedex_schema *schema, jedex_value *val 
     ( *parcel )->values_list = create_list();
   }
   ( *parcel )->schema = schema;
-  if ( val != NULL ) {
-    append_to_tail( ( *parcel )->values_list, val );
+  int rc = 0;
+
+  if ( val_iface != NULL ) {
+    jedex_value *val = jedex_value_from_iface( val_iface );
+    if ( val != NULL ) {
+      append_to_tail( ( *parcel )->values_list, val );
+    }
+    else {
+      rc = EINVAL;
+    }
+  }
+  else {
+    rc = EINVAL;
   }
 
-  return 0;
+  return rc;
 }
 
 
@@ -139,21 +150,26 @@ jedex_parcel_value( const jedex_parcel *parcel, const char *schema_name ) {
 
 
 jedex_parcel *
-jedex_parcel_create( jedex_schema *schema, const char *sub_schema_names[] ) {
+jedex_parcel_create( jedex_schema *schema, const char **sub_schema_names ) {
   jedex_value_iface *val_iface = NULL;
   jedex_parcel *parcel = NULL;
 
-  int nr_sub_schema_names = sizeof( sub_schema_names ) / sizeof( sub_schema_names[ 0 ] );
-  
-  for ( int i = 0; i < nr_sub_schema_names; i++ ) {
-    val_iface = jedex_value_iface_from_sub_schema( schema, sub_schema_names[ i ] );
-    if ( val_iface != NULL ) {
-      jedex_value *val = jedex_value_from_iface( val_iface );
-      if ( val != NULL ) {
-        if ( append_to_parcel( &parcel, schema, val ) ) {
-          return NULL;
-        }
+  if ( *sub_schema_names ) {
+    int nr_sub_schema_names = 0;
+    while ( *( sub_schema_names + nr_sub_schema_names ) ) {
+      nr_sub_schema_names++;
+    }
+    for ( int i = 0; i < nr_sub_schema_names; i++ ) {
+      val_iface = jedex_value_iface_from_sub_schema( schema, sub_schema_names[ i ] );
+      if ( append_to_parcel( &parcel, schema, val_iface ) ) {
+        return NULL;
       }
+    }
+  }
+  else {
+    val_iface = jedex_generic_class_from_schema( schema );
+    if ( append_to_parcel( &parcel, schema, val_iface ) ) {
+      return NULL;
     }
   }
 

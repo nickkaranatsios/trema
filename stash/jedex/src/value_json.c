@@ -544,6 +544,37 @@ jedex_value_from_json_root( const json_t *json, const jedex_schema *schema, jede
 }
 
 
+jedex_value *
+json_to_jedex_value( void *schema, const char **sub_schema_names, const char *json ) {
+  if ( json ) {
+    json_error_t json_error;
+    json_t *root = json_loads( json, JSON_DECODE_ANY, &json_error );
+    if ( root != NULL ) {
+      const char *key;
+      json_t *value;
+      const char *schema_name = jedex_schema_type_name( schema );
+      json_object_foreach( root, key, value ) {
+        if ( !strcmp( schema_name, key ) ) {
+          jedex_value_iface *val_iface = jedex_generic_class_from_schema( schema );
+        }
+        if ( json_is_object( value ) ) {
+        }
+      }
+    }
+  }
+#ifdef LATER
+  jedex_parcel *parcel = jedex_parcel_create( schema, sub_schema_names );
+  for ( ; *sub_schema_names; sub_schema_names++ ) {
+    jedex_value *val = jedex_parcel_value( parcel, sub_schema_names );
+   
+  }
+#endif
+
+  return NULL;
+}
+
+  
+
 /*
  * Local variables:
  * c-basic-offset: 2

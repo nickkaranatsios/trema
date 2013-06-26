@@ -40,6 +40,8 @@ typedef int ( poll_handler )( zmq_pollitem_t *item, void *arg );
 typedef struct sub_callback {
   subscriber_callback *callback;
   const char *service;
+  const char **sub_schema_names;
+  void *schema;
 } sub_callback;
 
 

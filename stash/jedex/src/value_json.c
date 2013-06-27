@@ -165,7 +165,7 @@ jedex_value_to_json_t( const jedex_value *value ) {
         return NULL;
       }
 
-      for (i = 0; i < element_count; i++) {
+      for ( i = 0; i < element_count; i++ ) {
         jedex_value element;
         rc = jedex_value_get_by_index( value, i, &element, NULL );
         if ( rc != 0 ) {
@@ -544,33 +544,176 @@ jedex_value_from_json_root( const json_t *json, const jedex_schema *schema, jede
 }
 
 
-jedex_value *
-json_to_jedex_value( void *schema, const char **sub_schema_names, const char *json ) {
-  if ( json ) {
-    json_error_t json_error;
-    json_t *root = json_loads( json, JSON_DECODE_ANY, &json_error );
-    if ( root != NULL ) {
-      const char *key;
-      json_t *value;
-      const char *schema_name = jedex_schema_type_name( schema );
-      json_object_foreach( root, key, value ) {
-        if ( !strcmp( schema_name, key ) ) {
-          jedex_value_iface *val_iface = jedex_generic_class_from_schema( schema );
+void
+unpack_string( jedex_value *val, const char *key, json_t *json_value ) {
+  const char *json_string;
+  json_unpack( json_value, "s", &json_string );
+
+  if ( !strcmp( key, "string" ) || !strcmp( key, "" ) ) {
+    jedex_value_set_string( val, json_string );
+  }
+  else {
+    jedex_value field;
+    size_t index;
+    jedex_value_get_by_name( val, key, &field, &index );
+    jedex_value_set_string( &field, json_string );
+  }
+}
+
+
+void
+unpack_int( jedex_value *val, const char *key, json_t *json_value ) {
+  int json_int;
+
+  json_unpack( json_value, "i", &json_int ); 
+  if ( !strcmp( key, "int32" ) || !strcmp( key, "" ) ) {
+    jedex_value_set_int( val, json_int );
+  }
+  else {
+    jedex_value field;
+    size_t index;
+    jedex_value_get_by_name( val, key, &field, &index );
+    jedex_value_set_int( &field, json_int );
+  }
+}
+
+
+void
+unpack_real( jedex_value *val, const char *key, json_t *json_value ) {
+  double json_real;
+
+  json_unpack( json_value, "f", &json_real );
+  if ( !strcmp( key, "float" ) ) {
+    jedex_value_set_float( val, ( float ) json_real );
+  }
+  if ( !strcmp( key, "double" ) ) {
+    jedex_value_set_double( val, json_real );
+  }
+  else {
+    jedex_value field;
+    size_t index;
+    jedex_value_get_by_name( val, key, &field, &index );
+    jedex_value_set_double( &field, json_real );
+  }
+}
+
+
+void
+unpack_primitive( json_t *json_value, const char *key, jedex_value *val ) {
+  if ( json_is_string( json_value ) ) {
+    unpack_string( val, key, json_value );
+  }
+  if ( json_is_integer( json_value ) ) {
+    unpack_int( val, key, json_value );
+  }
+}
+
+
+int
+jedex_parse_json( json_t *root, jedex_value *val ) {
+  int rc = 0;
+ 
+  if ( root ) {
+    const char *key;
+    json_t *json_value;
+    json_object_foreach( root, key, json_value ) {
+      if ( json_is_object( json_value ) ) {
+        jedex_parse_json( json_value, val );
+      }
+      if ( json_is_array( json_value ) ) {
+        size_t items;
+        items = json_array_size( json_value );
+
+        jedex_value field;
+        size_t index;
+        jedex_value_get_by_name( val, key, &field, &index );
+        for ( size_t i = 0; i < items; i++ ) {
+          json_t *element = json_array_get( json_value, i );
+          jedex_value array_element;
+    
+          jedex_value_append( &field, &array_element, NULL );
+          if ( json_is_object( element ) ) {
+            jedex_parse_json( element, &array_element );
+          }
+          else {
+            unpack_primitive( element, "", &array_element );
+          }
         }
-        if ( json_is_object( value ) ) {
-        }
+      }
+      if ( json_is_string( json_value ) ) {
+        unpack_string( val, key, json_value );
+      }
+      if ( json_is_integer( json_value ) ) {
+        unpack_int( val, key, json_value );
+      }
+      if ( json_is_real( json_value ) ) {
+        unpack_real( val, key, json_value );
       }
     }
   }
-#ifdef LATER
-  jedex_parcel *parcel = jedex_parcel_create( schema, sub_schema_names );
-  for ( ; *sub_schema_names; sub_schema_names++ ) {
-    jedex_value *val = jedex_parcel_value( parcel, sub_schema_names );
-   
-  }
-#endif
 
-  return NULL;
+  return rc;
+}
+
+
+static json_t *
+jedex_decode_json( const char *json ) {
+  json_t *root = NULL;
+  if ( json ) {
+    json_error_t json_error;
+    root = json_loads( json, JSON_DECODE_ANY, &json_error );
+  }
+
+  return root;
+}
+
+
+jedex_value *
+json_to_jedex_value( void *schema, const char **sub_schema_names, const char *json ) {
+  assert( json );
+
+  json_t *root;
+
+  root = jedex_decode_json( json );
+  if ( root == NULL ) {
+    return NULL;
+  }
+
+  int nr_sub_schemas = 0;
+
+  if ( *sub_schema_names ) {
+    while ( *( sub_schema_names + nr_sub_schemas ) ) {
+      nr_sub_schemas++;
+    }
+  }
+  
+  if ( is_jedex_union( ( jedex_schema * ) schema ) && nr_sub_schemas ) {
+    for ( int i = 0; i < nr_sub_schemas; i++ ) {
+      jedex_schema *sub_schema = jedex_schema_get_subschema( schema, sub_schema_names[ i ] );
+      if ( sub_schema != NULL ) {
+        jedex_value_iface *val_iface = jedex_generic_class_from_schema( sub_schema );
+        jedex_value *val = jedex_value_from_iface( val_iface );
+        jedex_parse_json( root, val );
+        return val;
+      }
+    }
+  }
+  jedex_value_iface *val_iface = jedex_generic_class_from_schema( schema );
+  if ( val_iface == NULL ) {
+    return NULL;
+  }
+  jedex_value *val = ( jedex_value * ) jedex_new( jedex_value );
+  if ( val == NULL ) {
+    return NULL;
+  }
+  jedex_generic_value_new( val_iface, val );
+  if ( val->iface == NULL ) {
+    return NULL;
+  }
+  int rc = EINVAL;
+  jedex_parse_json( root, val );
+
+  return !rc ? val : NULL; 
 }
 
   

@@ -48,7 +48,7 @@ file_read( const char *dirpath, const char *fn ) {
 }
 
 
-static jedex_value *
+jedex_value *
 jedex_value_from_iface( jedex_value_iface *val_iface ) {
    jedex_value *val = ( jedex_value * ) jedex_new( jedex_value );
    if ( val == NULL ) {
@@ -72,6 +72,7 @@ first_element( const jedex_parcel *parcel ) {
   return e == NULL ? NULL : e->data;
 }
 
+
 static jedex_value *
 lookup_schema_name( const jedex_parcel *parcel, const char *schema_name ) {
   if ( !schema_name || !strcmp( schema_name, "" ) ) {
@@ -81,7 +82,7 @@ lookup_schema_name( const jedex_parcel *parcel, const char *schema_name ) {
     jedex_value *item = e->data;
     jedex_schema *item_schema = jedex_value_get_schema( item );
     if ( is_jedex_record( item_schema ) ) {
-      if ( !strcmp( ( jedex_schema_to_record( item_schema ) )->name, schema_name ) ) { 
+     if ( !strcmp( schema_name, ( jedex_schema_to_record( item_schema ) )->name ) ) {
         return item;
       }
     }
@@ -89,8 +90,6 @@ lookup_schema_name( const jedex_parcel *parcel, const char *schema_name ) {
 
   return NULL;
 }
-
-
 
 
 static int

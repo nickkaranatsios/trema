@@ -125,7 +125,9 @@ struct jedex_value_iface {
 
 
 int jedex_value_to_json( const jedex_value *value, int one_line, char **json_str );
+jedex_value *jedex_value_from_iface( jedex_value_iface *val_iface );
 jedex_value *json_value_to_json( const void *schema, const char **sub_schema_names, const char *json );
+jedex_value *json_to_jedex_value( void *schema, const char **sub_schema_names, const char *json );
 
 
 #define jedex_value_call0( value, method, dflt ) \

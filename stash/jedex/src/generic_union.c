@@ -96,6 +96,34 @@ jedex_generic_union_get_discriminant( const jedex_value_iface *viface,
 
 
 static int
+jedex_generic_union_get_by_name( const jedex_value_iface *viface,
+                                 void *vself,
+                                 const char *name,
+                                 jedex_value *branch,
+                                 size_t *index_out ) {
+  const jedex_generic_union_value_iface *iface = container_of( viface, jedex_generic_union_value_iface, parent );
+  jedex_generic_union *self = ( const jedex_generic_union * ) vself;
+
+  jedex_schema *schema = iface->schema;
+  int index = jedex_schema_union_branch_get_index( schema, name );
+  if ( index < 0 ) {
+    log_err( "Unknown union branch %s", name );
+    return EINVAL;
+  }
+
+  self->discriminant = index;
+  self->selected_branches[ index ] = index;
+  branch->iface = &iface->branch_ifaces[ index ]->parent;
+  branch->self = jedex_generic_union_branch( iface, self, index );
+  if ( index_out != NULL ) {
+    *index_out = index;
+  }
+
+  return 0;
+}
+
+
+static int
 jedex_generic_union_get_branch( const jedex_value_iface *viface, 
                                 void *vself,
                                 size_t index,
@@ -173,6 +201,7 @@ generic_union_class( void ) {
     generic_union->parent.get_size = jedex_generic_union_get_size;
     generic_union->parent.get_schema = jedex_generic_union_get_schema;
     generic_union->parent.get_branch = jedex_generic_union_get_branch;
+    generic_union->parent.get_by_name = jedex_generic_union_get_by_name;
     generic_union->parent.get_discriminant = jedex_generic_union_get_discriminant;
 
     generic_union->instance_size = jedex_generic_union_instance_size;

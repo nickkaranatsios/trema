@@ -176,6 +176,8 @@ jedex_schema_record_field_get_index( const jedex_schema *record, const char *fie
 
   return val.field->index;
 }
+
+
   
 
 const char *
@@ -459,6 +461,18 @@ jedex_schema_union_branch( const jedex_schema *unionp, int branch_index ) {
 		log_err( "No union branch for discriminant %d", branch_index );
 		return NULL;
 	}
+}
+
+
+int
+jedex_schema_union_branch_get_index( const jedex_schema *unionp, const char *branch_name ) {
+  union {
+    st_data_t data;
+    int index;
+  } val;
+  st_lookup( jedex_schema_to_union( unionp )->branches_byname, ( st_data_t ) branch_name, &val.data );
+
+  return val.index;
 }
 
 

@@ -17,74 +17,7 @@
 
 
 #include "jedex.h"
-#include "linked_list.c"
-
-#include "allocation.c"
-#include "st.c"
-#include "jedex_schema.c"
-#include "generic.c"
-#include "generic_array.c"
-#include "generic_boolean.c"
-#include "generic_bytes.c"
-#include "generic_double.c"
-#include "generic_float.c"
-#include "generic_int.c"
-#include "generic_long.c"
-#include "generic_map.c"
-#include "generic_null.c"
-#include "generic_record.c"
-#include "generic_string.c"
-#include "generic_union.c"
-#include "generic_link.c"
-#include "value_json.c"
-#include "wrapped_buffer.c"
-#include "memoize.c"
-#include "raw_string.c"
-#include "raw_array.c"
-#include "raw_map.c"
-
-
-char *
-file_read( const char *dirpath, const char *fn ) {
-  char filepath[ PATH_MAX ];
-  FILE *fp;
-  int rval;
-
-  snprintf( filepath, sizeof( filepath ), "%s/%s", dirpath, fn );
-  struct stat buf;
-  rval = stat( filepath, &buf );
-  if ( rval ) {
-    return NULL;
-  }
-  char *jscontent = ( char * ) jedex_malloc( buf.st_size + 1 );
-  fp = fopen( filepath, "r" );
-  if ( !fp ) {
-    return NULL;
-  }
-  rval = fread( jscontent, 1, buf.st_size, fp );
-  fclose( fp );
-  jscontent[ rval ] = '\0';
-
-  return jscontent;
-}
-
-
-static int
-unpack_int( const char *key, json_t *value ) {
-  int rc = EINVAL;
-
-  if ( !strcmp( key, "int32" ) ) {
-    int val;
-    
-    rc = json_unpack( value, "i", &val ); 
-    if ( rc == 0 ) {
-      jedex_value int_val;
-      jedex_generic_int_new( &int_val, val );
-    }
-  }
-
-  return rc;
-}
+#include "jedex_iface.h"
 
 
 void
@@ -101,12 +34,14 @@ any_value_to_json( jedex_value *val ) {
 
       json_object_foreach( root, key, value ) {
         const char *schema = key;
-        unpack_int( schema, value );
+        //unpack_int( schema, value );
       }
     }
     printf( "root %p\n", ( void * ) root ); 
   }
 } 
+#ifdef TEST
+#endif
 
 
 void
@@ -128,14 +63,75 @@ void
 set_menu_union_value( jedex_value *val ) {
   jedex_value branch;
   size_t branch_count;
+
   jedex_value_get_size( val, &branch_count );
   assert( branch_count == 2 );
-  jedex_value_get_branch( val, 1, &branch );
+
+  size_t index;
+  jedex_value_get_by_name( val, "array", &branch, &index );
   jedex_value elements;
   jedex_value_append( &branch, &elements, NULL );
   set_menu_record_value( &elements );
   jedex_value_append( &branch, &elements, NULL );
   set_menu_record_value( &elements );
+}
+
+
+void
+set_vegetables( jedex_value *val ) {
+  jedex_value field;
+  size_t index;
+
+  jedex_value_get_by_name( val, "name", &field, &index );
+  assert( index == 0 );
+  jedex_value_set_string( &field, "brocoli" );
+  jedex_value_get_by_name( val, "price", &field, &index );
+  assert( index == 1 );
+  jedex_value_set_float( &field, 2.45 );
+}
+
+
+void
+set_union_vegetables( jedex_value *val ) {
+  jedex_value branch;
+  size_t branch_count;
+
+  jedex_value_get_size( val, &branch_count );
+  assert( branch_count == 3 );
+
+  size_t index;
+  jedex_value_get_by_name( val, "vegetables", &branch, &index );
+  jedex_value elements;
+  jedex_value_append( &branch, &elements, NULL );
+  set_vegetables( &branch );
+  jedex_value_append( &branch, &elements, NULL );
+}
+
+
+void
+set_meat( jedex_value *val ) {
+  jedex_value field;
+  size_t index;
+
+  jedex_value_get_by_name( val, "name", &field, &index );
+  assert( index == 0 );
+  jedex_value_set_string( &field, "hamburger steak" );
+  jedex_value_get_by_name( val, "price", &field, &index );
+  assert( index == 1 );
+  jedex_value_set_float( &field, 11.45 );
+}
+
+
+void
+set_union_meat( jedex_value *val ) {
+  jedex_value branch;
+  size_t index;
+
+  jedex_value_get_by_name( val, "meat", &branch, &index );
+  jedex_value elements;
+  jedex_value_append( &branch, &elements, NULL ); 
+  set_meat( &branch );
+  jedex_value_append( &branch, &elements, NULL );
 }
 
 
@@ -189,6 +185,7 @@ set_union_value( jedex_value *val ) {
 
 
 
+#ifdef TEST
 #define DEFAULT_SCHEMA_DIR "schema"
 #define DEFAULT_SCHEMA_FN  "test_schema"
 
@@ -215,6 +212,7 @@ jedex_initialize( const char *schema_name ) {
 
   return schema == NULL ? NULL : schema;
 }
+#endif
 
 
 jedex_value_iface *
@@ -253,23 +251,7 @@ append_to_parcel( jedex_parcel **parcel, jedex_schema *schema, jedex_value *val 
 }
 
 
-jedex_value *
-jedex_value_from_iface( jedex_value_iface *val_iface ) {
-   jedex_value *val = ( jedex_value * ) jedex_new( jedex_value );
-   if ( val == NULL ) {
-     jedex_free( val_iface );
-     return NULL;
-   }
-   if ( jedex_generic_value_new( val_iface, val ) ) {
-     jedex_free( val_iface );
-     jedex_free( val );
-     return NULL;
-   }
-
-   return val; 
-}
-
-
+#ifdef TEST
 jedex_parcel *
 jedex_parcel_create( jedex_schema *schema, const char *sub_schema_names[] ) {
   jedex_value_iface *val_iface = NULL;
@@ -291,6 +273,7 @@ jedex_parcel_create( jedex_schema *schema, const char *sub_schema_names[] ) {
 
   return parcel;
 }
+#endif
 
 
 jedex_value *
@@ -320,6 +303,7 @@ lookup_schema_name( const jedex_parcel *parcel, const char *schema_name ) {
 }
 
 
+#ifdef TEST
 jedex_value *
 jedex_parcel_value( const jedex_parcel *parcel, const char *schema_name ) {
   assert( parcel );
@@ -327,25 +311,67 @@ jedex_parcel_value( const jedex_parcel *parcel, const char *schema_name ) {
 
   return lookup_schema_name( parcel, schema_name );
 }
+#endif
 
 
 int
 main( int argc, char **argv ) {
-  jedex_schema *schema = jedex_initialize( "test_simple_case" );
+  jedex_schema *schema = jedex_initialize( "schema/groceries" );
   assert( schema );
 
-  const char *sub_schemas[] = { "" };
+  const char *sub_schemas[] = { NULL };
   jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
   assert( parcel );
 
   jedex_value *val = jedex_parcel_value( parcel, "" );
   assert( val );
 
-  jedex_value_set_int( val, 10 );
-  any_value_to_json( val );
+  set_union_vegetables( val );
+  set_union_meat( val );
+
+  char *json;
+  jedex_value_to_json( val, 1, &json );
+
+  jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
+
+
+  val = jedex_parcel_value( parcel, "meat" );
+  assert( val );
+  
 
   set_menu_union_value( val );
+
+  if ( ret_val ) {
+    size_t field_count;
+    jedex_value_get_size( ret_val, &field_count );    
+    assert( field_count == 2 );
+    jedex_value field;
+    size_t index;
+    jedex_value_get_by_name( ret_val, "header", &field, &index );
+    assert( index == 0 );
+    const char *cstr = NULL;
+    size_t size = 0;
+    jedex_value_get_string( &field, &cstr, &size );
+    printf( "cstr %s\n", cstr );
+    jedex_value_get_by_name( ret_val, "items", &field, &index );
+    assert( index == 1 );
+    jedex_value_get_size( &field, &size );
+    assert( size == 2 );
+    size_t ssize = 0;
+    for ( size_t i = 0; i < size; i++ ) {
+      jedex_value array_element;
+      jedex_value_get_by_index( &field, i, &array_element, NULL );
+      jedex_value_get_string( &array_element, &cstr, &ssize );
+      printf( "cstr %s\n", cstr );
+    }
+  }
+
+//  jedex_value_set_int( val, 10 );
+//  any_value_to_json( val );
+
+  set_union_value( val );
   any_value_to_json( val );
+  set_menu_union_value( val );
   
 #ifdef TO_DELETE
   schema = jedex_initialize( "test_simple_case" );

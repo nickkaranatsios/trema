@@ -158,7 +158,7 @@ fi
 if [ "$CCNAME" = "gcc" ]; then
     [ -z "$BOOM_MODEL_NOOPT" ] && CCDEBUG="-g"
     [ -z "$BOOM_MODEL_NOOPT" ] && CCNODEBUG="$CCNODEBUG -g"
-    CCOPTS="-std=gnu99 -D_REENTRANT -D_GNU_SOURCE -Wall -Wno-unused -fno-strict-aliasing"
+    CCOPTS="-std=gnu99 -D_REENTRANT -D_GNU_SOURCE -Wall -Wno-unused -fno-strict-aliasing -fnested-functions"
     #  We assume the following standard libraries are all present.
     #  If your build is failing because of missing libraries then
     #  either you are missing development packages, or are on a non-standard/old

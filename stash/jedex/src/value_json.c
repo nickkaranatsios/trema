@@ -289,36 +289,16 @@ jedex_value_to_json_t( const jedex_value *value ) {
         return NULL;
       }
 
-      jedex_schema *union_schema;
-      union_schema = jedex_value_get_schema( value );
-
       size_t i = UINT32_MAX;
       jedex_value branch;
       while ( !jedex_generic_next_branch( value, &i, &branch ) ) {
-        jedex_schema *branch_schema;
-        const char *branch_name;
-
-        branch_schema = jedex_schema_union_branch( union_schema, i );
-        json_t *branch_obj = json_object();
-        if ( branch_obj == NULL ) {
-          log_err( "Can not allocate new JSON object" );
-          json_decref( result );
-          return NULL;
-        }
-
         json_t *branch_json = jedex_value_to_json_t( &branch );
         if ( branch_json == NULL ) {
           json_decref( result );
           return NULL;
         }
 
-        branch_name = jedex_schema_type_name( branch_schema );
-        if ( json_object_set_new( branch_obj, branch_name, branch_json ) ) {
-          log_err( "Cannot set branch object" );
-          json_decref( result );
-          return NULL;
-        }
-        if ( json_array_append_new( result, branch_obj ) ) {
+        if ( json_array_append_new( result, branch_json ) ) {
           log_err( "Cannot append branch to array" );
           json_decref( result );
           return NULL;
@@ -333,7 +313,7 @@ jedex_value_to_json_t( const jedex_value *value ) {
 }
 
 
-static json_t *
+json_t *
 jedex_value_primitive( const jedex_value *value, int *failed ) {
   json_t *result = json_object();
 
@@ -614,29 +594,48 @@ jedex_parse_json( json_t *root, jedex_value *val ) {
   int rc = 0;
  
   if ( root ) {
-    const char *key;
-    json_t *json_value;
-    json_object_foreach( root, key, json_value ) {
-      if ( json_is_object( json_value ) ) {
-        jedex_parse_json( json_value, val );
+    if ( json_is_array( root ) ) {
+      size_t items;
+      items = json_array_size( root );
+      for ( size_t i = 0; i < items; i++ ) {
+        json_t *element = json_array_get( json_value, i );
+        void *iter = json_object_iter( element );
+        if ( iter ) {
+          const char *key = json_object_iter_key( iter );
+          jedex_value branch;
+          size_t index;
+          jedex_value_get_by_name( val, key, &branch, &index );
+          jedex_value elements;
+          jedex_value_append( &branch, &elements, NULL );
+          jedex_parse_json( element, branch );
+        }
       }
-      if ( json_is_array( json_value ) ) {
-        size_t items;
-        items = json_array_size( json_value );
+    }
+    if ( json_is_object( root ) ) {
+      const char *key;
+      json_t *json_value;
+      json_object_foreach( root, key, json_value ) {
+        if ( json_is_object( json_value ) ) {
+          jedex_parse_json( json_value, val );
+        }
+        if ( json_is_array( json_value ) ) {
+          size_t items;
+          items = json_array_size( json_value );
 
-        jedex_value field;
-        size_t index;
-        jedex_value_get_by_name( val, key, &field, &index );
-        for ( size_t i = 0; i < items; i++ ) {
-          json_t *element = json_array_get( json_value, i );
-          jedex_value array_element;
+          jedex_value field;
+          size_t index;
+          jedex_value_get_by_name( val, key, &field, &index );
+          for ( size_t i = 0; i < items; i++ ) {
+           json_t *element = json_array_get( json_value, i );
+            jedex_value array_element;
     
-          jedex_value_append( &field, &array_element, NULL );
-          if ( json_is_object( element ) ) {
-            jedex_parse_json( element, &array_element );
-          }
-          else {
-            unpack_primitive( element, "", &array_element );
+            jedex_value_append( &field, &array_element, NULL );
+            if ( json_is_object( element ) ) {
+              jedex_parse_json( element, &array_element );
+            }
+            else {
+              unpack_primitive( element, "", &array_element );
+            }
           }
         }
       }
@@ -656,7 +655,7 @@ jedex_parse_json( json_t *root, jedex_value *val ) {
 }
 
 
-static json_t *
+json_t *
 jedex_decode_json( const char *json ) {
   json_t *root = NULL;
   if ( json ) {
@@ -702,21 +701,13 @@ json_to_jedex_value( void *schema, const char **sub_schema_names, const char *js
   if ( val_iface == NULL ) {
     return NULL;
   }
-  jedex_value *val = ( jedex_value * ) jedex_new( jedex_value );
-  if ( val == NULL ) {
-    return NULL;
-  }
-  jedex_generic_value_new( val_iface, val );
-  if ( val->iface == NULL ) {
-    return NULL;
-  }
+  jedex_value *val = jedex_value_from_iface( val_iface );;
   int rc = EINVAL;
-  jedex_parse_json( root, val );
+  rc = jedex_parse_json( root, val );
 
-  return !rc ? val : NULL; 
+  return rc == 0 ? val : NULL;
 }
 
-  
 
 /*
  * Local variables:

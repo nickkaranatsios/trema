@@ -100,7 +100,7 @@ struct jedex_value_iface {
    * index is given, it will be filled in with the numeric index
    * of the returned value.
    */
-  int ( *get_by_name ) ( const jedex_value_iface *iface, const void *self, const char *name, jedex_value *child, size_t *index );
+  int ( *get_by_name ) ( const jedex_value_iface *iface, void *self, const char *name, jedex_value *child, size_t *index );
 
   /* Current union value */
   int ( *get_branch ) ( const jedex_value_iface *iface, void *self, size_t index, jedex_value *branch );

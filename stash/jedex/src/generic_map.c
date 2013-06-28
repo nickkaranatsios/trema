@@ -108,12 +108,12 @@ jedex_generic_map_get_by_index( const jedex_value_iface *viface,
 
 static int
 jedex_generic_map_get_by_name( const jedex_value_iface *viface,
-                               const void *vself,
+                               void *vself,
                                const char *name,
                                jedex_value *child,
                                size_t *index ) {
   const jedex_generic_map_value_iface *iface = container_of( viface, jedex_generic_map_value_iface, parent );
-  const jedex_generic_map *self = ( const jedex_generic_map * ) vself;
+  jedex_generic_map *self = ( jedex_generic_map * ) vself;
   child->iface = &iface->child_giface->parent;
   child->self = jedex_raw_map_get( &self->map, name, index );
 

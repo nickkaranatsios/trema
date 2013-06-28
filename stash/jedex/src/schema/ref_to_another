@@ -1,0 +1,17 @@
+[
+  {
+    "type": "record",
+    "name": "first_record",
+    "fields": [
+      { "name": "attribute", "type": "string" }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "second_record",
+    "fields": [
+      { "name": "value", "type": "int" },
+      { "name": "other", "type": { "type": "array", "items": "first_record" } }
+    ]
+  }
+]

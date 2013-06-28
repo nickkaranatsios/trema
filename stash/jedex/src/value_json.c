@@ -525,129 +525,137 @@ jedex_value_from_json_root( const json_t *json, const jedex_schema *schema, jede
 
 
 void
-unpack_string( jedex_value *val, const char *key, json_t *json_value ) {
+unpack_string( jedex_value *val, json_t *json_value ) {
   const char *json_string;
   json_unpack( json_value, "s", &json_string );
 
-  if ( !strcmp( key, "string" ) || !strcmp( key, "" ) ) {
-    jedex_value_set_string( val, json_string );
-  }
-  else {
-    jedex_value field;
-    size_t index;
-    jedex_value_get_by_name( val, key, &field, &index );
-    jedex_value_set_string( &field, json_string );
-  }
+  jedex_value_set_string( val, json_string );
 }
 
 
 void
-unpack_int( jedex_value *val, const char *key, json_t *json_value ) {
+unpack_int( jedex_value *val, json_t *json_value ) {
   int json_int;
 
   json_unpack( json_value, "i", &json_int ); 
-  if ( !strcmp( key, "int32" ) || !strcmp( key, "" ) ) {
-    jedex_value_set_int( val, json_int );
-  }
-  else {
-    jedex_value field;
-    size_t index;
-    jedex_value_get_by_name( val, key, &field, &index );
-    jedex_value_set_int( &field, json_int );
-  }
+  jedex_value_set_int( val, json_int );
 }
 
 
 void
-unpack_real( jedex_value *val, const char *key, json_t *json_value ) {
+unpack_real( jedex_value *val, json_t *json_value ) {
   double json_real;
 
   json_unpack( json_value, "f", &json_real );
-  if ( !strcmp( key, "float" ) ) {
-    jedex_value_set_float( val, ( float ) json_real );
-  }
-  if ( !strcmp( key, "double" ) ) {
-    jedex_value_set_double( val, json_real );
-  }
-  else {
-    jedex_value field;
-    size_t index;
-    jedex_value_get_by_name( val, key, &field, &index );
-    jedex_value_set_double( &field, json_real );
-  }
+  jedex_value_set_float( val, json_real );
+  jedex_value_set_double( val, json_real );
 }
 
 
 void
-unpack_primitive( json_t *json_value, const char *key, jedex_value *val ) {
+unpack_primitive( json_t *json_value, jedex_value *val ) {
   if ( json_is_string( json_value ) ) {
-    unpack_string( val, key, json_value );
+    unpack_string( val, json_value );
   }
   if ( json_is_integer( json_value ) ) {
-    unpack_int( val, key, json_value );
+    unpack_int( val, json_value );
+  }
+  if ( json_is_real( json_value ) ) {
+    unpack_real( val, json_value );
   }
 }
 
 
-int
+static void unpack_array( json_t *json_value, jedex_value *val );
+
+
+static void
+unpack_object( json_t *json_value, jedex_value *val ) {
+  const char *key;
+  json_t *value;
+  json_object_foreach( json_value, key, value ) {
+    if ( json_is_object( value ) ) {
+      unpack_object( value, val );
+    }
+    else if ( json_is_array( value ) ) {
+      jedex_value field;
+      size_t index;
+      jedex_value_get_by_name( val, key, &field, &index );
+      unpack_array( value, &field );
+    }
+    else {
+      jedex_value field;
+      size_t index;
+      jedex_value_get_by_name( val, key, &field, &index );
+      unpack_primitive( value, &field );
+    }
+  }
+}
+
+
+static void
+unpack_multi_array( json_t *json_value, jedex_value *val ) {
+  jedex_value branch;
+  size_t index;
+  jedex_value_get_by_name( val, "array", &branch, &index );
+
+  size_t items;
+  items = json_array_size( json_value );
+  for ( size_t i = 0; i < items; i++ ) {
+    json_t *json_element = json_array_get( json_value, i );
+
+    jedex_value elements;
+    jedex_value_append( &branch, &elements, NULL );
+    if ( json_is_object( json_element ) ) {
+      unpack_object( json_element, &elements );
+    }
+  }
+}
+
+
+static void
+unpack_array( json_t *json_value, jedex_value *val ) {
+  size_t items;
+  items = json_array_size( json_value );
+  for ( size_t i = 0; i < items; i++ ) {
+    json_t *json_element = json_array_get( json_value, i );
+    if ( json_is_array( json_element ) ) {
+      return unpack_multi_array( json_element, val );
+    }
+    else if ( json_is_object( json_element ) ) {
+      void *iter = json_object_iter( json_element );
+      if ( iter ) {
+        const char *key = json_object_iter_key( iter );
+        json_t *json_value = json_object_iter_value( iter );
+
+        jedex_value branch;
+        size_t index;
+        jedex_value_get_by_name( val, key, &branch, &index );
+        jedex_value elements;
+        jedex_value_append( &branch, &elements, NULL );
+        unpack_object( json_value, &branch );
+      }
+    }
+    else {
+      jedex_value array_element;
+      jedex_value_append( val, &array_element, NULL );
+      unpack_primitive( json_element, &array_element );
+    }
+  }
+}
+
+
+
+static int
 jedex_parse_json( json_t *root, jedex_value *val ) {
   int rc = 0;
  
   if ( root ) {
     if ( json_is_array( root ) ) {
-      size_t items;
-      items = json_array_size( root );
-      for ( size_t i = 0; i < items; i++ ) {
-        json_t *element = json_array_get( json_value, i );
-        void *iter = json_object_iter( element );
-        if ( iter ) {
-          const char *key = json_object_iter_key( iter );
-          jedex_value branch;
-          size_t index;
-          jedex_value_get_by_name( val, key, &branch, &index );
-          jedex_value elements;
-          jedex_value_append( &branch, &elements, NULL );
-          jedex_parse_json( element, branch );
-        }
-      }
+      unpack_array( root, val );
     }
     if ( json_is_object( root ) ) {
-      const char *key;
-      json_t *json_value;
-      json_object_foreach( root, key, json_value ) {
-        if ( json_is_object( json_value ) ) {
-          jedex_parse_json( json_value, val );
-        }
-        if ( json_is_array( json_value ) ) {
-          size_t items;
-          items = json_array_size( json_value );
-
-          jedex_value field;
-          size_t index;
-          jedex_value_get_by_name( val, key, &field, &index );
-          for ( size_t i = 0; i < items; i++ ) {
-           json_t *element = json_array_get( json_value, i );
-            jedex_value array_element;
-    
-            jedex_value_append( &field, &array_element, NULL );
-            if ( json_is_object( element ) ) {
-              jedex_parse_json( element, &array_element );
-            }
-            else {
-              unpack_primitive( element, "", &array_element );
-            }
-          }
-        }
-      }
-      if ( json_is_string( json_value ) ) {
-        unpack_string( val, key, json_value );
-      }
-      if ( json_is_integer( json_value ) ) {
-        unpack_int( val, key, json_value );
-      }
-      if ( json_is_real( json_value ) ) {
-        unpack_real( val, key, json_value );
-      }
+      unpack_object( root, val );
     }
   }
 
@@ -677,31 +685,11 @@ json_to_jedex_value( void *schema, const char **sub_schema_names, const char *js
   if ( root == NULL ) {
     return NULL;
   }
-
-  int nr_sub_schemas = 0;
-
-  if ( *sub_schema_names ) {
-    while ( *( sub_schema_names + nr_sub_schemas ) ) {
-      nr_sub_schemas++;
-    }
-  }
-  
-  if ( is_jedex_union( ( jedex_schema * ) schema ) && nr_sub_schemas ) {
-    for ( int i = 0; i < nr_sub_schemas; i++ ) {
-      jedex_schema *sub_schema = jedex_schema_get_subschema( schema, sub_schema_names[ i ] );
-      if ( sub_schema != NULL ) {
-        jedex_value_iface *val_iface = jedex_generic_class_from_schema( sub_schema );
-        jedex_value *val = jedex_value_from_iface( val_iface );
-        jedex_parse_json( root, val );
-        return val;
-      }
-    }
-  }
   jedex_value_iface *val_iface = jedex_generic_class_from_schema( schema );
   if ( val_iface == NULL ) {
     return NULL;
   }
-  jedex_value *val = jedex_value_from_iface( val_iface );;
+  jedex_value *val = jedex_value_from_iface( val_iface );
   int rc = EINVAL;
   rc = jedex_parse_json( root, val );
 

@@ -20,7 +20,7 @@
 #include "jedex_iface.h"
 
 
-void
+static void
 any_value_to_json( jedex_value *val ) {
   char *json;
 
@@ -40,11 +40,35 @@ any_value_to_json( jedex_value *val ) {
     printf( "root %p\n", ( void * ) root ); 
   }
 } 
-#ifdef TEST
-#endif
 
 
-void
+static void
+set_simple_array( jedex_value *val ) {
+  jedex_value element;
+
+  jedex_value_append( val, &element, NULL );
+  jedex_value_set_int( &element, 1 );
+  jedex_value_append( val, &element, NULL );
+  jedex_value_set_int( &element, 2 );
+}
+
+
+static void
+get_simple_array( jedex_value *val ) {
+  jedex_value element;
+  size_t array_size;
+
+  jedex_value_get_size( val, &array_size );
+  for ( size_t i = 0; i < array_size; i++ ) {
+    jedex_value_get_by_index( val, i, &element, NULL );
+    int ret_val;
+    jedex_value_get_int( &element, &ret_val );
+    printf( "int(%u)= %d\n", i, ret_val );
+  }
+}
+
+
+static void
 set_menu_record_value( jedex_value *val ) {
   jedex_value field;
   size_t index;
@@ -59,7 +83,30 @@ set_menu_record_value( jedex_value *val ) {
 }
 
 
-void
+static void
+get_menu_value( jedex_value *val ) {
+  jedex_value field;
+  size_t index;
+
+  jedex_value_get_by_name( val, "header", &field, &index );
+  const char *cstr = NULL;
+  size_t size = 0;
+  jedex_value_get_string( &field, &cstr, &size );
+  printf( "header: %s\n", cstr );
+
+  jedex_value_get_by_name( val, "items", &field, &index );
+  jedex_value element;
+  size_t array_size;
+  jedex_value_get_size( &field, &array_size );
+  for ( size_t i = 0; i < array_size; i++ ) {
+    jedex_value_get_by_index( &field, i, &element, NULL );
+    jedex_value_get_string( &element, &cstr, &size );
+    printf( "item(%u): %s\n", i, cstr );
+  }
+}
+  
+
+static void
 set_menu_union_value( jedex_value *val ) {
   jedex_value branch;
   size_t branch_count;
@@ -77,7 +124,21 @@ set_menu_union_value( jedex_value *val ) {
 }
 
 
-void
+static void
+get_menu_union_value( jedex_value *val ) {
+  jedex_value branch;
+  size_t index;
+  jedex_value_get_by_name( val, "array", &branch, &index );
+  size_t array_size;
+  jedex_value_get_size( &branch, &array_size );
+  for ( size_t i = 0; i < array_size; i++ ) {
+    jedex_value menu_val;
+    jedex_value_get_by_index( &branch, i, &menu_val, NULL );
+    get_menu_value( &menu_val );
+  }
+}
+
+static void
 set_vegetables( jedex_value *val ) {
   jedex_value field;
   size_t index;
@@ -91,7 +152,7 @@ set_vegetables( jedex_value *val ) {
 }
 
 
-void
+static void
 set_union_vegetables( jedex_value *val ) {
   jedex_value branch;
   size_t branch_count;
@@ -108,7 +169,35 @@ set_union_vegetables( jedex_value *val ) {
 }
 
 
-void
+static void
+get_vegetables( jedex_value *val ) {
+  jedex_value field;
+  size_t index;
+  jedex_value_get_by_name( val, "name", &field, &index );
+
+  const char *cstr = NULL;
+  size_t size = 0;
+  jedex_value_get_string( &field, &cstr, &size );
+  printf( "name: %s\n", cstr );
+
+  jedex_value_get_by_name( val, "price", &field, &index );
+  float price;
+  jedex_value_get_float( &field, &price );
+  printf( "price %10.2f\n", price );
+}
+
+
+static void
+get_union_vegetables( jedex_value *val ) {
+  jedex_value branch;
+  size_t index;
+
+  jedex_value_get_by_name( val, "vegetables", &branch, &index );
+  get_vegetables( &branch );
+}
+
+  
+static void
 set_meat( jedex_value *val ) {
   jedex_value field;
   size_t index;
@@ -122,7 +211,36 @@ set_meat( jedex_value *val ) {
 }
 
 
-void
+static void
+get_meat( jedex_value *val ) {
+  jedex_value field;
+  size_t index;
+  
+  jedex_value_get_by_name( val, "name", &field, &index );
+
+  const char *cstr = NULL;
+  size_t size = 0;
+  jedex_value_get_string( &field, &cstr, &size );
+  printf( "name: %s\n", cstr );
+
+  jedex_value_get_by_name( val, "price", &field, &index );
+  float price;
+  jedex_value_get_float( &field, &price );
+  printf( "price %10.2f\n", price );
+}
+
+
+static void
+get_union_meat( jedex_value *val ) {
+  jedex_value branch;
+  size_t index;
+
+  jedex_value_get_by_name( val, "meat", &branch, &index );
+  get_meat( &branch );
+}
+
+
+static void
 set_union_meat( jedex_value *val ) {
   jedex_value branch;
   size_t index;
@@ -132,6 +250,42 @@ set_union_meat( jedex_value *val ) {
   jedex_value_append( &branch, &elements, NULL ); 
   set_meat( &branch );
   jedex_value_append( &branch, &elements, NULL );
+}
+
+
+static void
+set_first_record( jedex_value *val ) {
+  jedex_value field;
+  size_t index;
+  
+  jedex_value_get_by_name( val, "attribute", &field, &index );
+  jedex_value_set_string( &field, "a read only attribute" );
+}
+
+
+static void
+set_second_record( jedex_value *val ) {
+  jedex_value field;
+  size_t index;
+  
+  jedex_value_get_by_name( val, "value", &field, &index );
+  jedex_value_set_int( &field, 1 );
+  jedex_value_get_by_name( val, "other", &field, &index );
+  jedex_value array_element;
+  jedex_value_append( &field, &array_element, NULL );
+  set_first_record( &array_element );
+}
+
+
+static void
+set_ref_to_another( jedex_value *val ) {
+  jedex_value branch;
+  size_t index;
+
+  jedex_value_get_by_name( val, "second_record", &branch, &index );
+  jedex_value element;
+  jedex_value_append( &branch, &element, NULL ); 
+  set_second_record( &branch );
 }
 
 
@@ -183,36 +337,6 @@ set_union_value( jedex_value *val ) {
 }
 
 
-
-
-#ifdef TEST
-#define DEFAULT_SCHEMA_DIR "schema"
-#define DEFAULT_SCHEMA_FN  "test_schema"
-
-
-jedex_schema *
-jedex_initialize( const char *schema_name ) {
-  char schema_fn[ FILENAME_MAX ];
-  char *jsontext;
-
-  if ( !strcmp( schema_name, "" ) ) {
-    strncpy( schema_fn, DEFAULT_SCHEMA_FN, sizeof( schema_fn ) - 1 );
-  }
-  else {
-    strncpy( schema_fn, schema_name, sizeof( schema_fn ) - 1 );
-  }
-  schema_fn[ sizeof( schema_fn ) - 1 ] = '\0';
-
-  jsontext = file_read( DEFAULT_SCHEMA_DIR, schema_fn );
-  jedex_schema *schema = NULL;
-  if ( jsontext != NULL ) {
-    jedex_schema_from_json( jsontext, &schema );
-    free( jsontext );
-  }
-
-  return schema == NULL ? NULL : schema;
-}
-#endif
 
 
 jedex_value_iface *
@@ -303,20 +427,9 @@ lookup_schema_name( const jedex_parcel *parcel, const char *schema_name ) {
 }
 
 
-#ifdef TEST
-jedex_value *
-jedex_parcel_value( const jedex_parcel *parcel, const char *schema_name ) {
-  assert( parcel );
-  assert( parcel->values_list );
-
-  return lookup_schema_name( parcel, schema_name );
-}
-#endif
-
-
 int
 main( int argc, char **argv ) {
-  jedex_schema *schema = jedex_initialize( "schema/groceries" );
+  jedex_schema *schema = jedex_initialize( "schema/ref_to_another" );
   assert( schema );
 
   const char *sub_schemas[] = { NULL };
@@ -326,13 +439,22 @@ main( int argc, char **argv ) {
   jedex_value *val = jedex_parcel_value( parcel, "" );
   assert( val );
 
-  set_union_vegetables( val );
-  set_union_meat( val );
+  set_ref_to_another( val );
+  //set_simple_array( val );
+  //set_union_vegetables( val );
+  //set_union_meat( val );
+  //set_menu_record_value( val );
+  //set_menu_union_value( val );
 
   char *json;
   jedex_value_to_json( val, 1, &json );
 
   jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
+
+  //get_union_vegetables( ret_val );
+  //get_union_meat( ret_val );
+  //get_menu_union_value( ret_val );
+  get_simple_array( ret_val );
 
 
   val = jedex_parcel_value( parcel, "meat" );

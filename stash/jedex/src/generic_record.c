@@ -103,12 +103,12 @@ jedex_generic_record_get_by_index( const jedex_value_iface *viface,
 
 static int
 jedex_generic_record_get_by_name( const jedex_value_iface *viface,
-                                  const void *vself,
+                                  void *vself,
                                   const char *name,
                                   jedex_value *child,
                                   size_t *index_out ) {
   const jedex_generic_record_value_iface *iface = container_of( viface, jedex_generic_record_value_iface, parent );
-  const jedex_generic_record *self = ( const jedex_generic_record * ) vself;
+  jedex_generic_record *self = ( jedex_generic_record * ) vself;
 
   jedex_schema *schema = iface->schema;
   int index = jedex_schema_record_field_get_index( schema, name );

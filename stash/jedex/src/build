@@ -10,7 +10,7 @@ if [ /$1/ = /all/ ]; then
     echo "Building C examples..."
     for MAIN in `egrep -l "main \(" *.c`; do
         echo "$MAIN"
-        ./c -v -l -q -li ../.. -li ../include -ll /usr/local/lib -g $MAIN
+        ./c -l -q -li ../.. -li ../include -ll /usr/local/lib -g $MAIN
     done
 elif [ /$1/ = /clean/ ]; then
     echo "Cleaning C examples directory..."
@@ -20,11 +20,11 @@ elif [ /$1/ = /clean/ ]; then
     done
 elif [ -f $1.c ]; then
     echo "$1"
-    ./c -v -l -q -li ../.. -li ../include -ll /usr/local/lib -g $1
+    ./c -l -q -li ../.. -li ../include -ll /usr/local/lib -g $1
 elif [ /$1/ = /lib/ ]; then
   echo "Building linking the jedex library..."
 
-    ./c -v -li ../.. -li ../include -ll /usr/local/lib -g \
+    ./c -li ../.. -li ../include -ll /usr/local/lib -g \
     init.c \
     allocation.c \
     linked_list.c \

@@ -293,13 +293,13 @@ jedex_generic_link_get_by_index( const jedex_value_iface *iface,
 
 static int
 jedex_generic_link_get_by_name( const jedex_value_iface *iface,
-                                const void *vself,
+                                void *vself,
                                 const char *name,
                                 jedex_value *child,
                                 size_t *index ) {
   UNUSED( iface );
 
-  const jedex_value *self = ( const jedex_value * ) vself;
+  jedex_value *self = ( jedex_value * ) vself;
 
   return jedex_value_get_by_name( self, name, child, index );
 }

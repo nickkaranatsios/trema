@@ -102,7 +102,7 @@ jedex_generic_union_get_by_name( const jedex_value_iface *viface,
                                  jedex_value *branch,
                                  size_t *index_out ) {
   const jedex_generic_union_value_iface *iface = container_of( viface, jedex_generic_union_value_iface, parent );
-  jedex_generic_union *self = ( const jedex_generic_union * ) vself;
+  jedex_generic_union *self = ( jedex_generic_union * ) vself;
 
   jedex_schema *schema = iface->schema;
   int index = jedex_schema_union_branch_get_index( schema, name );

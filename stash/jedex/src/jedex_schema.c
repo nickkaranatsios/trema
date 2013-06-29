@@ -172,9 +172,13 @@ jedex_schema_record_field_get_index( const jedex_schema *record, const char *fie
     st_data_t data;
     struct jedex_record_field *field;
   } val;
-  st_lookup( jedex_schema_to_record( record )->fields_byname, ( st_data_t ) field_name, &val.data );
+ 
+  if ( st_lookup( jedex_schema_to_record( record )->fields_byname, ( st_data_t ) field_name, &val.data ) ) {
+    return val.field->index;
+  }
+  log_err( "No field named %s in record", field_name );
 
-  return val.field->index;
+  return -1;
 }
 
 

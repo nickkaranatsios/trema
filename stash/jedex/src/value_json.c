@@ -226,8 +226,11 @@ jedex_value_to_json_t( const jedex_value *value ) {
           return NULL;
         }
       }
+      const char *map_name = jedex_schema_type_name( jedex_value_get_schema( value ) );
+      json_t *schema_obj = json_object();
+      json_object_set_new( schema_obj, map_name, result );
 
-      return result;
+      return schema_obj;
     }
 
     case JEDEX_RECORD: {
@@ -547,7 +550,6 @@ unpack_real( jedex_value *val, json_t *json_value ) {
   double json_real;
 
   json_unpack( json_value, "f", &json_real );
-  jedex_value_set_float( val, json_real );
   jedex_value_set_double( val, json_real );
 }
 
@@ -570,11 +572,29 @@ static void unpack_array( json_t *json_value, jedex_value *val );
 
 
 static void
+unpack_map( json_t *json_value, jedex_value *val ) {
+  const char *key;
+  json_t *value;
+  json_object_foreach( json_value, key, value ) {
+    jedex_value element;
+    size_t new_index;
+    int is_new = 0;
+
+    jedex_value_add( val, key, &element, &new_index, &is_new );
+    unpack_primitive( value, &element );
+  }
+}
+
+
+static void
 unpack_object( json_t *json_value, jedex_value *val ) {
   const char *key;
   json_t *value;
   json_object_foreach( json_value, key, value ) {
-    if ( json_is_object( value ) ) {
+    if ( !strcmp( key, "map" ) ) {
+      unpack_map( value, val );
+    }
+    else if ( json_is_object( value ) ) {
       unpack_object( value, val );
     }
     else if ( json_is_array( value ) ) {

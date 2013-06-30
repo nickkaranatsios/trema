@@ -207,7 +207,7 @@ jedex_generic_map_get( void ) {
 jedex_generic_value_iface *
 jedex_generic_map_class( jedex_schema *schema, memoize_state *state ) {
   jedex_schema *child_schema = jedex_schema_array_items( schema );
-  jedex_generic_value_iface *child_giface = jedex_generic_class_from_schema_memoized( schema, state );
+  jedex_generic_value_iface *child_giface = jedex_generic_class_from_schema_memoized( child_schema, state );
   if ( child_giface == NULL ) {
     return NULL;
   }

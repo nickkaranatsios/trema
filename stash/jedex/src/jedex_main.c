@@ -294,14 +294,92 @@ get_ref_to_another( jedex_value *val ) {
 }
 
 
+double
+rand_number( double from, double to ) {
+  double range = to - from;
+  return from + ( ( double ) rand() / ( RAND_MAX + 1.0 ) ) * range;
+}
+
+
+static void
+set_simple_map_double( jedex_value *val ) {
+  char key[ 64 ];
+
+  strcpy( key, "double_1" );
+
+  jedex_value element;
+  size_t new_index;
+  int is_new = 0;
+
+  jedex_value_add( val, key, &element, &new_index, &is_new );
+
+  double value_double = rand_number( -1e10, 1e10 );
+  jedex_value_set_double( &element, value_double );
+  
+  strcpy( key, "double_2" );
+  jedex_value_add( val, key, &element, &new_index, &is_new );
+  value_double = rand_number( -1e10, 1e10 );
+  jedex_value_set_double( &element, value_double );
+}
+
+
+static void
+get_simple_map_double( jedex_value *val ) {
+  
+  size_t map_size;
+  jedex_value_get_size( val, &map_size );
+  printf( "map access by index\n" );
+  for ( size_t i = 0; i < map_size; i++ ) {
+    jedex_value element;
+    const char *map_key;
+
+    jedex_value_get_by_index( val, i, &element, &map_key );
+    double map_value;
+    jedex_value_get_double( &element, &map_value );
+    printf( "key: %s value %10.2f\n", map_key, map_value ); 
+  }
+  printf( "map access by name\n" );
+  jedex_value element;
+  size_t index;
+  const char *map_key = "double_1";
+  jedex_value_get_by_name( val, map_key, &element, &index );
+  double map_value;
+  jedex_value_get_double( &element, &map_value );
+  printf( "key: %s value %10.2f\n", map_key, map_value ); 
+
+  map_key = "double_2";
+  jedex_value_get_by_name( val, map_key, &element, &index );
+  jedex_value_get_double( &element, &map_value );
+  printf( "key: %s value %10.2f\n", map_key, map_value ); 
+}
+
+
 int
 main( int argc, char **argv ) {
-  const char *test_schema = "menu_record";
+  const char *test_schema = "simple_map_double";
   
-  // groceries OK
+  // simple_map_double
+  if ( !strcmp( test_schema, "simple_map_double" ) ) {
+    jedex_schema *schema = jedex_initialize( "schema/simple_map_double" );
+    assert( schema );
+
+    const char *sub_schemas[] = { NULL };
+    jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
+    assert( parcel );
+
+    jedex_value *val = jedex_parcel_value( parcel, "" );
+    assert( val );
+
+    set_simple_map_double( val );
+
+    char *json;
+    jedex_value_to_json( val, 1, &json );
+
+    jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
+
+    get_simple_map_double( ret_val );
+  }
   // simple_array OK
-  // menu_array OK
-  // ref_to_another OK
   if ( !strcmp( test_schema, "simple_array" ) ) {
     jedex_schema *schema = jedex_initialize( "schema/simple_array" );
     assert( schema );
@@ -322,6 +400,7 @@ main( int argc, char **argv ) {
 
     get_simple_array( ret_val );
   }
+  // ref_to_another OK
   else if ( !strcmp( test_schema, "ref_to_another" ) ) {
     jedex_schema *schema = jedex_initialize( "schema/ref_to_another" );
     assert( schema );
@@ -342,6 +421,7 @@ main( int argc, char **argv ) {
 
     get_ref_to_another( ret_val );
   }
+  // groceries OK
   else if ( !strcmp( test_schema, "groceries" ) ) {
     jedex_schema *schema = jedex_initialize( "schema/groceries" );
     assert( schema );
@@ -364,6 +444,7 @@ main( int argc, char **argv ) {
     get_union_vegetables( ret_val );
     get_union_meat( ret_val );
   }
+  // menu_array OK
   else if ( !strcmp( test_schema, "menu_array" ) ) {
     jedex_schema *schema = jedex_initialize( "schema/menu_array" );
     assert( schema );

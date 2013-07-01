@@ -356,134 +356,144 @@ get_simple_map_double( jedex_value *val ) {
 
 int
 main( int argc, char **argv ) {
-  const char *test_schema = "simple_map_double";
+  const char *test_schemas[] =  { 
+    "simple_map_double",
+    "simple_array",
+    "ref_to_another",
+    "groceries",
+    "menu_array",
+    NULL
+  };
   
-  // simple_map_double
-  if ( !strcmp( test_schema, "simple_map_double" ) ) {
-    jedex_schema *schema = jedex_initialize( "schema/simple_map_double" );
-    assert( schema );
+  const char **iter;
+  for ( iter = test_schemas; *iter; iter++ ) {
+    char id[ 32 ];
+    snprintf( id, sizeof( id ), "%p", iter );
+    assert( id );
+    const char *test_schema = *iter;
+    // simple_map_double
+    if ( !strcmp( test_schema, "simple_map_double" ) ) {
+      jedex_schema *schema = jedex_initialize( "schema/simple_map_double" );
+      assert( schema );
 
-    const char *sub_schemas[] = { NULL };
-    jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
-    assert( parcel );
+      const char *sub_schemas[] = { NULL };
+      jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
+      assert( parcel );
 
-    jedex_value *val = jedex_parcel_value( parcel, "" );
-    assert( val );
+      jedex_value *val = jedex_parcel_value( parcel, "" );
+      assert( val );
 
-    set_simple_map_double( val );
+      set_simple_map_double( val );
 
-    char *json;
-    jedex_value_to_json( val, 1, &json );
+      char *json;
+      jedex_value_to_json( val, 1, &json );
 
-    jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
+      jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
 
-    get_simple_map_double( ret_val );
-  }
-  // simple_array OK
-  if ( !strcmp( test_schema, "simple_array" ) ) {
-    jedex_schema *schema = jedex_initialize( "schema/simple_array" );
-    assert( schema );
+      get_simple_map_double( ret_val );
+    }
+    if ( !strcmp( test_schema, "simple_array" ) ) {
+      jedex_schema *schema = jedex_initialize( "schema/simple_array" );
+      assert( schema );
 
-    const char *sub_schemas[] = { NULL };
-    jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
-    assert( parcel );
+      const char *sub_schemas[] = { NULL };
+      jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
+      assert( parcel );
 
-    jedex_value *val = jedex_parcel_value( parcel, "" );
-    assert( val );
+      jedex_value *val = jedex_parcel_value( parcel, "" );
+      assert( val );
 
-    set_simple_array( val );
+      set_simple_array( val );
 
-    char *json;
-    jedex_value_to_json( val, 1, &json );
+      char *json;
+      jedex_value_to_json( val, 1, &json );
 
-    jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
+      jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
 
-    get_simple_array( ret_val );
-  }
-  // ref_to_another OK
-  else if ( !strcmp( test_schema, "ref_to_another" ) ) {
-    jedex_schema *schema = jedex_initialize( "schema/ref_to_another" );
-    assert( schema );
+      get_simple_array( ret_val );
+    }
+    else if ( !strcmp( test_schema, "ref_to_another" ) ) {
+      jedex_schema *schema = jedex_initialize( "schema/ref_to_another" );
+      assert( schema );
 
-    const char *sub_schemas[] = { NULL };
-    jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
-    assert( parcel );
+      const char *sub_schemas[] = { NULL };
+      jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
+      assert( parcel );
 
-    jedex_value *val = jedex_parcel_value( parcel, "" );
-    assert( val );
+      jedex_value *val = jedex_parcel_value( parcel, "" );
+      assert( val );
 
-    set_ref_to_another( val );
+      set_ref_to_another( val );
 
-    char *json;
-    jedex_value_to_json( val, 1, &json );
+      char *json;
+      jedex_value_to_json( val, 1, &json );
 
-    jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
+      jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
 
-    get_ref_to_another( ret_val );
-  }
-  // groceries OK
-  else if ( !strcmp( test_schema, "groceries" ) ) {
-    jedex_schema *schema = jedex_initialize( "schema/groceries" );
-    assert( schema );
+      get_ref_to_another( ret_val );
+    }
+    else if ( !strcmp( test_schema, "groceries" ) ) {
+      jedex_schema *schema = jedex_initialize( "schema/groceries" );
+      assert( schema );
 
-    const char *sub_schemas[] = { NULL };
-    jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
-    assert( parcel );
+      const char *sub_schemas[] = { NULL };
+      jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
+      assert( parcel );
 
-    jedex_value *val = jedex_parcel_value( parcel, "" );
-    assert( val );
+      jedex_value *val = jedex_parcel_value( parcel, "" );
+      assert( val );
 
-    set_union_vegetables( val );
-    set_union_meat( val );
+      set_union_vegetables( val );
+      set_union_meat( val );
 
-    char *json;
-    jedex_value_to_json( val, 1, &json );
+      char *json;
+      jedex_value_to_json( val, 1, &json );
 
-    jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
+      jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
 
-    get_union_vegetables( ret_val );
-    get_union_meat( ret_val );
-  }
-  // menu_array OK
-  else if ( !strcmp( test_schema, "menu_array" ) ) {
-    jedex_schema *schema = jedex_initialize( "schema/menu_array" );
-    assert( schema );
+      get_union_vegetables( ret_val );
+      get_union_meat( ret_val );
+    }
+    else if ( !strcmp( test_schema, "menu_array" ) ) {
+      jedex_schema *schema = jedex_initialize( "schema/menu_array" );
+      assert( schema );
 
-    const char *sub_schemas[] = { NULL };
-    jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
-    assert( parcel );
+      const char *sub_schemas[] = { NULL };
+      jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
+      assert( parcel );
 
-    jedex_value *val = jedex_parcel_value( parcel, "" );
-    assert( val );
+      jedex_value *val = jedex_parcel_value( parcel, "" );
+      assert( val );
 
-    set_menu_record_value( val );
+      set_menu_union_value( val );
 
-    char *json;
-    jedex_value_to_json( val, 1, &json );
+      char *json;
+      jedex_value_to_json( val, 1, &json );
 
-    jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
+      jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
 
-    get_menu_union_value( ret_val );
-  }
-  else if ( !strcmp( test_schema, "menu_record" ) ) {
-    jedex_schema *schema = jedex_initialize( "schema/menu_record" );
-    assert( schema );
+      get_menu_union_value( ret_val );
+    }
+    else if ( !strcmp( test_schema, "menu_record" ) ) {
+      jedex_schema *schema = jedex_initialize( "schema/menu_record" );
+      assert( schema );
 
-    const char *sub_schemas[] = { NULL };
-    jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
-    assert( parcel );
+      const char *sub_schemas[] = { NULL };
+      jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
+      assert( parcel );
 
-    jedex_value *val = jedex_parcel_value( parcel, "" );
-    assert( val );
+      jedex_value *val = jedex_parcel_value( parcel, "" );
+      assert( val );
 
-    set_menu_record_value( val );
+      set_menu_record_value( val );
 
-    char *json;
-    jedex_value_to_json( val, 1, &json );
+      char *json;
+      jedex_value_to_json( val, 1, &json );
 
-    jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
+      jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
 
-    get_menu_record_value( ret_val );
+      get_menu_record_value( ret_val );
+    }
   }
    
   return 0;

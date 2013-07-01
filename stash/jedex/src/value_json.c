@@ -550,6 +550,7 @@ unpack_real( jedex_value *val, json_t *json_value ) {
   double json_real;
 
   json_unpack( json_value, "f", &json_real );
+  jedex_value_set_float( val, json_real );
   jedex_value_set_double( val, json_real );
 }
 

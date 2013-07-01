@@ -64,7 +64,7 @@ main( int argc, char **argv ) {
   jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
   assert( parcel );
 
-  jedex_value *val = jedex_parcel_value( parcel, NULL );
+  jedex_value *val = jedex_parcel_value( parcel, "" );
   assert( val );
 
   set_menu_record_value( val );
@@ -73,7 +73,7 @@ main( int argc, char **argv ) {
   if ( iface != NULL ) {
     printf( "GOOD iface ptr\n" );
 
-    const char *sub_schema_names[] = { "test_schema", NULL };
+    const char *sub_schema_names[] = { NULL };
     subscribe_service_profile( iface, sub_schema_names, service_profile_callback );
     int i = 0;
     while( !zctx_interrupted ) {

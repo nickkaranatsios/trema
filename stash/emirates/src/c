@@ -217,9 +217,9 @@ fi
 #   Patch together the CC options and defines into one variable
 CCOPTS="$CCOPTS $CCDEFINES"
 if [ "$BOOM_MODEL_DEBUG" ]; then
-    CCOPTS="-v -DDEBUG $CCDEBUG $CCOPTS"
+    CCOPTS="-DDEBUG $CCDEBUG $CCOPTS"
 else
-    CCOPTS="-v $CCNODEBUG $CCOPTS"
+    CCOPTS="$CCNODEBUG $CCOPTS"
 fi
 
 #   Select ST or MT build for iMatix Base2 framework

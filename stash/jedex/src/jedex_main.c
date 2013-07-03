@@ -367,11 +367,8 @@ main( int argc, char **argv ) {
   
   const char **iter;
   for ( iter = test_schemas; *iter; iter++ ) {
-    char id[ 32 ];
-    snprintf( id, sizeof( id ), "%p", iter );
-    assert( id );
     const char *test_schema = *iter;
-    // simple_map_double
+    
     if ( !strcmp( test_schema, "simple_map_double" ) ) {
       jedex_schema *schema = jedex_initialize( "schema/simple_map_double" );
       assert( schema );
@@ -387,6 +384,7 @@ main( int argc, char **argv ) {
 
       char *json;
       jedex_value_to_json( val, 1, &json );
+      printf( "json: %s\n", json );
 
       jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
 
@@ -407,6 +405,7 @@ main( int argc, char **argv ) {
 
       char *json;
       jedex_value_to_json( val, 1, &json );
+      printf( "json: %s\n", json );
 
       jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
 
@@ -427,6 +426,7 @@ main( int argc, char **argv ) {
 
       char *json;
       jedex_value_to_json( val, 1, &json );
+      printf( "json: %s\n", json );
 
       jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
 
@@ -448,6 +448,7 @@ main( int argc, char **argv ) {
 
       char *json;
       jedex_value_to_json( val, 1, &json );
+      printf( "json: %s\n", json );
 
       jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
 
@@ -469,6 +470,7 @@ main( int argc, char **argv ) {
 
       char *json;
       jedex_value_to_json( val, 1, &json );
+      printf( "json: %s\n", json );
 
       jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
 
@@ -489,6 +491,7 @@ main( int argc, char **argv ) {
 
       char *json;
       jedex_value_to_json( val, 1, &json );
+      printf( "json: %s\n", json );
 
       jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
 

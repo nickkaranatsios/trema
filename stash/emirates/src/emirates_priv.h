@@ -38,16 +38,21 @@ extern "C" {
 #define PUB_BASE_PORT 6000
 #define SUB_BASE_PORT 6001
 #define REQUESTER_BASE_PORT 6100
+#define REQUESTER_ID_SIZE 32
 #define RESPONDER_BASE_PORT 6200
+#define RESPONDER_ID_SIZE REQUESTER_ID_SIZE
 
 #define SUBSCRIPTION_MSG "SET_SUBSCRIPTION"
-#define ADD_SERVICE_REQUEST_MSG "ADD_SERVICE_REQUEST"
-#define ADD_SERVICE_REPLY_MSG "ADD_SERVICE_REPLY"
-#define EXIT_MSG "EXIT"
+#define ADD_SERVICE_REQUEST "ADD_SERVICE_REQUEST"
+#define ADD_SERVICE_REPLY "ADD_SERVICE_REPLY"
+#define REQUEST "REQUEST"
+#define READY "READY"
+#define REPLY "REPLY"
+#define EXIT "EXIT"
 
 typedef void ( subscriber_callback )( void *args );
 typedef void ( request_callback )( void *args );
-typedef void ( responder_callback )( void *args );
+typedef void ( reply_callback )( void *args );
 typedef int ( poll_handler )( zmq_pollitem_t *item, void *arg );
 
 
@@ -66,11 +71,11 @@ typedef struct req_callback {
 } req_callback;
 
 
-typedef struct resp_callback {
-  responder_callback *callback;
+typedef struct rep_callback {
+  reply_callback *callback;
   const char *service;
   const char *requester_id;
-} resp_callback;
+} rep_callback;
 
 
 typedef struct emirates_priv {
@@ -82,11 +87,13 @@ typedef struct emirates_priv {
   zlist_t *sub_callbacks;
   poll_handler *sub_handler;
   void *requester;
-  void *replier;
+  char *requester_id;
+  char *responder_id;
+  void *responder;
   uint32_t requester_port;
   uint32_t responder_port;
   zlist_t *req_callbacks;
-  zlist_t *resp_callbacks;
+  zlist_t *rep_callbacks;
 } emirates_priv;
 
 

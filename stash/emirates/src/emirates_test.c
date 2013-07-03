@@ -30,6 +30,11 @@ user_profile_callback( void *args ) {
 }
 
 
+static void
+request_menu_callback( void *args ) {
+}
+
+
 static int
 poll_subscriber( emirates_iface *iface ) {
   zmq_pollitem_t poller = { iface->priv->sub, 0, ZMQ_POLLIN, 0 };
@@ -80,6 +85,9 @@ main( int argc, char **argv ) {
       poll_subscriber( iface );
       if ( !i ) {
         subscribe_user_profile( iface, sub_schema_names, user_profile_callback );
+      }
+      if ( i == 1 ) {
+        set_menu_request( iface, request_menu_callback );
       }
       if ( i++ == 5 ) {
         publish_service_profile( iface, parcel );

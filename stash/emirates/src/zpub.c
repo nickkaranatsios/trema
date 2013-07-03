@@ -101,6 +101,7 @@ publisher_thread( void *args, zctx_t *ctx, void *pipe ) {
 
 int
 publisher_init( emirates_priv *priv ) {
+  priv->pub_port = PUB_BASE_PORT;
   priv->pub = zthread_fork( priv->ctx, publisher_thread, &priv->pub_port );
   if ( check_status( priv->pub ) ) {
     zctx_destroy( &priv->ctx );

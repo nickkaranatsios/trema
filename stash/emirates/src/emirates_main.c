@@ -78,25 +78,19 @@ emirates_initialize( void ) {
     return NULL;
   }
   iface->priv->ctx = ctx;
-  iface->priv->pub_port = PUB_BASE_PORT;
-  if ( publisher_init( iface->priv ) ) {
+#ifdef TEST
+  if ( publisher_init( iface->priv ) || subscriber_init( iface->priv ) ||
+    responder_init( iface->priv ) || requester_init( iface->priv ) ) {
      return NULL;
   }
-
-  iface->priv->sub_port = SUB_BASE_PORT;
-  if ( subscriber_init( iface->priv ) ) {
+#endif
+  if ( responder_init( iface->priv ) ) {
+    return NULL;
+  }
+  if ( requester_init( iface->priv ) ) {
     return NULL;
   }
 
-
-  iface->priv->requester_port = REQUESTER_BASE_PORT;
-  if ( requester_init( iface->priv ) ) {
-   return NULL;
-  }
-
-  iface->priv->responder_port = RESPONDER_BASE_PORT;
-  responder_init( iface->priv );
-  
   return iface;
 }
 

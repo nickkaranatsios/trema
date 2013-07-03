@@ -40,7 +40,6 @@ subscription_callback_add( emirates_iface *iface, sub_callback *cb ) {
     iface->priv->sub_callbacks = zlist_new();
   }
 
-  size_t list_size = zlist_size( iface->priv->sub_callbacks );
   int rc = 0;
   sub_callback *item = lookup_subscription_service( iface->priv->sub_callbacks, cb->service );
   if ( !item ) { 
@@ -168,7 +167,7 @@ subscriber_ctrl_recv( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
     }
   }
   else {
-   if ( zframe_streq( sub_frame, EXIT_MSG ) ) {
+   if ( zframe_streq( sub_frame, EXIT ) ) {
      rc = EINVAL;
    }
   }
@@ -228,6 +227,7 @@ subscribe_user_profile( emirates_iface *iface, const char **sub_schema_names, su
 
 int
 subscriber_init( emirates_priv *priv ) {
+  priv->sub_port = SUB_BASE_PORT;
   priv->sub = zthread_fork( priv->ctx, subscriber_thread, &priv->sub_port );
   if( check_status( priv->sub ) ) {
     zctx_destroy( &priv->ctx );

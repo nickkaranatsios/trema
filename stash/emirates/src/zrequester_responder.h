@@ -16,8 +16,8 @@
  */
 
 
-#ifndef EMIRATES_H
-#define EMIRATES_H
+#ifndef ZREQUESTER_RESPONDER_H
+#define ZREQUESTER_RESPONDER_H
 
 
 #ifdef __cplusplus
@@ -28,26 +28,32 @@ extern "C" {
 #endif
 
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stddef.h>
-#include <string.h>
-#include <ctype.h>
-#include <assert.h>
-#include <pthread.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <limits.h>
+#define SERVICE_MAX 64
+#define IDENTITY_MAX SERVICE_MAX
+#define msg_is( type, msg, msg_size ) \
+  memcmp( ( type ), ( msg ), ( msg_size ) )
 
-#include "czmq.h"
-#include "log_writer.h"
-#include "emirates_ext.h"
-#include "emirates_priv.h"
-#include "zrequester_responder.h"
+
+typedef struct service_route {
+  char service[ SERVICE_MAX ];
+  char identity[ IDENTITY_MAX ];
+} service_route;
+
+
+typedef struct proxy {
+  zctx_t *ctx;
+  void *frontend;
+  void *backend;
+  zloop_t *loop;
+  zlist_t *requests;
+  zlist_t *replies;
+  zlist_t *clients;
+  zlist_t *workers;
+} proxy;
 
 
 CLOSE_EXTERN
-#endif // EMIRATES_H
+#endif // ZREQUESTER_RESPONDER_H
 
 
 /*

@@ -45,6 +45,11 @@ void subscribe_service_profile( emirates_iface *iface, const char *sub_schema_na
 void subscribe_user_profile( emirates_iface *iface, const char *sub_schema_names[], subscriber_callback *user_callback );
 void publish_service_profile( emirates_iface *iface, jedex_parcel *parcel );
 
+// example ONLY
+void set_menu_request( emirates_iface *iface, request_callback *user_callback );
+void set_menu_reply( emirates_iface *iface, reply_callback *user_callback );
+void send_menu_request( emirates_iface *iface );
+
 
 CLOSE_EXTERN
 #endif // EMIRATES_EXT_H

@@ -25,12 +25,14 @@ elif [ /$1/ = /lib/ ]; then
   echo "Linking the emirates library..."
     ./c -li ../.. -li ../../jedex/include -li ../include -ll /usr/local/lib -g \
     emirates_main.c \
+    zcommon.c \
     zpub.c \
     zsub.c \
     zrequester.c \
     zresponder.c
     ./c -li ../.. -li ../../jedex/include -li ../include -ll /usr/local/lib -g -r libemirates \
     emirates_main.c \
+    zcommon.c \
     zpub.c \
     zsub.c \
     zrequester.c \

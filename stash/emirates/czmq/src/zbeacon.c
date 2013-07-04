@@ -268,8 +268,11 @@ zbeacon_test (bool verbose)
     char *ipaddress = zstr_recv (zbeacon_pipe (client_beacon));
     if (ipaddress) {
         zframe_t *content = zframe_recv (zbeacon_pipe (client_beacon));
-        int received_port = (zframe_data (content) [0] << 8)
-                        +  zframe_data (content) [1];
+        
+        byte *ptr1 = ( byte * ) zframe_data( content );
+        byte *ptr2 =  ptr1;
+        int received_port = ( ptr1 [0] << 8 )
+                        +  ( ptr2 [1] );
         assert (received_port == port_nbr);
         zframe_destroy (&content);
         free (ipaddress);

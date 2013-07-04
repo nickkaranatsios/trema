@@ -50,6 +50,7 @@ extern "C" {
 #define REPLY "REPLY"
 #define EXIT "EXIT"
 
+
 typedef void ( subscriber_callback )( void *args );
 typedef void ( request_callback )( void *args );
 typedef void ( reply_callback )( void *args );
@@ -105,6 +106,9 @@ int check_status( void *socket );
 void send_ok_status( void *socket );
 void send_ng_status( void *socket );
 
+void send_request( const char *service, emirates_priv *priv );
+void service_request( const char *service, emirates_priv *priv, request_callback *callback );
+void service_reply( const char *service, emirates_priv *priv, reply_callback *callback );
 
 CLOSE_EXTERN
 #endif // EMIRATES_PRIV_H

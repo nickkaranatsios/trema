@@ -6,10 +6,10 @@ static void
 responder_thread( void *args, zctx_t *ctx, void *pipe ) {
   char *identity = args;
   void *responder = zsocket_new( ctx, ZMQ_REQ );
-  printf( "identity of client: %s\n", identity );
+  printf( "identity of worker: %s\n", identity );
   zmq_setsockopt( responder, ZMQ_IDENTITY, identity, strlen( identity ) );
-  zsocket_set_sndhwm( responder, 10000 );
-  zsocket_set_rcvhwm( responder, 10000 );
+  //zsocket_set_sndhwm( responder, 10000 );
+  //zsocket_set_rcvhwm( responder, 10000 );
 
   int rc = zsocket_connect( responder, "tcp://localhost:7778" );
   if ( rc ) {

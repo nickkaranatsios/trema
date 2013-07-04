@@ -28,24 +28,29 @@ responder_input( void *responder, void *pipe ) {
 
   size_t nr_frames = zmsg_size( msg );
   size_t frame_size;
-  printf( "responder_input %u\n", nr_frames );
+  printf( "responder_input %zu\n", nr_frames );
   if ( nr_frames == 1 ) {
     zframe_t *msg_type_frame = zmsg_first( msg );
     frame_size = zframe_size( msg_type_frame );
+    if ( !msg_is( READY, ( const char * ) zframe_data( msg_type_frame ), frame_size ) ) {
+      printf( "READY REPLY\n" );
+    }
     if ( !msg_is( ADD_SERVICE_REQUEST, ( const char * ) zframe_data( msg_type_frame ), frame_size ) ) {
       printf( "ADD_SERVICE_REQUEST_REPLY\n" );
       zmsg_send( &msg, pipe );
-      return 0;
     }
+    zmsg_destroy( &msg );
+    return 0;
   }
   else if ( nr_frames > 1 ) {
-    zframe_t *identity_frame = zmsg_first( msg );
-    size_t identity_size = zframe_size( identity_frame );
-    assert( identity_size < IDENTITY_MAX - 1 );
-    char *identity;
-    if ( identity_size ) {
-      identity = ( char * ) zframe_data( identity_frame );
-      printf( "client id %s\n", identity );
+    zframe_t *client_id_frame = zmsg_first( msg );
+    size_t client_id_size = zframe_size( client_id_frame );
+    assert( client_id_size < IDENTITY_MAX - 1 );
+    char client_id[ IDENTITY_MAX ];
+    if ( client_id_size ) {
+      memcpy( client_id,  ( char * ) zframe_data( client_id_frame ), client_id_size );
+      client_id[ client_id_size + 1 ] = '\0';
+      printf( "client id %s\n", client_id );
     }
 
     zframe_t *empty_frame = zmsg_next( msg );
@@ -55,8 +60,7 @@ responder_input( void *responder, void *pipe ) {
     zframe_t *msg_type_frame = zmsg_next( msg );
     size_t frame_size = zframe_size( msg_type_frame );
     if ( !msg_is( REQUEST, ( const char * ) zframe_data( msg_type_frame ), frame_size ) ) {
-      // at the moment send a test reply
-      zmsg_send( &msg, responder );
+      zmsg_send( &msg, pipe );
     }
   }
   zmsg_destroy( &msg );
@@ -65,13 +69,6 @@ responder_input( void *responder, void *pipe ) {
 }
 
 
-static void
-send_ready( void *socket ) {
-  zmsg_t *msg = zmsg_new();
-  zmsg_addstr( msg, READY );
-  zmsg_send( &msg, socket );
-  zmsg_destroy( &msg );
-}
 
 
 static int
@@ -82,7 +79,7 @@ responder_output( void *pipe, void *responder ) {
   }
 
   size_t nr_frames = zmsg_size( msg );
-  printf( "responder_output %u\n", nr_frames );
+  printf( "responder_output %zu\n", nr_frames );
 
   if ( nr_frames ) {
     zmsg_send( &msg, responder );
@@ -127,10 +124,10 @@ responder_thread( void *args, zctx_t *ctx, void *pipe ) {
   void *responder = zsocket_new( ctx, ZMQ_REQ );
 
   priv->responder_id = ( char * ) zmalloc( sizeof( char ) * RESPONDER_ID_SIZE );
+  snprintf( priv->responder_id, RESPONDER_ID_SIZE, "%lld", zclock_time() );
 #ifdef TEST
-  snprintf( priv->responder_id, RESPONDER_ID_SIZE, "%p", responder );
-#endif
   snprintf( priv->responder_id, RESPONDER_ID_SIZE, "%s", "worker1" );
+#endif
   zsocket_set_identity( responder, priv->responder_id );
 
   int rc = zsocket_connect( responder, "tcp://localhost:%u", port );
@@ -141,7 +138,6 @@ responder_thread( void *args, zctx_t *ctx, void *pipe ) {
   }
   
   send_ok_status( pipe );
-  //send_ready( responder );
   start_responder( pipe, responder );
 }
 

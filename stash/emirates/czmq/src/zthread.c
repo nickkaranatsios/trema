@@ -176,37 +176,36 @@ zthread_new (zthread_detached_fn *thread_fn, void *args)
 //  pipe becomes unreadable. Returns pipe, or NULL if there was an error.
 
 void *
-zthread_fork( zctx_t *ctx, zthread_attached_fn *thread_fn, void *args ) {
+zthread_fork (zctx_t *ctx, zthread_attached_fn *thread_fn, void *args) {
   shim_t *shim = NULL;
   //  Create our end of the pipe
   void *pipe = zsocket_new( ctx, ZMQ_PAIR );
+  int rand = randof( 0x10000 ) + randof( 0x10000 );
   if ( pipe ) {
-    zsocket_bind( pipe, "inproc://zctx-pipe-%p", pipe );
+      zsocket_bind (pipe, "inproc://zctx-pipe-%d", rand );
   }
-  else {
-    return NULL;
-  }
+  else
+   return NULL;
     
   //  Prepare argument shim for child thread
   shim = ( shim_t * ) zmalloc( sizeof( shim_t ) );
   if ( shim ) {
     shim->attached = thread_fn;
     shim->args = args;
-    shim->ctx = zctx_shadow( ctx );
-    if (!shim->ctx)
-            return NULL;
+    shim->ctx = zctx_shadow (ctx);
+    if ( !shim->ctx )
+      return NULL;
   }
   else
     return NULL;
     
   //  Connect child pipe to our pipe
-  shim->pipe = zsocket_new(shim->ctx, ZMQ_PAIR);
+  shim->pipe = zsocket_new (shim->ctx, ZMQ_PAIR);
   if (!shim->pipe)
     return NULL;
-  zsocket_connect( shim->pipe, "inproc://zctx-pipe-%p", pipe );
+  zsocket_connect (shim->pipe, "inproc://zctx-pipe-%d", rand );
     
   s_thread_start (shim);
-
   return pipe;
 }
 

@@ -46,9 +46,23 @@ void subscribe_user_profile( emirates_iface *iface, const char *sub_schema_names
 void publish_service_profile( emirates_iface *iface, jedex_parcel *parcel );
 
 // example ONLY
-void set_menu_request( emirates_iface *iface, request_callback *user_callback );
-void set_menu_reply( emirates_iface *iface, reply_callback *user_callback );
-void send_menu_request( emirates_iface *iface );
+#define quote( name ) #name
+#define str( name ) quote( name )
+#define set_menu_request( iface, callback ) \
+  service_request( str( menu ), ( iface )->priv, callback )
+#define set_menu_reply( iface, callback ) \
+  service_reply( str( menu ), ( iface )->priv, callback )
+#define send_menu_request( priv ) \
+  send_request( str( menu ), priv )
+
+#define set_profile_request( iface, callback ) \
+  service_request( str( profile ), ( iface )->priv, callback )
+#define set_profile_reply( iface, callback ) \
+  service_reply( str( profile ), ( iface )->priv, callback )
+#define send_profile_request( priv ) \
+  send_request( str( profile ), priv )
+
+void set_ready( emirates_iface *iface );
 
 
 CLOSE_EXTERN

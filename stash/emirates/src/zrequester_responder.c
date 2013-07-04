@@ -41,10 +41,9 @@ lookup_service_route( zlist_t *list,
   const char *identity, 
   const size_t identity_size,
   bool partial_search ) {
-  size_t list_size = zlist_size( list );
+  service_route *item = zlist_first( list );
 
-  for ( size_t i = 0; i < list_size; i++ ) {
-    service_route *item = zlist_next( list );
+  while ( item ) {
     if ( partial_search == true ) {
       if ( !memcmp( item->service, service, service_size ) ) {
         return item;
@@ -55,6 +54,7 @@ lookup_service_route( zlist_t *list,
         return item;
       }
     }
+    item = zlist_next( list );
   }
 
   return NULL;
@@ -180,7 +180,7 @@ frontend_recv( proxy *self ) {
           zmsg_addmem( route_msg, worker_id, strlen( worker_id ) );
           char blank;
           zmsg_addmem( route_msg, &blank, 0 );
-          zmsg_addmem( route_msg, client_id, strlen( client_id ) );
+          zmsg_addmem( route_msg, ( const char * ) zframe_data( client_id_frame ), client_id_size );
           zmsg_addmem( route_msg, &blank, 0 );
           zmsg_addmem( route_msg, REQUEST, strlen( REQUEST ) );
           zmsg_addmem( route_msg, ( const char * ) zframe_data( service_frame ), frame_size ); 
@@ -194,6 +194,21 @@ frontend_recv( proxy *self ) {
           s_sendmore( self->backend, REQUEST );
           s_send( self->backend, "service data" );
 #endif
+        }
+      }
+      else {
+        if ( self->workers ) {
+          char *worker_id = get_client_worker( self->workers );
+          zmsg_t *route_msg = zmsg_new(); 
+          zmsg_addmem( route_msg, worker_id, strlen( worker_id ) );
+          char blank;
+          zmsg_addmem( route_msg, &blank, 0 );
+          zmsg_addmem( route_msg, client_id, strlen( client_id ) );
+          zmsg_addmem( route_msg, &blank, 0 );
+          zmsg_addmem( route_msg, REQUEST, strlen( REQUEST ) );
+          zmsg_addmem( route_msg, ( const char * ) zframe_data( service_frame ), frame_size ); 
+          zmsg_send( &route_msg, self->backend );
+          zmsg_destroy( &route_msg );
         }
       }
     }
@@ -235,10 +250,9 @@ backend_recv( proxy *self ) {
     size_t frame_size = zframe_size( empty_frame );
     assert( frame_size == 0 );
    
-    zframe_t *msg_type_frame = zmsg_next( msg );
-    frame_size = zframe_size( msg_type_frame );
-
     if ( nr_frames == 3 || nr_frames == 4 ) {
+      zframe_t *msg_type_frame = zmsg_next( msg );
+      frame_size = zframe_size( msg_type_frame );
       if ( !msg_is( ADD_SERVICE_REQUEST, zframe_data( msg_type_frame ), frame_size ) ) {
         add_client_worker( &self->workers, strdup( worker_id ) );
 
@@ -263,23 +277,22 @@ backend_recv( proxy *self ) {
       frame_size = zframe_size( empty_frame );
       assert( frame_size == 0 );
 
-      msg_type_frame = zmsg_next( msg );
+      zframe_t *msg_type_frame = zmsg_next( msg );
       size_t msg_type_size = zframe_size( msg_type_frame );
 
       if ( !msg_is( REPLY, zframe_data( msg_type_frame), frame_size ) ) {
         zframe_t *service_frame = zmsg_next( msg );
         size_t service_size = zframe_size( service_frame );
         assert( service_size != 0 );
+printf( "sending a reply\n" );
         
-        if ( self->replies ) {
-          zmsg_t *route_msg = zmsg_new(); 
-          zmsg_addmem( route_msg, ( const char * ) zframe_data( client_id_frame ), client_id_size );
-          zmsg_addstr( route_msg, "" );
-          zmsg_addmem( route_msg, ( const char * ) zframe_data( msg_type_frame ), msg_type_size );
-          zmsg_addmem( route_msg, ( const char * ) zframe_data( service_frame ), service_size );
-          zmsg_send( &route_msg, self->frontend ); 
-          zmsg_destroy( &route_msg );
-        }
+        zmsg_t *route_msg = zmsg_new(); 
+        zmsg_addmem( route_msg, ( const char * ) zframe_data( client_id_frame ), client_id_size );
+        zmsg_addstr( route_msg, "" );
+        zmsg_addmem( route_msg, ( const char * ) zframe_data( msg_type_frame ), msg_type_size );
+        zmsg_addmem( route_msg, ( const char * ) zframe_data( service_frame ), service_size );
+        zmsg_send( &route_msg, self->frontend ); 
+        zmsg_destroy( &route_msg );
       }
     }
   }

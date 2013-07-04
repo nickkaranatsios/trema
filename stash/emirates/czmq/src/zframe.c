@@ -55,47 +55,40 @@ struct _zframe_t {
 //  is not null, copies data into frame.
 
 zframe_t *
-zframe_new( const void *data, size_t size ) {
-  zframe_t *self;
+zframe_new (const void *data, size_t size)
+{
+    zframe_t
+        *self;
 
-  self = ( zframe_t * ) zmalloc( sizeof( zframe_t ) );
-  if ( !self ) {
-    return NULL;
-  }
+    self = (zframe_t *) zmalloc (sizeof (zframe_t));
+    if (!self)
+        return NULL;
 
-  if ( size ) {
-     zmq_msg_init_size( &self->zmsg, size );
-     if ( data ) {
-       size_t actual_size = zmq_msg_size( &self->zmsg );
-       if ( actual_size >= size ) {
-         memcpy( zmq_msg_data( &self->zmsg ), data, size );
-         void *test = zmq_msg_data( &self->zmsg );
-         assert( test );
-       }
-     }
-  }
-  else {
-    zmq_msg_init (&self->zmsg);
-  }
+    if (size) {
+        zmq_msg_init_size (&self->zmsg, size);
+        if (data)
+            memcpy (zmq_msg_data (&self->zmsg), data, size);
+    }
+    else
+        zmq_msg_init (&self->zmsg);
 
-  return self;
+    return self;
 }
 
 //  --------------------------------------------------------------------------
 //  Constructor; Allocates a new empty (zero-sized) frame
 
 zframe_t *
-zframe_new_empty( void ) {
-  zframe_t *self;
+zframe_new_empty (void)
+{
+    zframe_t *self;
 
-  self = ( zframe_t * ) zmalloc( sizeof( zframe_t ) );
-  if ( !self ) {
-    return NULL;
-  }
+    self = (zframe_t *) zmalloc (sizeof (zframe_t));
+    if (!self)
+        return NULL;
     
-  zmq_msg_init( &self->zmsg );
-
-  return self;
+    zmq_msg_init (&self->zmsg);
+    return self;
 }
 
 //  --------------------------------------------------------------------------
@@ -104,28 +97,27 @@ zframe_new_empty( void ) {
 //  'arg' is a void pointer that is passed to free_fn as second argument
 
 zframe_t *
-zframe_new_zero_copy( void *data, size_t size, zframe_free_fn *free_fn, void *arg ) {
-  zframe_t *self;
+zframe_new_zero_copy (void *data, size_t size, zframe_free_fn *free_fn, void *arg)
+{
+    zframe_t
+        *self;
 
-  self = ( zframe_t * ) zmalloc( sizeof( zframe_t ) );
-  if ( !self ) {
-    return NULL;
-  }
+    self = (zframe_t *) zmalloc (sizeof (zframe_t));
+    if (!self)
+        return NULL;
 
-  if ( size ) {
-    if ( data && free_fn ) {
-      zmq_msg_init_data( &self->zmsg, data, size, free_fn, arg );
-      self->zero_copy = 1;
+    if (size) {
+        if (data && free_fn) {
+            zmq_msg_init_data (&self->zmsg, data, size, free_fn, arg);
+            self->zero_copy = 1;
+        }
+        else
+            zmq_msg_init_size (&self->zmsg, size);
     }
-    else {
-      zmq_msg_init_size( &self->zmsg, size );
-    }
-  }
-  else {
-    zmq_msg_init( &self->zmsg );
-  }
+    else
+        zmq_msg_init (&self->zmsg);
 
-  return self;
+    return self;
 }
 
 
@@ -133,17 +125,17 @@ zframe_new_zero_copy( void *data, size_t size, zframe_free_fn *free_fn, void *ar
 //  Destructor
 
 void
-zframe_destroy( zframe_t **self_p ) {
-  assert( self_p );
-  if ( *self_p ) {
-    zframe_t *self = *self_p;
-    if ( self->free_fn ) {
-      ( self->free_fn )( self, self->free_arg );
+zframe_destroy (zframe_t **self_p)
+{
+    assert (self_p);
+    if (*self_p) {
+        zframe_t *self = *self_p;
+        if (self->free_fn)
+          (self->free_fn) (self, self->free_arg);
+        zmq_msg_close (&self->zmsg);
+        free (self);
+        *self_p = NULL;
     }
-    zmq_msg_close( &self->zmsg );
-    free( self );
-    *self_p = NULL;
-  }
 }
 
 
@@ -234,11 +226,10 @@ zframe_size (zframe_t *self)
 //  --------------------------------------------------------------------------
 //  Return pointer to frame data.
 
-byte *
-zframe_data (zframe_t *self)
-{
-    assert (self);
-    return (byte *) zmq_msg_data (&self->zmsg);
+void *
+zframe_data (zframe_t *self) {
+  assert( self );
+  return zmq_msg_data( &self->zmsg );
 }
 
 

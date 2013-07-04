@@ -80,7 +80,7 @@ CZMQ_EXPORT size_t
     zframe_size (zframe_t *self);
 
 //  Return address of frame data
-CZMQ_EXPORT byte *
+CZMQ_EXPORT void *
     zframe_data (zframe_t *self);
 
 //  Create a new frame that duplicates an existing frame

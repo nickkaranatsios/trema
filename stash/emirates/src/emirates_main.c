@@ -84,6 +84,7 @@ emirates_initialize( void ) {
      return NULL;
   }
 #endif
+  srandom( ( uint32_t ) time( NULL ) );
   if ( responder_init( iface->priv ) ) {
     return NULL;
   }

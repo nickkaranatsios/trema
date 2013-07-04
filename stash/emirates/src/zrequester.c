@@ -26,7 +26,7 @@ requester_output( void *pipe, void *requester ) {
   }
 
   size_t nr_frames = zmsg_size( msg );
-  printf( "requester_output %u\n", nr_frames );
+  printf( "requester_output %zu\n", nr_frames );
 
   if ( nr_frames ) {
     zmsg_send( &msg, requester );
@@ -45,7 +45,7 @@ requester_input( void *requester, void *pipe ) {
   }
 
   size_t nr_frames = zmsg_size( msg );
-  printf( "requester_input %u\n", nr_frames );
+  printf( "requester_input %zu\n", nr_frames );
   if ( nr_frames == 1 ) {
     zframe_t *msg_type_frame = zmsg_first( msg );
     size_t frame_size = zframe_size( msg_type_frame );
@@ -102,79 +102,10 @@ get_responder_id( emirates_priv *priv ) {
 }
 
 
-static int
-wait_for_reply( void *socket ) {
-  zmsg_t *msg = zmsg_recv( socket );
-  if ( msg == NULL ) {
-    return EINVAL;
-  }
-
-  size_t nr_frames = zmsg_size( msg );
-  assert( nr_frames == 1 );
-
-  zframe_t *msg_type_frame = zmsg_first( msg );
-  size_t frame_size = zframe_size( msg_type_frame );
-  if ( !msg_is( ADD_SERVICE_REPLY, ( const char * ) zframe_data( msg_type_frame ), frame_size ) ) {
-    printf( "ADD_SERVICE_REPLY\n" );
-    return 0;
-  }
-  if ( !msg_is( ADD_SERVICE_REQUEST, ( const char * ) zframe_data( msg_type_frame ), frame_size ) ) {
-    return 0;
-  }
 
 
-  return EINVAL;
-}
 
 
-static void
-service_request( const char *service, emirates_priv *priv, request_callback *callback ) {
-  zmsg_t *msg = zmsg_new();
-  zmsg_addstr( msg, ADD_SERVICE_REQUEST );
-  zmsg_addstr( msg, service );
-  zmsg_send( &msg, priv->responder );
-  zmsg_destroy( &msg );
-  wait_for_reply( priv->responder );
-}
-
-
-static void
-service_reply( const char *service, emirates_priv *priv, reply_callback *callback ) {
-  zmsg_t *msg = zmsg_new();
-  zmsg_addstr( msg, ADD_SERVICE_REPLY );
-  zmsg_addstr( msg, service );
-  zmsg_send( &msg, priv->requester );
-  zmsg_destroy( &msg );
-  wait_for_reply( priv->requester );
-}
-
-
-static void
-send_request( const char *service, emirates_priv *priv ) {
-  zmsg_t *msg = zmsg_new();
-  zmsg_addstr( msg, REQUEST );
-  zmsg_addstr( msg, service );
-  zmsg_send( &msg, priv->requester );
-  zmsg_destroy( &msg );
-}
-
-
-void
-set_menu_request( emirates_iface *iface, request_callback *callback ) {
-  service_request( "menu", iface->priv, callback );
-}
-
-
-void
-set_menu_reply( emirates_iface *iface, reply_callback *callback ) {
-  service_reply( "menu", iface->priv, callback );
-}
-
-
-void
-send_menu_request( emirates_iface *iface ) {
-  send_request( "menu", iface->priv );
-}
 
 
 static void
@@ -185,10 +116,10 @@ requester_thread( void *args, zctx_t *ctx, void *pipe ) {
   void *requester = zsocket_new( ctx, ZMQ_REQ );
 
   priv->requester_id = ( char * ) zmalloc( sizeof( char ) * REQUESTER_ID_SIZE );
+  snprintf( priv->requester_id, REQUESTER_ID_SIZE, "%lld", zclock_time() );
 #ifdef TEST
-  snprintf( priv->requester_id, REQUESTER_ID_SIZE, "%p", requester );
-#endif
   snprintf( priv->requester_id, REQUESTER_ID_SIZE, "%s", "client1" );
+#endif
   zsocket_set_identity( requester, priv->requester_id );
 
   int rc = zsocket_connect( requester, "tcp://localhost:%u", port );

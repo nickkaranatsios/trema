@@ -19,66 +19,77 @@
 
 
 static int
-requester_output( void *pipe, void *requester ) {
-  zmsg_t *msg = zmsg_recv( pipe );
-  if ( msg == NULL ) {
-    return EINVAL;
-  }
+requester_output( void *pipe, void *requester, int *output ) {
+  zmsg_t *msg = one_or_more_msg( pipe );
 
-  size_t nr_frames = zmsg_size( msg );
-  printf( "requester_output %zu\n", nr_frames );
+  if ( msg ) {
+    size_t nr_frames = zmsg_size( msg );
+    printf( "requester_output %zu\n", nr_frames );
 
-  if ( nr_frames ) {
+    disable_output( *output );
     zmsg_send( &msg, requester );
+    return 0;
   }
-  zmsg_destroy( &msg );
 
-  return 0;
+  return EINVAL;
 }
 
 
 static int
-requester_input( void *requester, void *pipe ) {
-  zmsg_t *msg = zmsg_recv( requester );
-  if ( msg == NULL ) {
-    return EINVAL;
-  }
+requester_input( void *requester, void *pipe, int *output ) {
+  zmsg_t *msg = one_or_more_msg( requester );
 
-  size_t nr_frames = zmsg_size( msg );
-  printf( "requester_input %zu\n", nr_frames );
-  if ( nr_frames == 1 ) {
-    zframe_t *msg_type_frame = zmsg_first( msg );
-    size_t frame_size = zframe_size( msg_type_frame );
-    if ( !msg_is( ADD_SERVICE_REPLY, ( const char * ) zframe_data( msg_type_frame ), frame_size ) ) {
-      zmsg_send( &msg, pipe );
-    }
-  }
-  else if ( nr_frames > 1 ) {
+  if ( msg ) {
+    size_t nr_frames = zmsg_size( msg );
+    printf( "requester_input %zu\n", nr_frames );
+
+    enable_output( *output );
     zmsg_send( &msg, pipe );
+    return 0;
   }
-  zmsg_destroy( &msg );
 
-  return 0;
+  return EINVAL;
 }
 
 
 static void
 start_requester( void *pipe, void *requester ) {
+  int output = 0;
+
+  enable_output( output );
+  zmq_pollitem_t items[ 2 ];
   while ( 1 ) {
-    zmq_pollitem_t items[] = {
-      { pipe, 0, ZMQ_POLLIN, 0 },
-      { requester, 0, ZMQ_POLLIN, 0 }
-    };
-    int poll_size = 2;
+    int poll_size;
+
+    items[ 0 ].events = items[ 1 ].events = ZMQ_POLLIN;
+    items[ 0 ].fd = items[ 1 ].fd = 0;
+    items[ 0 ].revents = items[ 1 ].revents = 0;
+    if ( use_output( output ) ) {
+      items[ 0 ].socket = pipe;
+      items[ 1 ].socket = requester;
+      poll_size = 2;
+    }
+    else {
+      items[ 0 ].socket = requester;
+      poll_size = 1;
+    }
+
     int rc = zmq_poll( items, poll_size, -1 );
     if ( rc == -1 ) {
       break;
     }
-    if ( items[ 0 ].revents & ZMQ_POLLIN ) {
-      rc = requester_output( pipe, requester );
+    if ( use_output( output ) ) {
+      if ( items[ 0 ].revents & ZMQ_POLLIN ) {
+        rc = requester_output( pipe, requester, &output );
+      }
+      if ( items[ 1 ].revents & ZMQ_POLLIN ) {
+        rc = requester_input( requester, pipe, &output );
+      }
     }
-    if ( items[ 1 ].revents & ZMQ_POLLIN ) {
-      rc = requester_input( requester, pipe );
+    else {
+      if ( items[ 0 ].revents & ZMQ_POLLIN ) {
+        rc = requester_input( requester, pipe, &output );
+      }
     }
     if ( rc == -1 ) {
       break;
@@ -86,26 +97,6 @@ start_requester( void *pipe, void *requester ) {
   }
   printf( "out of requester\n" );
 }
-
-
-static char *
-get_requester_id( emirates_priv *priv ) {
-  return priv->requester_id;
-}
- 
-
-
-
-static char *
-get_responder_id( emirates_priv *priv ) {
-  return priv->responder_id;
-}
-
-
-
-
-
-
 
 
 static void
@@ -145,51 +136,6 @@ requester_init( emirates_priv *priv ) {
 
   return 0;
 }
-
-
-#ifdef OLD
-static void
-requester_thread( void *args, zctx_t *ctx, void *pipe ) {
-  void *requester = zsocket_new( ctx, ZMQ_REQ );
-  int rc = zsocket_connect( requester, "tcp://localhost:5559" );
-  if ( rc ) {
-    printf( "failed to connect requester\n" );
-    return;
-  }
-
-  while ( true ) {
-    char *string = zstr_recv( pipe );
-    if ( string != NULL ) {
-      printf( "request message %s\n", string );
-      // serialize the request
-      // send the request 
-      zstr_send( requester, string );
-      free( string );
-    }
-  }
-}
-
-
-void *
-requester_init( zctx_t *ctx ) {
-  return zthread_fork( ctx, requester_thread, NULL );
-}
-
-int
-main( int argc, char **argv ) {
-  zctx_t *ctx;
-  ctx = zctx_new();
-  void *requester = requester_init( ctx );
-  if ( requester != NULL ) {
-    char string[ 10 ];
-    sprintf( string, "%c-%05d", randof( 10 ) + 'A', getpid() );
-    zstr_send( requester, string );
-  }
-  zclock_sleep( 500 );
-
-  return 0;
-}
-#endif
 
 
 /*

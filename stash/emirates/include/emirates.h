@@ -37,6 +37,7 @@ extern "C" {
 #include <pthread.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/eventfd.h>
 #include <limits.h>
 
 #include "czmq.h"

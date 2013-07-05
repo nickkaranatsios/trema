@@ -50,6 +50,11 @@ extern "C" {
 #define REPLY "REPLY"
 #define EXIT "EXIT"
 
+#define OUTPUT_CTRL_BIT (2U)
+#define use_output( q ) ( ( q ) & OUTPUT_CTRL_BIT )
+#define enable_output( q ) ( ( q ) |= OUTPUT_CTRL_BIT )
+#define disable_output( q ) ( ( q ) &= ~OUTPUT_CTRL_BIT )
+
 
 typedef void ( subscriber_callback )( void *args );
 typedef void ( request_callback )( void *args );
@@ -109,6 +114,7 @@ void send_ng_status( void *socket );
 void send_request( const char *service, emirates_priv *priv );
 void service_request( const char *service, emirates_priv *priv, request_callback *callback );
 void service_reply( const char *service, emirates_priv *priv, reply_callback *callback );
+zmsg_t *one_or_more_msg( void *socket );
 
 CLOSE_EXTERN
 #endif // EMIRATES_PRIV_H

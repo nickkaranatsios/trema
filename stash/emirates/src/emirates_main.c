@@ -26,7 +26,6 @@ send_status( void *socket, const char *status ) {
   zmsg_addstr( msg, STATUS_MSG );
   zmsg_addstr( msg, status );
   zmsg_send( &msg, socket );
-  zmsg_destroy( &msg );
 }
 
 

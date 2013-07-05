@@ -129,7 +129,7 @@ AUTOMAKE = ${SHELL} /home/nick/lib/emirates/czmq/config/missing --run automake-1
 AWK = gawk
 CC = gcc -std=gnu99
 CCDEPMODE = depmode=gcc3
-CFLAGS = -I/usr/local/include -g -O2
+CFLAGS = -I/usr/local/include -g
 CPP = gcc -std=gnu99 -E
 CPPFLAGS = -pedantic -Werror -Wall -D_GNU_SOURCE -DLINUX -D_REENTRANT -D_THREAD_SAFE 
 CYGPATH_W = echo

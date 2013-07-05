@@ -79,6 +79,7 @@ poll_requester( emirates_priv *priv ) {
 int
 main( int argc, char **argv ) {
   emirates_iface *iface = emirates_initialize();
+
   zclock_sleep( 2 * 1000 );
   if ( iface != NULL ) {
     set_menu_request( iface, request_menu_callback );
@@ -90,6 +91,9 @@ main( int argc, char **argv ) {
     while( !zctx_interrupted ) {
       poll_responder( iface->priv );
       poll_requester( iface->priv );
+      // inject extra messages into the queue.
+      if  ( ( i++ % 10 ) == 0 ) 
+        send_menu_request( iface->priv );
 //      zclock_sleep( 1 * 1000 );
     }
 

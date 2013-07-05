@@ -74,7 +74,6 @@ send_single_msg( void *socket, const char *content ) {
   zmsg_t *msg = zmsg_new();
   zmsg_addstr( msg, content );
   zmsg_send( &msg, socket );
-  zmsg_destroy( &msg );
 }
 
 
@@ -84,7 +83,6 @@ service_request( const char *service, emirates_priv *priv, request_callback *cal
   zmsg_addstr( msg, ADD_SERVICE_REQUEST );
   zmsg_addstr( msg, service );
   zmsg_send( &msg, priv->responder );
-  zmsg_destroy( &msg );
   wait_for_reply( priv->responder );
 }
 
@@ -95,7 +93,6 @@ service_reply( const char *service, emirates_priv *priv, reply_callback *callbac
   zmsg_addstr( msg, ADD_SERVICE_REPLY );
   zmsg_addstr( msg, service );
   zmsg_send( &msg, priv->requester );
-  zmsg_destroy( &msg );
   wait_for_reply( priv->requester );
 }
 
@@ -106,7 +103,6 @@ send_request( const char *service, emirates_priv *priv ) {
   zmsg_addstr( msg, REQUEST );
   zmsg_addstr( msg, service );
   zmsg_send( &msg, priv->requester );
-  zmsg_destroy( &msg );
 }
 
 void
@@ -118,6 +114,23 @@ send_ready( void *socket ) {
 void
 set_ready( emirates_iface *iface ) {
   send_ready( iface->priv->responder );
+}
+
+
+zmsg_t *
+one_or_more_msg( void *socket ) {
+  zmsg_t *msg = zmsg_recv( socket );
+  if ( msg == NULL ) {
+    return NULL;
+  }
+
+  size_t nr_frames = zmsg_size( msg );
+  if ( nr_frames == 0 ) {
+    zmsg_destroy( &msg );
+    return NULL;
+  }
+
+  return msg;
 }
 
 

@@ -50,6 +50,7 @@ extern "C" {
 #define REPLY "REPLY"
 #define EXIT "EXIT"
 
+#define REQUEST_HEARTBEAT 5000
 #define OUTPUT_CTRL_BIT (2U)
 #define use_output( q ) ( ( q ) & OUTPUT_CTRL_BIT )
 #define enable_output( q ) ( ( q ) |= OUTPUT_CTRL_BIT )

@@ -55,6 +55,8 @@ requester_input( void *requester, void *pipe, int *output ) {
 static void
 start_requester( void *pipe, void *requester ) {
   int output = 0;
+  int64_t request_expiry = 0;
+  long time_left;
 
   enable_output( output );
   zmq_pollitem_t items[ 2 ];
@@ -74,15 +76,27 @@ start_requester( void *pipe, void *requester ) {
       poll_size = 1;
     }
 
-    int rc = zmq_poll( items, poll_size, -1 );
+    if ( !request_expiry ) {
+      time_left = -1;
+    }
+    else {
+      time_left = ( long ) ( request_expiry - zclock_time() );
+      if ( time_left < 0 ) {
+        time_left = 0;
+      }
+      time_left *= ZMQ_POLL_MSEC;
+    }
+    int rc = zmq_poll( items, poll_size, time_left );
     if ( rc == -1 ) {
       break;
     }
     if ( use_output( output ) ) {
       if ( items[ 0 ].revents & ZMQ_POLLIN ) {
+        request_expiry = zclock_time() + REQUEST_HEARTBEAT;
         rc = requester_output( pipe, requester, &output );
       }
       if ( items[ 1 ].revents & ZMQ_POLLIN ) {
+        request_expiry = 0;
         rc = requester_input( requester, pipe, &output );
       }
     }
@@ -93,6 +107,12 @@ start_requester( void *pipe, void *requester ) {
     }
     if ( rc == -1 ) {
       break;
+    }
+    if ( request_expiry ) { 
+      if ( zclock_time() >= request_expiry ) {
+        printf( "request timeout do something about\n" );
+      }
+      request_expiry = 0;
     }
   }
   printf( "out of requester\n" );

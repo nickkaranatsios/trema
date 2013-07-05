@@ -18,6 +18,7 @@
 
 #include "emirates.h"
 #include "jedex_iface.h"
+#include <uuid/uuid.h>
 
 
 static void
@@ -76,8 +77,27 @@ poll_requester( emirates_priv *priv ) {
 }
 
 
+
+static char *
+generate_uuid( void ) {
+  char hex_char[] = "0123456789ABCDEF";
+  char *uuidstr = zmalloc( sizeof( uuid_t ) * 2 + 1 );
+  uuid_t uuid;
+  uuid_generate( uuid );
+  int byte_nbr;
+  for ( byte_nbr = 0; byte_nbr < sizeof( uuid_t ); byte_nbr++ ) {
+    uuidstr[ byte_nbr * 2 + 0] = hex_char[ uuid[ byte_nbr ] >> 4 ];
+    uuidstr[ byte_nbr * 2 + 1 ] = hex_char [uuid[ byte_nbr ] & 15 ];
+  }
+
+  return uuidstr;
+}
+
+
 int
 main( int argc, char **argv ) {
+  char *uuidstr = generate_uuid();
+  assert( uuidstr );
   emirates_iface *iface = emirates_initialize();
 
   zclock_sleep( 2 * 1000 );

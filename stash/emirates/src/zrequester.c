@@ -19,15 +19,15 @@
 
 
 static int
-requester_output( void *pipe, void *requester, int *output ) {
-  zmsg_t *msg = one_or_more_msg( pipe );
+requester_output( requester_info *self ) {
+  zmsg_t *msg = one_or_more_msg( self->pipe );
 
   if ( msg ) {
     size_t nr_frames = zmsg_size( msg );
     printf( "requester_output %zu\n", nr_frames );
 
-    disable_output( *output );
-    zmsg_send( &msg, requester );
+    disable_output( self->output_ctrl );
+    zmsg_send( &msg, self->output );
     return 0;
   }
 
@@ -36,15 +36,15 @@ requester_output( void *pipe, void *requester, int *output ) {
 
 
 static int
-requester_input( void *requester, void *pipe, int *output ) {
-  zmsg_t *msg = one_or_more_msg( requester );
+requester_input( requester_info *self ) {
+  zmsg_t *msg = one_or_more_msg( self->output );
 
   if ( msg ) {
     size_t nr_frames = zmsg_size( msg );
     printf( "requester_input %zu\n", nr_frames );
 
-    enable_output( *output );
-    zmsg_send( &msg, pipe );
+    enable_output( self->output_ctrl );
+    zmsg_send( &msg, self->pipe );
     return 0;
   }
 
@@ -53,12 +53,11 @@ requester_input( void *requester, void *pipe, int *output ) {
 
 
 static void
-start_requester( void *pipe, void *requester ) {
-  int output = 0;
+start_requester( requester_info *self ) {
+  self->output_ctrl = 0;
   int64_t request_expiry = 0;
-  long time_left;
 
-  enable_output( output );
+  enable_output( self->output_ctrl );
   zmq_pollitem_t items[ 2 ];
   while ( 1 ) {
     int poll_size;
@@ -66,43 +65,33 @@ start_requester( void *pipe, void *requester ) {
     items[ 0 ].events = items[ 1 ].events = ZMQ_POLLIN;
     items[ 0 ].fd = items[ 1 ].fd = 0;
     items[ 0 ].revents = items[ 1 ].revents = 0;
-    if ( use_output( output ) ) {
-      items[ 0 ].socket = pipe;
-      items[ 1 ].socket = requester;
+    if ( use_output( self->output_ctrl ) ) {
+      items[ 0 ].socket = requester_pipe_socket( self );
+      items[ 1 ].socket = requester_zmq_socket( self );
       poll_size = 2;
     }
     else {
-      items[ 0 ].socket = requester;
+      items[ 0 ].socket = self->output;
       poll_size = 1;
     }
 
-    if ( !request_expiry ) {
-      time_left = -1;
-    }
-    else {
-      time_left = ( long ) ( request_expiry - zclock_time() );
-      if ( time_left < 0 ) {
-        time_left = 0;
-      }
-      time_left *= ZMQ_POLL_MSEC;
-    }
-    int rc = zmq_poll( items, poll_size, time_left );
+    int rc = zmq_poll( items, poll_size, get_time_left( request_expiry ) );
     if ( rc == -1 ) {
       break;
     }
-    if ( use_output( output ) ) {
+    if ( use_output( self->output_ctrl ) ) {
       if ( items[ 0 ].revents & ZMQ_POLLIN ) {
         request_expiry = zclock_time() + REQUEST_HEARTBEAT;
-        rc = requester_output( pipe, requester, &output );
+        rc = requester_output( self );
       }
       if ( items[ 1 ].revents & ZMQ_POLLIN ) {
         request_expiry = 0;
-        rc = requester_input( requester, pipe, &output );
+        rc = requester_input( self );
       }
     }
     else {
       if ( items[ 0 ].revents & ZMQ_POLLIN ) {
-        rc = requester_input( requester, pipe, &output );
+        rc = requester_input( self );
       }
     }
     if ( rc == -1 ) {
@@ -121,35 +110,41 @@ start_requester( void *pipe, void *requester ) {
 
 static void
 requester_thread( void *args, zctx_t *ctx, void *pipe ) {
-  emirates_priv *priv = args;
-  uint32_t port = priv->requester_port;
+  requester_info *self = args;
+  requester_pipe_socket( self ) = pipe;
 
-  void *requester = zsocket_new( ctx, ZMQ_REQ );
+  uint32_t port = requester_port( self );
 
-  priv->requester_id = ( char * ) zmalloc( sizeof( char ) * REQUESTER_ID_SIZE );
-  snprintf( priv->requester_id, REQUESTER_ID_SIZE, "%lld", zclock_time() );
+  requester_zmq_socket( self ) = zsocket_new( ctx, ZMQ_REQ );
+
+  requester_id( self ) = ( char * ) zmalloc( sizeof( char ) * REQUESTER_ID_SIZE );
+  snprintf( requester_id( self ), REQUESTER_ID_SIZE, "%lld", zclock_time() );
 #ifdef TEST
-  snprintf( priv->requester_id, REQUESTER_ID_SIZE, "%s", "client1" );
+  snprintf( requester_id( self ), REQUESTER_ID_SIZE, "%s", "client1" );
 #endif
-  zsocket_set_identity( requester, priv->requester_id );
+  zsocket_set_identity( requester_zmq_socket( self ), requester_id( self ) );
 
-  int rc = zsocket_connect( requester, "tcp://localhost:%u", port );
+  int rc = zsocket_connect( requester_zmq_socket( self ), "tcp://localhost:%u", port );
   if ( rc ) {
     log_err( "Failed to connect requester using port %u", port );
-    send_ng_status( pipe );
+    send_ng_status( requester_pipe_socket( self ) );
     return;
   }
 
-  send_ok_status( pipe );
-  start_requester( pipe, requester );
+  send_ok_status( requester_pipe_socket( self ) );
+  start_requester( self );
 }
 
 
 int
 requester_init( emirates_priv *priv ) {
-  priv->requester_port = REQUESTER_BASE_PORT;
-  priv->requester = zthread_fork( priv->ctx, requester_thread, priv );
-  if ( check_status( priv->requester ) ) {
+  priv->requester = ( requester_info * ) zmalloc( sizeof( requester_info ) );
+  if ( priv->requester == NULL ) {
+    return ENOMEM;
+  }
+  requester_port( priv->requester ) = REQUESTER_BASE_PORT;
+  requester_socket( priv->requester ) = zthread_fork( priv->ctx, requester_thread, priv->requester );
+  if ( check_status( requester_socket( priv->requester ) ) ) {
     zctx_destroy( &priv->ctx );
     return EINVAL;
   }

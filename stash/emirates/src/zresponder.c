@@ -34,7 +34,7 @@ self_msg_recv( void *pipe, zmsg_t *msg, zframe_t *msg_type_frame ) {
 
 
 static void
-process_request( void *pipe, zmsg_t *msg ) {
+process_request( responder_info *self, zmsg_t *msg ) {
   zframe_t *client_id_frame = zmsg_first( msg );
   size_t client_id_frame_size = zframe_size( client_id_frame );
   assert( client_id_frame_size < IDENTITY_MAX );
@@ -51,24 +51,25 @@ process_request( void *pipe, zmsg_t *msg ) {
   size_t msg_type_frame_size = zframe_size( msg_type_frame );
 
   if ( !msg_is( REQUEST, ( const char * ) zframe_data( msg_type_frame ), msg_type_frame_size ) ) {
-    zmsg_send( &msg, pipe );
+    responder_expiry( self ) = zclock_time() + REPLY_TIMEOUT;
+    zmsg_send( &msg, responder_pipe_socket( self ) );
   }
 }
 
 
 static int
-responder_input( void *responder, void *pipe ) {
-  zmsg_t *msg = one_or_more_msg( responder );
+responder_input( responder_info *self ) {
+  zmsg_t *msg = one_or_more_msg( responder_zmq_socket( self ) );
 
   size_t nr_frames = zmsg_size( msg );
   size_t frame_size;
   printf( "responder_input %zu\n", nr_frames );
   if ( nr_frames == 1 ) {
     zframe_t *msg_type_frame = zmsg_first( msg );
-    self_msg_recv( pipe, msg, msg_type_frame );
+    self_msg_recv( responder_pipe_socket( self ), msg, msg_type_frame );
   }
   else {
-    process_request( pipe, msg );
+    process_request( self, msg );
   }
 
   return 0;
@@ -76,37 +77,44 @@ responder_input( void *responder, void *pipe ) {
 
 
 static int
-responder_output( void *pipe, void *responder ) {
-  zmsg_t *msg = one_or_more_msg( pipe );
+responder_output( responder_info *self ) {
+  zmsg_t *msg = one_or_more_msg( responder_pipe_socket( self ) );
   size_t nr_frames = zmsg_size( msg );
   printf( "responder_output %zu\n", nr_frames );
 
-  zmsg_send( &msg, responder );
+  responder_expiry( self ) = 0;
+  zmsg_send( &msg, responder_zmq_socket( self ) );
 
   return 0;
 }
 
 
 static void
-start_responder( void *pipe, void *responder ) {
+start_responder( responder_info *self ) {
   while ( 1 ) {
     zmq_pollitem_t items[] = {
-      { pipe, 0, ZMQ_POLLIN, 0 },
-      { responder, 0, ZMQ_POLLIN, 0 }
+      { responder_pipe_socket( self ), 0, ZMQ_POLLIN, 0 },
+      { responder_zmq_socket( self ), 0, ZMQ_POLLIN, 0 }
     };
     int poll_size = 2;
-    int rc = zmq_poll( items, poll_size, -1 );
+    int rc = zmq_poll( items, poll_size, get_time_left( responder_expiry( self ) ) );
     if ( rc == -1 ) {
       break;
     }
     if ( items[ 0 ].revents & ZMQ_POLLIN ) {
-      rc = responder_output( pipe, responder );
+      rc = responder_output( self );
     }
     if ( items[ 1 ].revents & ZMQ_POLLIN ) {
-      rc = responder_input( responder, pipe );
+      rc = responder_input( self );
     }
     if ( rc == -1 ) {
       break;
+    }
+    if ( responder_expiry( self ) > zclock_time() ) {
+      if ( zclock_time() >= responder_expiry( self ) ) {
+        printf( "waiting for reply from application expired\n" );
+      }
+      responder_expiry( self ) = 0;
     }
   }
   printf( "out of responder\n" );
@@ -115,35 +123,40 @@ start_responder( void *pipe, void *responder ) {
 
 static void
 responder_thread( void *args, zctx_t *ctx, void *pipe ) {
-  emirates_priv *priv = args;
-  uint32_t port = priv->responder_port;
+  responder_info *self = args;
+  responder_pipe_socket( self ) = pipe;
+  uint32_t port = responder_port( self );
   
-  void *responder = zsocket_new( ctx, ZMQ_REQ );
+  responder_zmq_socket( self ) = zsocket_new( ctx, ZMQ_REQ );
 
-  priv->responder_id = ( char * ) zmalloc( sizeof( char ) * RESPONDER_ID_SIZE );
-  snprintf( priv->responder_id, RESPONDER_ID_SIZE, "%lld", zclock_time() );
+  responder_id( self ) = ( char * ) zmalloc( sizeof( char ) * RESPONDER_ID_SIZE );
+  snprintf( responder_id( self ), RESPONDER_ID_SIZE, "%lld", zclock_time() );
 #ifdef TEST
-  snprintf( priv->responder_id, RESPONDER_ID_SIZE, "%s", "worker1" );
+  snprintf( responder_id( self ), RESPONDER_ID_SIZE, "%s", "worker1" );
 #endif
-  zsocket_set_identity( responder, priv->responder_id );
+  zsocket_set_identity( responder_zmq_socket( self ), responder_id( self ) );
 
-  int rc = zsocket_connect( responder, "tcp://localhost:%u", port );
+  int rc = zsocket_connect( responder_zmq_socket( self ), "tcp://localhost:%u", port );
   if ( rc ) {
     log_err( "Failed to connect requester using port %u", port );
-    send_ng_status( pipe );
+    send_ng_status( responder_pipe_socket( self ) );
     return;
   }
   
-  send_ok_status( pipe );
-  start_responder( pipe, responder );
+  send_ok_status( responder_pipe_socket( self ) );
+  start_responder( self );
 }
 
 
 int
 responder_init( emirates_priv *priv ) {
-  priv->responder_port = RESPONDER_BASE_PORT;
-  priv->responder = zthread_fork( priv->ctx, responder_thread, priv );
-  if ( check_status( priv->responder ) ) {
+  priv->responder = ( responder_info * ) zmalloc( sizeof( responder_info ) );
+  if ( priv->responder == NULL ) {
+    return ENOMEM;
+  }
+  responder_port( priv->responder ) = RESPONDER_BASE_PORT;
+  responder_socket( priv->responder ) = zthread_fork( priv->ctx, responder_thread, priv->responder );
+  if ( check_status( responder_socket( priv->responder ) ) ) {
     zctx_destroy( &priv->ctx );
     return EINVAL;
   }

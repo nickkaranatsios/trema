@@ -82,8 +82,8 @@ service_request( const char *service, emirates_priv *priv, request_callback *cal
   zmsg_t *msg = zmsg_new();
   zmsg_addstr( msg, ADD_SERVICE_REQUEST );
   zmsg_addstr( msg, service );
-  zmsg_send( &msg, priv->responder );
-  wait_for_reply( priv->responder );
+  zmsg_send( &msg, responder_socket( priv->responder ) );
+  wait_for_reply( responder_socket( priv->responder ) );
 }
 
 
@@ -92,8 +92,8 @@ service_reply( const char *service, emirates_priv *priv, reply_callback *callbac
   zmsg_t *msg = zmsg_new();
   zmsg_addstr( msg, ADD_SERVICE_REPLY );
   zmsg_addstr( msg, service );
-  zmsg_send( &msg, priv->requester );
-  wait_for_reply( priv->requester );
+  zmsg_send( &msg, requester_socket( priv->requester ) );
+  wait_for_reply( requester_socket( priv->requester ) );
 }
 
 
@@ -102,7 +102,7 @@ send_request( const char *service, emirates_priv *priv ) {
   zmsg_t *msg = zmsg_new();
   zmsg_addstr( msg, REQUEST );
   zmsg_addstr( msg, service );
-  zmsg_send( &msg, priv->requester );
+  zmsg_send( &msg, requester_socket( priv->requester ) );
 }
 
 void
@@ -113,7 +113,7 @@ send_ready( void *socket ) {
 
 void
 set_ready( emirates_iface *iface ) {
-  send_ready( iface->priv->responder );
+  send_ready( responder_socket( iface->priv->responder ) );
 }
 
 
@@ -131,6 +131,25 @@ one_or_more_msg( void *socket ) {
   }
 
   return msg;
+}
+
+
+int
+get_time_left( int64_t expiry ) {
+  int time_left;
+
+ if ( !expiry ) {
+    time_left = -1;
+  }
+  else {
+    time_left = ( int ) ( expiry - zclock_time() );
+    if ( time_left < 0 ) {
+      time_left = 0;
+    }
+    time_left *= ZMQ_POLL_MSEC;
+  }
+
+  return time_left;
 }
 
 

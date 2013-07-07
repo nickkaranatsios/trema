@@ -220,7 +220,7 @@ frontend_recv( proxy *self ) {
   }
 
   size_t nr_frames = zmsg_size( msg );
-  printf( "fe nr_frames %d\n", nr_frames );
+  printf( "fe nr_frames %zu\n", nr_frames );
   assert( nr_frames > 2 );
 
   client_recv( self, msg );

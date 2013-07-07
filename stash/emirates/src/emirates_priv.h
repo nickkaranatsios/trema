@@ -51,6 +51,7 @@ extern "C" {
 #define EXIT "EXIT"
 
 #define REQUEST_HEARTBEAT 5000
+#define REPLY_TIMEOUT REQUEST_HEARTBEAT + 1
 #define OUTPUT_CTRL_BIT (2U)
 #define use_output( q ) ( ( q ) & OUTPUT_CTRL_BIT )
 #define enable_output( q ) ( ( q ) |= OUTPUT_CTRL_BIT )
@@ -85,6 +86,28 @@ typedef struct rep_callback {
 } rep_callback;
 
 
+typedef struct requester_info {
+  void *pipe; // requester's child thread to main thread i/o socket
+  void *output; // requester's zmq output socket
+  void *requester; // requester's main thread i/o socket
+  char *own_id; // a unique id for this requester
+  int64_t request_expiry; // an expiry timer associated with an outgoing request
+  int output_ctrl; // a flag that throttles output from requester
+  uint32_t timeout_id; // a timeout id associated with an outgoing request
+  uint32_t port; // a base port a requester connects to.
+} requester_info;
+
+
+typedef struct responder_info {
+  void *pipe; // responder's child thread to main thread i/o socket
+  void *output; // responder's zmq output socket
+  void *responder; // responder's main thread i/o socket
+  char *own_id; // a unique id for this responder
+  int64_t expiry; // timeouts replies
+  uint32_t port; // a base port a responder connects to
+} responder_info;
+
+
 typedef struct emirates_priv {
   zctx_t *ctx;
   void *pub;
@@ -93,16 +116,26 @@ typedef struct emirates_priv {
   uint32_t sub_port; // subscriber's assigned port
   zlist_t *sub_callbacks;
   poll_handler *sub_handler;
-  void *requester;
-  char *requester_id;
-  char *responder_id;
-  void *responder;
-  uint32_t requester_port;
   uint32_t responder_port;
   zlist_t *req_callbacks;
   zlist_t *rep_callbacks;
+  requester_info *requester; 
+  responder_info *responder;
 } emirates_priv;
 
+
+#define requester_id( self ) ( ( self )->own_id )
+#define requester_port( self ) ( ( self )->port )
+#define requester_socket( self ) ( ( self )->requester )
+#define requester_zmq_socket( self ) ( ( self )->output )
+#define requester_pipe_socket( self ) ( ( self )->pipe )
+
+#define responder_id( self ) ( ( self )->own_id )
+#define responder_port( self ) ( ( self )->port )
+#define responder_socket( self ) ( ( self )->responder )
+#define responder_zmq_socket( self ) ( ( self )->output )
+#define responder_pipe_socket( self ) ( ( self )->pipe )
+#define responder_expiry( self ) ( ( self )->expiry )
 
 int publisher_init( emirates_priv *iface );
 int subscriber_init( emirates_priv *iface );
@@ -116,6 +149,8 @@ void send_request( const char *service, emirates_priv *priv );
 void service_request( const char *service, emirates_priv *priv, request_callback *callback );
 void service_reply( const char *service, emirates_priv *priv, reply_callback *callback );
 zmsg_t *one_or_more_msg( void *socket );
+int get_time_left( int64_t expiry );
+
 
 CLOSE_EXTERN
 #endif // EMIRATES_PRIV_H

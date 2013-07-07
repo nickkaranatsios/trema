@@ -33,7 +33,7 @@ reply_menu_callback( void *args ) {
 
 static int
 poll_responder( emirates_priv *priv ) {
-  zmq_pollitem_t poller = { priv->responder, 0, ZMQ_POLLIN, 0 };
+  zmq_pollitem_t poller = { responder_socket( priv->responder ), 0, ZMQ_POLLIN, 0 };
   int rc = zmq_poll( &poller, 1, 1000 ); 
   if ( rc == 1 ) {
     printf( "should call responder callback\n" );
@@ -58,7 +58,7 @@ poll_responder( emirates_priv *priv ) {
 
 static int
 poll_requester( emirates_priv *priv ) {
-  zmq_pollitem_t poller = { priv->requester, 0, ZMQ_POLLIN, 0 };
+  zmq_pollitem_t poller = { requester_socket( priv->requester ), 0, ZMQ_POLLIN, 0 };
   int rc = zmq_poll( &poller, 1, 1000 ); 
   if ( rc == 1 ) {
     printf( "should call requester callback\n" );
@@ -98,6 +98,9 @@ int
 main( int argc, char **argv ) {
   char *uuidstr = generate_uuid();
   assert( uuidstr );
+  int major, minor, patch;
+  zmq_version( &major, &minor, &patch );
+  printf ("Current 0MQ version is %d.%d.%d\n", major, minor, patch);
   emirates_iface *iface = emirates_initialize();
 
   zclock_sleep( 2 * 1000 );

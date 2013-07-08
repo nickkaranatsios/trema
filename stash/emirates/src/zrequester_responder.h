@@ -28,8 +28,6 @@ extern "C" {
 #endif
 
 
-#define SERVICE_MAX 64
-#define IDENTITY_MAX SERVICE_MAX
 #define msg_is( type, msg, msg_size ) \
   memcmp( ( type ), ( msg ), ( msg_size ) )
 

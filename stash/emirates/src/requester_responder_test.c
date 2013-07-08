@@ -61,7 +61,7 @@ poll_requester( emirates_priv *priv ) {
   zmq_pollitem_t poller = { requester_socket( priv->requester ), 0, ZMQ_POLLIN, 0 };
   int rc = zmq_poll( &poller, 1, 1000 ); 
   if ( rc == 1 ) {
-    printf( "should call requester callback\n" );
+    printf( "client %s received reply\n", requester_id( priv->requester ) );
     // expect reply frame + service frame
     zmsg_t *msg = zmsg_recv( poller.socket );
     zframe_t *reply_frame  = zmsg_first( msg );
@@ -70,7 +70,7 @@ poll_requester( emirates_priv *priv ) {
     zframe_t *service_frame = zmsg_next( msg );
     frame_size = zframe_size( service_frame );
     assert( frame_size != 0 );
-    send_menu_request( priv );
+    //send_menu_request( priv );
   }
 
   return rc;
@@ -115,8 +115,8 @@ main( int argc, char **argv ) {
       poll_responder( iface->priv );
       poll_requester( iface->priv );
       // inject extra messages into the queue.
-      if  ( ( i++ % 10 ) == 0 ) 
-        send_menu_request( iface->priv );
+//      if  ( ( i++ % 10 ) == 0 ) 
+//        send_menu_request( iface->priv );
 //      zclock_sleep( 1 * 1000 );
     }
 

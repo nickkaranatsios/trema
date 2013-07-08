@@ -168,6 +168,10 @@ route_request( proxy *self,
     }
   }
   if ( worker_id != NULL ) {
+    char client_id[ IDENTITY_MAX ];
+    memcpy( client_id, ( const char * ) zframe_data( client_id_frame ), zframe_size( client_id_frame ) );
+    client_id[ zframe_size( client_id_frame ) ] = '\0';
+printf( "routing request to  worker_id %s from client %s\n", worker_id, client_id );
     zmsg_t *route_msg = zmsg_new(); 
     zmsg_addmem( route_msg, worker_id, strlen( worker_id ) );
     char blank;
@@ -283,7 +287,6 @@ route_msg_back_to_worker( proxy *self,
 static void
 route_worker_reply( proxy *self,
                     zmsg_t *msg ) {
-  printf( "routing worker reply\n" );
   zframe_t *client_id_frame = zmsg_next( msg );
   size_t client_id_frame_size = zframe_size( client_id_frame );
   assert( client_id_frame_size < IDENTITY_MAX );
@@ -295,6 +298,10 @@ route_worker_reply( proxy *self,
   zframe_t *msg_type_frame = zmsg_next( msg );
 
   if ( !msg_is( REPLY, zframe_data( msg_type_frame), zframe_size( msg_type_frame ) ) ) {
+    char client_id[ IDENTITY_MAX ];
+    memcpy( client_id, ( const char * ) zframe_data( client_id_frame ), zframe_size( client_id_frame ) );
+    client_id[ zframe_size( client_id_frame ) ] = '\0';
+printf( "routing worker reply to client id %s\n", client_id );
     zframe_t *service_frame = zmsg_next( msg );
     size_t service_frame_size = zframe_size( service_frame );
     assert( service_frame_size != 0 );

@@ -20,6 +20,14 @@
 
 
 static void
+send_reply_timeout( responder_info *self ) {
+  zmsg_t *msg = zmsg_new();
+  zmsg_addmem( msg, self->client_id, strlen( self->client_id ) );
+
+}
+
+
+static void
 self_msg_recv( void *pipe, zmsg_t *msg, zframe_t *msg_type_frame ) {
   size_t msg_type_frame_size = zframe_size( msg_type_frame );
 
@@ -39,9 +47,8 @@ process_request( responder_info *self, zmsg_t *msg ) {
   size_t client_id_frame_size = zframe_size( client_id_frame );
   assert( client_id_frame_size < IDENTITY_MAX );
 
-  char client_id[ IDENTITY_MAX ];
-  memcpy( client_id,  ( char * ) zframe_data( client_id_frame ), client_id_frame_size );
-  client_id[ client_id_frame_size ] = '\0';
+  memcpy( self->client_id,  ( char * ) zframe_data( client_id_frame ), client_id_frame_size );
+  self->client_id[ client_id_frame_size ] = '\0';
 
   zframe_t *empty_frame = zmsg_next( msg );
   size_t empty_frame_size = zframe_size( empty_frame );
@@ -110,9 +117,11 @@ start_responder( responder_info *self ) {
     if ( rc == -1 ) {
       break;
     }
+    responder_expiry( self ) = 0;
     if ( responder_expiry( self ) > zclock_time() ) {
       if ( zclock_time() >= responder_expiry( self ) ) {
         printf( "waiting for reply from application expired\n" );
+        send_reply_timeout( self );
       }
       responder_expiry( self ) = 0;
     }
@@ -151,9 +160,6 @@ responder_thread( void *args, zctx_t *ctx, void *pipe ) {
 int
 responder_init( emirates_priv *priv ) {
   priv->responder = ( responder_info * ) zmalloc( sizeof( responder_info ) );
-  if ( priv->responder == NULL ) {
-    return ENOMEM;
-  }
   responder_port( priv->responder ) = RESPONDER_BASE_PORT;
   responder_socket( priv->responder ) = zthread_fork( priv->ctx, responder_thread, priv->responder );
   if ( check_status( responder_socket( priv->responder ) ) ) {

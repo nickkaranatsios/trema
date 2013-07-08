@@ -20,6 +20,16 @@
 #include "jedex_iface.h"
 
 
+
+static void
+request_menu_callback( void *args ) {
+}
+
+
+static void
+reply_menu_callback( void *args ) {
+}
+
 static void
 request_profile_callback( void *args ) {
 }
@@ -32,7 +42,7 @@ reply_profile_callback( void *args ) {
 
 static int
 poll_responder( emirates_priv *priv ) {
-  zmq_pollitem_t poller = { priv->responder, 0, ZMQ_POLLIN, 0 };
+  zmq_pollitem_t poller = { responder_socket( priv->responder ), 0, ZMQ_POLLIN, 0 };
   int rc = zmq_poll( &poller, 1, 1000 ); 
   if ( rc == 1 ) {
     printf( "should call responder callback\n" );
@@ -57,10 +67,10 @@ poll_responder( emirates_priv *priv ) {
 
 static int
 poll_requester( emirates_priv *priv ) {
-  zmq_pollitem_t poller = { priv->requester, 0, ZMQ_POLLIN, 0 };
+  zmq_pollitem_t poller = { requester_socket( priv->requester ), 0, ZMQ_POLLIN, 0 };
   int rc = zmq_poll( &poller, 1, 1000 ); 
   if ( rc == 1 ) {
-    printf( "should call requester callback\n" );
+    printf( "client %s received reply\n", requester_id( priv->requester ) );
     // expect reply frame + service frame
     zmsg_t *msg = zmsg_recv( poller.socket );
     zframe_t *reply_frame  = zmsg_first( msg );
@@ -69,7 +79,8 @@ poll_requester( emirates_priv *priv ) {
     zframe_t *service_frame = zmsg_next( msg );
     frame_size = zframe_size( service_frame );
     assert( frame_size != 0 );
-    send_profile_request( priv );
+    //send_profile_request( priv );
+    //send_menu_request( priv );
   }
 
   return rc;
@@ -81,10 +92,12 @@ main( int argc, char **argv ) {
   emirates_iface *iface = emirates_initialize();
   zclock_sleep( 2 * 1000 );
   if ( iface != NULL ) {
-    set_profile_request( iface, request_profile_callback );
-    set_profile_reply( iface, reply_profile_callback );
-    set_ready( iface );
-    send_profile_request( iface->priv );
+    //set_profile_request( iface, request_profile_callback );
+    //set_profile_reply( iface, reply_profile_callback );
+    set_menu_reply( iface, reply_menu_callback );
+    //set_ready( iface );
+    send_menu_request( iface->priv );
+    //send_profile_request( iface->priv );
 
     int i = 0;
     while( !zctx_interrupted ) {

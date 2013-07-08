@@ -50,6 +50,8 @@ extern "C" {
 #define REPLY "REPLY"
 #define EXIT "EXIT"
 
+#define SERVICE_MAX 64
+#define IDENTITY_MAX SERVICE_MAX
 #define REQUEST_HEARTBEAT 5000
 #define REPLY_TIMEOUT REQUEST_HEARTBEAT + 1
 #define OUTPUT_CTRL_BIT (2U)
@@ -103,6 +105,7 @@ typedef struct responder_info {
   void *output; // responder's zmq output socket
   void *responder; // responder's main thread i/o socket
   char *own_id; // a unique id for this responder
+  char client_id[ IDENTITY_MAX ]; // the client id/requester of the last recv'd request
   int64_t expiry; // timeouts replies
   uint32_t port; // a base port a responder connects to
 } responder_info;
@@ -116,7 +119,6 @@ typedef struct emirates_priv {
   uint32_t sub_port; // subscriber's assigned port
   zlist_t *sub_callbacks;
   poll_handler *sub_handler;
-  uint32_t responder_port;
   zlist_t *req_callbacks;
   zlist_t *rep_callbacks;
   requester_info *requester; 
@@ -124,17 +126,18 @@ typedef struct emirates_priv {
 } emirates_priv;
 
 
-#define requester_id( self ) ( ( self )->own_id )
-#define requester_port( self ) ( ( self )->port )
 #define requester_socket( self ) ( ( self )->requester )
-#define requester_zmq_socket( self ) ( ( self )->output )
 #define requester_pipe_socket( self ) ( ( self )->pipe )
+#define requester_zmq_socket( self ) ( ( self )->output )
+#define requester_id( self ) ( ( self )->own_id )
+#define requester_output_ctrl( self ) ( ( self )->output_ctrl )
+#define requester_port( self ) ( ( self )->port )
 
+#define responder_socket( self ) ( ( self )->responder )
+#define responder_pipe_socket( self ) ( ( self )->pipe )
+#define responder_zmq_socket( self ) ( ( self )->output )
 #define responder_id( self ) ( ( self )->own_id )
 #define responder_port( self ) ( ( self )->port )
-#define responder_socket( self ) ( ( self )->responder )
-#define responder_zmq_socket( self ) ( ( self )->output )
-#define responder_pipe_socket( self ) ( ( self )->pipe )
 #define responder_expiry( self ) ( ( self )->expiry )
 
 int publisher_init( emirates_priv *iface );

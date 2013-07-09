@@ -19,8 +19,11 @@
 #include "emirates.h"
 #include "jedex_iface.h"
 #include <uuid/uuid.h>
+#include <poll.h>
+#include <trema.h>
 
 
+static emirates_iface *iface;
 static void
 request_menu_callback( void *args ) {
 }
@@ -56,7 +59,9 @@ poll_responder( emirates_priv *priv ) {
 }
 
 
-static int
+  
+  
+static void
 poll_requester( emirates_priv *priv ) {
   zmq_pollitem_t poller = { requester_socket( priv->requester ), 0, ZMQ_POLLIN, 0 };
   int rc = zmq_poll( &poller, 1, 1000 ); 
@@ -64,18 +69,64 @@ poll_requester( emirates_priv *priv ) {
     printf( "client %s received reply\n", requester_id( priv->requester ) );
     // expect reply frame + service frame
     zmsg_t *msg = zmsg_recv( poller.socket );
+    size_t nr_frames = zmsg_size( msg );
+
     zframe_t *reply_frame  = zmsg_first( msg );
     size_t frame_size = zframe_size( reply_frame );
     assert( frame_size != 0 );
+
     zframe_t *service_frame = zmsg_next( msg );
     frame_size = zframe_size( service_frame );
     assert( frame_size != 0 );
-    //send_menu_request( priv );
-  }
 
-  return rc;
+    if ( nr_frames > 2 ) {
+      zframe_t *tx_id_frame = zmsg_next( msg );
+      uint32_t tx_id;
+      memcpy( &tx_id, ( const uint32_t * ) zframe_data( tx_id_frame ), zframe_size( tx_id_frame ) );
+      assert( tx_id );
+      send_menu_request( priv );
+    }
+  }
 }
 
+
+static void
+poll_notify_in( int fd, void *user_data ) {
+  emirates_priv *priv = user_data;
+  struct pollfd pfd;
+  nfds_t nfds = 1;
+  pfd.fd = requester_notify_in( priv->requester );
+  pfd.events = POLLIN;
+  
+  int rc = poll( &pfd, nfds, 0 ); 
+  if ( rc >= 0 ) {
+    if ( pfd.revents & POLLIN ) {
+      char dummy;
+      read( requester_notify_in( priv->requester ), &dummy, sizeof( dummy ) );
+      return poll_requester( priv );
+    }
+    if ( pfd.revents & POLLERR ) {
+      log_err( "error on returned event" );
+    }
+    if ( rc < 0) {
+      if ( errno != EINTR ) {
+        log_err( "poll failed %s", strerror( errno ) );
+      }
+    }
+  }
+}
+
+
+static void
+check_requester_notify_in( int fd, void *user_data ) {
+  notify_in_requester( fd, user_data );
+}
+
+
+static void
+check_responder_notify_in( int fd, void *user_data ) {
+  notify_in_responder( fd, user_data );
+}
 
 
 static char *
@@ -94,6 +145,29 @@ generate_uuid( void ) {
 }
 
 
+static void
+initialize_emirates( void ) {
+  iface = emirates_initialize();
+  assert( iface );
+  set_fd_handler( requester_notify_in( iface->priv->requester ), check_requester_notify_in, iface->priv, NULL, NULL );
+  set_fd_handler( responder_notify_in( iface->priv->responder ), check_responder_notify_in, iface->priv, NULL, NULL );
+}
+
+
+static void
+handle_timer_event( void *user_data ) {
+  if ( iface ) {
+    set_menu_request( iface, request_menu_callback );
+    set_menu_reply( iface, reply_menu_callback );
+    set_ready( iface );
+    set_readable( responder_notify_in( iface->priv->responder ), true );
+    uint32_t tx_id = send_menu_request( iface->priv );
+    set_readable( requester_notify_in( iface->priv->requester ), true );
+    delete_timer_event( handle_timer_event, NULL );
+  }
+}
+
+
 int
 main( int argc, char **argv ) {
   char *uuidstr = generate_uuid();
@@ -101,19 +175,32 @@ main( int argc, char **argv ) {
   int major, minor, patch;
   zmq_version( &major, &minor, &patch );
   printf ("Current 0MQ version is %d.%d.%d\n", major, minor, patch);
-  emirates_iface *iface = emirates_initialize();
+  init_trema( &argc, &argv );
+  set_external_callback( initialize_emirates );
 
+  struct itimerspec interval;
+  interval.it_interval.tv_sec = 1;
+  interval.it_interval.tv_nsec = 0;
+  interval.it_value.tv_sec = 0;
+  interval.it_value.tv_nsec = 0;
+  add_timer_event_callback( &interval, handle_timer_event, NULL );
+
+  start_trema();
+
+#ifdef TEST
   zclock_sleep( 2 * 1000 );
   if ( iface != NULL ) {
     set_menu_request( iface, request_menu_callback );
     set_menu_reply( iface, reply_menu_callback );
     set_ready( iface );
-    send_menu_request( iface->priv );
+    uint32_t tx_id = send_menu_request( iface->priv );
+printf( "tx_id = %zu\n", tx_id );
 
     int i = 0;
     while( !zctx_interrupted ) {
       poll_responder( iface->priv );
-      poll_requester( iface->priv );
+      //poll_requester( iface->priv );
+      poll_notify_in( iface->priv );
       // inject extra messages into the queue.
 //      if  ( ( i++ % 10 ) == 0 ) 
 //        send_menu_request( iface->priv );
@@ -122,6 +209,7 @@ main( int argc, char **argv ) {
 
     emirates_finalize( &iface );
   }
+#endif
 
   return 0;
 }

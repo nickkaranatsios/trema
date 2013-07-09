@@ -5,6 +5,7 @@
 #
 #   This controls whether we get debug or release builds
 test -z "$BOOM_MODEL" && BOOM_MODEL=debug
+export CCLIBS=-lsqlite3
 
 if [ /$1/ = /all/ ]; then
     echo "Building C examples..."
@@ -20,7 +21,7 @@ elif [ /$1/ = /clean/ ]; then
     done
 elif [ -f $1.c ]; then
     echo "$1"
-    ./c -v -l -li ../.. -li ../../jedex/include -li ../include -ll /usr/local/lib -g $1
+    ./c -v -l -ll /usr/local/lib -li ../../../network_controller/trema/objects/openflow -li ../../../network_controller/trema/src/lib -li ../.. -li ../include -li ../../jedex/include -g $1
 elif [ /$1/ = /lib/ ]; then
   echo "Linking the emirates library..."
     ./c -li ../.. -li ../../jedex/include -li ../include -ll /usr/local/lib -g \

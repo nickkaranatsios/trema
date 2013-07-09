@@ -23,6 +23,12 @@ static void
 send_reply_timeout( responder_info *self ) {
   zmsg_t *msg = zmsg_new();
   zmsg_addmem( msg, self->client_id, strlen( self->client_id ) );
+  zmsg_addstr( msg, "" );
+  zmsg_addstr( msg, REPLY_TIMEOUT );
+  zframe_t *service_frame = responder_service_frame( self );
+  zmsg_addstr( msg, ( const char * ) zframe_data( service_frame ), zframe_size( service_frame ) );
+  zmsg_send( &msg, responder_zmq_socket( self ) );
+  zframe_destroy( &service_frame );
 
 }
 
@@ -58,8 +64,11 @@ process_request( responder_info *self, zmsg_t *msg ) {
   size_t msg_type_frame_size = zframe_size( msg_type_frame );
 
   if ( !msg_is( REQUEST, ( const char * ) zframe_data( msg_type_frame ), msg_type_frame_size ) ) {
-    responder_expiry( self ) = zclock_time() + REPLY_TIMEOUT;
+    zframe_t *service_frame = zmsg_next( msg );
+    responder_service_frame( self ) = zframe_dup( service_frame );
+    responder_expiry( self ) = zclock_time() + REPLY_TIMER;
     zmsg_send( &msg, responder_pipe_socket( self ) );
+    signal_notify_out( responder_notify_out( self ) );
   }
 }
 
@@ -117,13 +126,12 @@ start_responder( responder_info *self ) {
     if ( rc == -1 ) {
       break;
     }
-    responder_expiry( self ) = 0;
-    if ( responder_expiry( self ) > zclock_time() ) {
+    if ( responder_expiry( self ) ) {
       if ( zclock_time() >= responder_expiry( self ) ) {
         printf( "waiting for reply from application expired\n" );
         send_reply_timeout( self );
+        responder_expiry( self ) = 0;
       }
-      responder_expiry( self ) = 0;
     }
   }
   printf( "out of responder\n" );
@@ -140,9 +148,6 @@ responder_thread( void *args, zctx_t *ctx, void *pipe ) {
 
   responder_id( self ) = ( char * ) zmalloc( sizeof( char ) * RESPONDER_ID_SIZE );
   snprintf( responder_id( self ), RESPONDER_ID_SIZE, "%lld", zclock_time() );
-#ifdef TEST
-  snprintf( responder_id( self ), RESPONDER_ID_SIZE, "%s", "worker1" );
-#endif
   zsocket_set_identity( responder_zmq_socket( self ), responder_id( self ) );
 
   int rc = zsocket_connect( responder_zmq_socket( self ), "tcp://localhost:%u", port );
@@ -162,6 +167,10 @@ responder_init( emirates_priv *priv ) {
   priv->responder = ( responder_info * ) zmalloc( sizeof( responder_info ) );
   responder_port( priv->responder ) = RESPONDER_BASE_PORT;
   responder_socket( priv->responder ) = zthread_fork( priv->ctx, responder_thread, priv->responder );
+  create_notify( priv->responder );
+  if ( responder_notify_in( priv->responder ) == -1 || responder_notify_out( priv->responder ) == -1 ) {
+    return EINVAL;
+  }
   if ( check_status( responder_socket( priv->responder ) ) ) {
     zctx_destroy( &priv->ctx );
     return EINVAL;

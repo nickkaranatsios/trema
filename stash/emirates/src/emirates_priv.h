@@ -48,16 +48,37 @@ extern "C" {
 #define REQUEST "REQUEST"
 #define READY "READY"
 #define REPLY "REPLY"
+#define REPLY_TIMEOUT "REPLY_TIMEOUT"
 #define EXIT "EXIT"
 
 #define SERVICE_MAX 64
 #define IDENTITY_MAX SERVICE_MAX
 #define REQUEST_HEARTBEAT 5000
-#define REPLY_TIMEOUT REQUEST_HEARTBEAT + 1
+#define REPLY_TIMER REQUEST_HEARTBEAT + 1000
 #define OUTPUT_CTRL_BIT (2U)
 #define use_output( q ) ( ( q ) & OUTPUT_CTRL_BIT )
 #define enable_output( q ) ( ( q ) |= OUTPUT_CTRL_BIT )
 #define disable_output( q ) ( ( q ) &= ~OUTPUT_CTRL_BIT )
+
+#define create_notify( ptr ) \
+  do {  \
+    int pipe_fd[ 2 ]; \
+    if ( pipe( pipe_fd ) < 0 ) { \
+      ( ptr )->notify_in = ( ptr )->notify_out = -1; \
+    } \
+    else { \
+      ( ptr )->notify_in = pipe_fd[ 0 ]; \
+      ( ptr )->notify_out = pipe_fd[ 1 ]; \
+    } \
+  } while ( 0 )
+
+
+#define signal_notify_out( fd ) \
+  do { \
+    char dummy = 'y'; \
+    write( ( fd ), &dummy, sizeof( dummy ) ); \
+  } while ( 0 )
+
 
 
 typedef void ( subscriber_callback )( void *args );
@@ -95,7 +116,10 @@ typedef struct requester_info {
   char *own_id; // a unique id for this requester
   int64_t request_expiry; // an expiry timer associated with an outgoing request
   int output_ctrl; // a flag that throttles output from requester
+  int notify_in; // the read end of a pipe fd to signal data is ready to be read from application
+  int notify_out; // the write end of a pipe fd used to signal data availability to application
   uint32_t timeout_id; // a timeout id associated with an outgoing request
+  uint32_t outstanding_id; // the last oudstanding timeout id
   uint32_t port; // a base port a requester connects to.
 } requester_info;
 
@@ -106,7 +130,10 @@ typedef struct responder_info {
   void *responder; // responder's main thread i/o socket
   char *own_id; // a unique id for this responder
   char client_id[ IDENTITY_MAX ]; // the client id/requester of the last recv'd request
+  zframe_t *service_frame; // the service frame of the last recv'd request
   int64_t expiry; // timeouts replies
+  int notify_in; // the read end of a pipe fd to signal data is ready to be read from application
+  int notify_out; //the write end of a pipe fd used to signal data availability to application
   uint32_t port; // a base port a responder connects to
 } responder_info;
 
@@ -132,6 +159,11 @@ typedef struct emirates_priv {
 #define requester_id( self ) ( ( self )->own_id )
 #define requester_output_ctrl( self ) ( ( self )->output_ctrl )
 #define requester_port( self ) ( ( self )->port )
+#define requester_timeout_id( self ) ( ( self )->timeout_id )
+#define requester_outstanding_id( self ) ( ( self )->outstanding_id )
+#define requester_inc_timeout_id( self ) ( requester_timeout_id( self )++ )
+#define requester_notify_in( self ) ( ( self )->notify_in )
+#define requester_notify_out( self ) ( ( self )->notify_out )
 
 #define responder_socket( self ) ( ( self )->responder )
 #define responder_pipe_socket( self ) ( ( self )->pipe )
@@ -139,6 +171,24 @@ typedef struct emirates_priv {
 #define responder_id( self ) ( ( self )->own_id )
 #define responder_port( self ) ( ( self )->port )
 #define responder_expiry( self ) ( ( self )->expiry )
+#define responder_service_frame( self ) ( ( self )->service_frame )
+#define responder_notify_in( self ) ( ( self )->notify_in )
+#define responder_notify_out( self ) ( ( self )->notify_out )
+
+//    read( ##info_type##_notify_in( priv->info_type ), &dummy, sizeof( dummy ) ); 
+#define notify_in( fd, user_data, info_type ) \
+  do { \
+    emirates_priv *priv = user_data; \
+    char dummy; \
+    read( priv->info_type->notify_in, &dummy, sizeof( dummy ) ); \
+    poll_##info_type( priv ); \
+  } while ( 0 );
+
+#define notify_in_requester( fd, user_data ) \
+  notify_in( ( fd ), ( user_data ), requester )
+
+#define notify_in_responder( fd, user_data ) \
+  notify_in( ( fd ), ( user_data ), responder )
 
 int publisher_init( emirates_priv *iface );
 int subscriber_init( emirates_priv *iface );
@@ -148,7 +198,7 @@ int check_status( void *socket );
 void send_ok_status( void *socket );
 void send_ng_status( void *socket );
 
-void send_request( const char *service, emirates_priv *priv );
+uint32_t send_request( const char *service, emirates_priv *priv );
 void service_request( const char *service, emirates_priv *priv, request_callback *callback );
 void service_reply( const char *service, emirates_priv *priv, reply_callback *callback );
 zmsg_t *one_or_more_msg( void *socket );

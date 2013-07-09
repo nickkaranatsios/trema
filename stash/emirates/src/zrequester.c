@@ -25,6 +25,10 @@ requester_output( requester_info *self ) {
   if ( msg ) {
     size_t nr_frames = zmsg_size( msg );
     printf( "requester_output %zu\n", nr_frames );
+    zframe_t *msg_type_frame = zmsg_first( msg );
+    zframe_t *tx_id_frame = zmsg_next( msg );
+    memcpy( &requester_outstanding_id( self ), ( const uint32_t * ) zframe_data( tx_id_frame ), zframe_size( tx_id_frame ) );
+    zmsg_remove( msg, tx_id_frame );
 
     disable_output( requester_output_ctrl( self ) );
     zmsg_send( &msg, requester_zmq_socket( self ) );
@@ -42,9 +46,11 @@ requester_input( requester_info *self ) {
   if ( msg ) {
     size_t nr_frames = zmsg_size( msg );
     printf( "requester_input %zu\n", nr_frames );
-
+    zmsg_addmem( msg, &requester_outstanding_id( self ), sizeof( requester_outstanding_id( self ) ) );
+    requester_outstanding_id( self ) = 0;
     enable_output( requester_output_ctrl( self ) );
     zmsg_send( &msg, requester_pipe_socket( self ) );
+    signal_notify_out( requester_notify_out( self ) );
     return 0;
   }
 
@@ -120,9 +126,6 @@ requester_thread( void *args, zctx_t *ctx, void *pipe ) {
 
   requester_id( self ) = ( char * ) zmalloc( sizeof( char ) * REQUESTER_ID_SIZE );
   snprintf( requester_id( self ), REQUESTER_ID_SIZE, "%lld", zclock_time() );
-#ifdef TEST
-  snprintf( requester_id( self ), REQUESTER_ID_SIZE, "%s", "client1" );
-#endif
   zsocket_set_identity( requester_zmq_socket( self ), requester_id( self ) );
 
   int rc = zsocket_connect( requester_zmq_socket( self ), "tcp://localhost:%u", port );
@@ -142,6 +145,10 @@ requester_init( emirates_priv *priv ) {
   priv->requester = ( requester_info * ) zmalloc( sizeof( requester_info ) );
   requester_port( priv->requester ) = REQUESTER_BASE_PORT;
   requester_socket( priv->requester ) = zthread_fork( priv->ctx, requester_thread, priv->requester );
+  create_notify( priv->requester );
+  if ( requester_notify_in( priv->requester ) == -1 || requester_notify_out( priv->requester ) == -1 ) {
+    return EINVAL;
+  }
   if ( check_status( requester_socket( priv->requester ) ) ) {
     zctx_destroy( &priv->ctx );
     return EINVAL;

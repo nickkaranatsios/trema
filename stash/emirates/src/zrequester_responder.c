@@ -297,7 +297,8 @@ route_worker_reply( proxy *self,
 
   zframe_t *msg_type_frame = zmsg_next( msg );
 
-  if ( !msg_is( REPLY, zframe_data( msg_type_frame), zframe_size( msg_type_frame ) ) ) {
+  if ( !msg_is( REPLY, zframe_data( msg_type_frame ), zframe_size( msg_type_frame ) ) || 
+    !msg_is( REPLY_TIMEOUT, zframe_data( msg_type_frame ), zframe_size( msg_type_frame ) ) ) {
     char client_id[ IDENTITY_MAX ];
     memcpy( client_id, ( const char * ) zframe_data( client_id_frame ), zframe_size( client_id_frame ) );
     client_id[ zframe_size( client_id_frame ) ] = '\0';
@@ -329,7 +330,7 @@ worker_recv( proxy *self, zmsg_t *msg ) {
     zframe_t *msg_type_frame = zmsg_next( msg );
     route_msg_back_to_worker( self, msg, worker_id_frame, msg_type_frame );
   }
-  else if ( nr_frames == 6 ) {
+  else if ( nr_frames == 5 || nr_frames == 6 ) {
     route_worker_reply( self, msg );   
   }
 }

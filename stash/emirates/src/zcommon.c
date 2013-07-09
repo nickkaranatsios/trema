@@ -53,7 +53,6 @@ wait_for_reply( void *socket ) {
   }
 
   size_t nr_frames = zmsg_size( msg );
-  assert( nr_frames == 1 );
 
   zframe_t *msg_type_frame = zmsg_first( msg );
   size_t frame_size = zframe_size( msg_type_frame );
@@ -89,20 +88,26 @@ service_request( const char *service, emirates_priv *priv, request_callback *cal
 
 void
 service_reply( const char *service, emirates_priv *priv, reply_callback *callback ) {
+  requester_inc_timeout_id( priv->requester );
   zmsg_t *msg = zmsg_new();
   zmsg_addstr( msg, ADD_SERVICE_REPLY );
+  zmsg_addmem( msg, &requester_timeout_id( priv->requester ), sizeof( requester_timeout_id( priv->requester ) ) );
   zmsg_addstr( msg, service );
   zmsg_send( &msg, requester_socket( priv->requester ) );
   wait_for_reply( requester_socket( priv->requester ) );
 }
 
 
-void
+uint32_t
 send_request( const char *service, emirates_priv *priv ) {
+  requester_inc_timeout_id( priv->requester );
   zmsg_t *msg = zmsg_new();
   zmsg_addstr( msg, REQUEST );
+  zmsg_addmem( msg, &requester_timeout_id( priv->requester ), sizeof( requester_timeout_id( priv->requester ) ) );
   zmsg_addstr( msg, service );
   zmsg_send( &msg, requester_socket( priv->requester ) );
+
+  return requester_timeout_id( priv->requester );
 }
 
 void

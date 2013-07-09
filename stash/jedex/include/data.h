@@ -282,7 +282,7 @@ struct jedex_wrapped_buffer {
 		if ( ( self )->free != NULL ) { \
 			( self )->free( ( self ) ); \
 		} \
-	} while (0)
+	} while ( 0 )
 
 /**
  * A static initializer for an empty wrapped buffer.

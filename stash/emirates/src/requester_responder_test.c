@@ -42,7 +42,7 @@ poll_responder( emirates_priv *self ) {
   if ( ( rc == 1 ) && ( poller.revents & ZMQ_POLLIN  ) ) {
     zmsg_t *msg = zmsg_recv( responder_socket( self->responder ) );
     int nr_frames = zmsg_size( msg );
-    printf( "poll responder(%zu)\n", nr_frames );
+    printf( "poll responder(%d)\n", nr_frames );
     zframe_t *client_id_frame = zmsg_first( msg );
     zframe_t *empty_frame = zmsg_next( msg );
     zframe_t *msg_type_frame = zmsg_next( msg );

@@ -41,24 +41,33 @@ typedef struct emirates_iface {
 
 emirates_iface *emirates_initialize( void );
 void emirates_finalize( emirates_iface **iface );
-void subscribe_service_profile( emirates_iface *iface, const char *sub_schema_names[], subscriber_callback *user_callback );
-void subscribe_user_profile( emirates_iface *iface, const char *sub_schema_names[], subscriber_callback *user_callback );
 void publish_service_profile( emirates_iface *iface, jedex_parcel *parcel );
 
 // example ONLY
 #define quote( name ) #name
 #define str( name ) quote( name )
+
+#define subscribe_service_profile( iface, sub_schema_names, user_callback ) \
+  subscribe_to_service( str( service_profile ), iface->priv->subscriber, sub_schema_names, user_callback )
+
+#define subscribe_user_profile( iface, sub_schema_names, user_callback ) \
+  subscribe_to_service( str( user_profile ), iface->priv->subscriber, sub_schema_names, user_callback )
+
 #define set_menu_request( iface, callback ) \
   service_request( str( menu ), ( iface )->priv, callback )
+
 #define set_menu_reply( iface, callback ) \
   service_reply( str( menu ), ( iface )->priv, callback )
+
 #define send_menu_request( priv ) \
   send_request( str( menu ), priv )
 
 #define set_profile_request( iface, callback ) \
   service_request( str( profile ), ( iface )->priv, callback )
+
 #define set_profile_reply( iface, callback ) \
   service_reply( str( profile ), ( iface )->priv, callback )
+
 #define send_profile_request( priv ) \
   send_request( str( profile ), priv )
 

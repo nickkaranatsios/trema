@@ -24,6 +24,7 @@
 
 
 static emirates_iface *iface;
+
 static void
 request_menu_callback( void *args ) {
 }
@@ -34,13 +35,14 @@ reply_menu_callback( void *args ) {
 }
 
 
-static int
-poll_responder( emirates_priv *priv ) {
-  zmq_pollitem_t poller = { responder_socket( priv->responder ), 0, ZMQ_POLLIN, 0 };
-  int rc = zmq_poll( &poller, 1, 1000 ); 
-  if ( rc == 1 ) {
-    printf( "should call responder callback\n" );
-    zmsg_t *msg = zmsg_recv( poller.socket );
+static void
+poll_responder( emirates_priv *self ) {
+  zmq_pollitem_t poller = { responder_socket( self->responder ), 0, ZMQ_POLLIN, 0 };
+  int rc = zmq_poll( &poller, 1, 10 );
+  if ( ( rc == 1 ) && ( poller.revents & ZMQ_POLLIN  ) ) {
+    zmsg_t *msg = zmsg_recv( responder_socket( self->responder ) );
+    int nr_frames = zmsg_size( msg );
+    printf( "poll responder(%zu)\n", nr_frames );
     zframe_t *client_id_frame = zmsg_first( msg );
     zframe_t *empty_frame = zmsg_next( msg );
     zframe_t *msg_type_frame = zmsg_next( msg );
@@ -50,25 +52,21 @@ poll_responder( emirates_priv *priv ) {
     zmsg_addstr( reply, "" );
     zmsg_addstr( reply, REPLY );
     zmsg_addmem( reply, ( const char * ) zframe_data( service_frame ), zframe_size( service_frame ) );
-    zmsg_send( &reply, poller.socket );
+    zmsg_send( &reply, responder_socket( self->responder ) );
     zmsg_destroy( &msg );
     zmsg_destroy( &reply );
   }
-
-  return rc;
 }
 
 
-  
-  
 static void
-poll_requester( emirates_priv *priv ) {
-  zmq_pollitem_t poller = { requester_socket( priv->requester ), 0, ZMQ_POLLIN, 0 };
-  int rc = zmq_poll( &poller, 1, 1000 ); 
-  if ( rc == 1 ) {
-    printf( "client %s received reply\n", requester_id( priv->requester ) );
+poll_requester( emirates_priv *self ) {
+  zmq_pollitem_t poller = { requester_socket( self->requester ), 0, ZMQ_POLLIN, 0 };
+  int rc = zmq_poll( &poller, 1, 10 );
+  if ( ( rc == 1 ) &&  ( poller.revents & ZMQ_POLLIN ) ) {
+    printf( "client %s received reply\n", requester_id( self->requester ) );
     // expect reply frame + service frame
-    zmsg_t *msg = zmsg_recv( poller.socket );
+    zmsg_t *msg = zmsg_recv( requester_socket( self->requester ) );
     size_t nr_frames = zmsg_size( msg );
 
     zframe_t *reply_frame  = zmsg_first( msg );
@@ -84,12 +82,12 @@ poll_requester( emirates_priv *priv ) {
       uint32_t tx_id;
       memcpy( &tx_id, ( const uint32_t * ) zframe_data( tx_id_frame ), zframe_size( tx_id_frame ) );
       assert( tx_id );
-      send_menu_request( priv );
+      send_menu_request( self );
     }
   }
 }
-
-
+  
+  
 static void
 poll_notify_in( int fd, void *user_data ) {
   emirates_priv *priv = user_data;
@@ -117,6 +115,20 @@ poll_notify_in( int fd, void *user_data ) {
 }
 
 
+static int
+poll_subscriber( emirates_priv *priv ) {
+//  zmq_pollitem_t poller = { subscriber_socket( iface->priv->subscriber ), 0, ZMQ_POLLIN, 0 };
+  zmq_pollitem_t poller = { 0, subscriber_notify_in( priv->subscriber ), ZMQ_POLLIN, 0 };
+  int rc = zmq_poll( &poller, 1, 0 ); 
+  if ( rc == 1 ) {
+    poller.socket = subscriber_socket( priv->subscriber );
+    iface->priv->sub_handler( &poller, priv->subscriber );
+  }
+
+  return rc;
+}
+
+
 static void
 check_requester_notify_in( int fd, void *user_data ) {
   notify_in_requester( fd, user_data );
@@ -126,6 +138,12 @@ check_requester_notify_in( int fd, void *user_data ) {
 static void
 check_responder_notify_in( int fd, void *user_data ) {
   notify_in_responder( fd, user_data );
+}
+
+
+static void
+check_subscriber_notify_in( int fd, void *user_data ) {
+  notify_in_subscriber( fd, user_data );
 }
 
 
@@ -149,8 +167,29 @@ static void
 initialize_emirates( void ) {
   iface = emirates_initialize();
   assert( iface );
-  set_fd_handler( requester_notify_in( iface->priv->requester ), check_requester_notify_in, iface->priv, NULL, NULL );
+  set_fd_handler( subscriber_notify_in( iface->priv->subscriber ), check_subscriber_notify_in, iface->priv, NULL, NULL );
   set_fd_handler( responder_notify_in( iface->priv->responder ), check_responder_notify_in, iface->priv, NULL, NULL );
+  set_fd_handler( requester_notify_in( iface->priv->requester ), check_requester_notify_in, iface->priv, NULL, NULL );
+}
+
+
+static void
+service_profile_callback( void *args ) {
+}
+
+
+static void
+set_menu_record_value( jedex_value *val ) {
+  jedex_value field;
+  size_t index;
+  jedex_value_get_by_name( val, "header", &field, &index );
+  jedex_value_set_string( &field, "Save us menu" );
+  jedex_value_get_by_name( val, "items", &field, &index );
+  jedex_value element;
+  jedex_value_append( &field, &element, NULL );
+  jedex_value_set_string( &element, "save the children" );
+  jedex_value_append( &field, &element, NULL );
+  jedex_value_set_string( &element, "save the world" );
 }
 
 
@@ -164,12 +203,30 @@ handle_timer_event( void *user_data ) {
     uint32_t tx_id = send_menu_request( iface->priv );
     set_readable( requester_notify_in( iface->priv->requester ), true );
     delete_timer_event( handle_timer_event, NULL );
+
+    set_readable( subscriber_notify_in( iface->priv->subscriber ), true );
+    jedex_schema *schema = jedex_initialize( "" );
+    const char *sub_schemas[] = { NULL };
+    jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
+    assert( parcel );
+    jedex_value *val = jedex_parcel_value( parcel, "" );
+    assert( val );
+    set_menu_record_value( val );
+    subscribe_service_profile( iface, sub_schemas, service_profile_callback );
+    publish_service_profile( iface, parcel );
   }
 }
 
 
 int
 main( int argc, char **argv ) {
+    jedex_schema *schema = jedex_initialize( "" );
+    const char *sub_schemas[] = { NULL };
+    jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
+    assert( parcel );
+    jedex_value *val = jedex_parcel_value( parcel, "" );
+    assert( val );
+
   char *uuidstr = generate_uuid();
   assert( uuidstr );
   int major, minor, patch;

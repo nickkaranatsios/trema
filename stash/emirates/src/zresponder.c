@@ -34,15 +34,13 @@ send_reply_timeout( responder_info *self ) {
 
 
 static void
-self_msg_recv( void *pipe, zmsg_t *msg, zframe_t *msg_type_frame ) {
+self_msg_recv( responder_info *self, zmsg_t *msg, zframe_t *msg_type_frame ) {
   size_t msg_type_frame_size = zframe_size( msg_type_frame );
 
   if ( !msg_is( READY, ( const char * ) zframe_data( msg_type_frame ), msg_type_frame_size ) ) {
-    printf( "READY REPLY\n" );
   }
   if ( !msg_is( ADD_SERVICE_REQUEST, ( const char * ) zframe_data( msg_type_frame ), msg_type_frame_size ) ) {
-    printf( "ADD_SERVICE_REQUEST_REPLY\n" );
-    zmsg_send( &msg, pipe );
+    zmsg_send( &msg, responder_pipe_socket( self ) );
   }
 }
 
@@ -66,9 +64,9 @@ process_request( responder_info *self, zmsg_t *msg ) {
   if ( !msg_is( REQUEST, ( const char * ) zframe_data( msg_type_frame ), msg_type_frame_size ) ) {
     zframe_t *service_frame = zmsg_next( msg );
     responder_service_frame( self ) = zframe_dup( service_frame );
-    responder_expiry( self ) = zclock_time() + REPLY_TIMER;
     zmsg_send( &msg, responder_pipe_socket( self ) );
     signal_notify_out( responder_notify_out( self ) );
+    responder_expiry( self ) = zclock_time() + REPLY_TIMER;
   }
 }
 
@@ -79,10 +77,10 @@ responder_input( responder_info *self ) {
 
   size_t nr_frames = zmsg_size( msg );
   size_t frame_size;
-  printf( "responder_input %zu\n", nr_frames );
+  printf( "responder <== %zu\n", nr_frames );
   if ( nr_frames == 1 ) {
     zframe_t *msg_type_frame = zmsg_first( msg );
-    self_msg_recv( responder_pipe_socket( self ), msg, msg_type_frame );
+    self_msg_recv( self, msg, msg_type_frame );
   }
   else {
     process_request( self, msg );
@@ -96,7 +94,7 @@ static int
 responder_output( responder_info *self ) {
   zmsg_t *msg = one_or_more_msg( responder_pipe_socket( self ) );
   size_t nr_frames = zmsg_size( msg );
-  printf( "responder_output %zu\n", nr_frames );
+  printf( "responder ==> %zu\n", nr_frames );
 
   responder_expiry( self ) = 0;
   zmsg_send( &msg, responder_zmq_socket( self ) );
@@ -150,7 +148,7 @@ responder_thread( void *args, zctx_t *ctx, void *pipe ) {
   snprintf( responder_id( self ), RESPONDER_ID_SIZE, "%lld", zclock_time() );
   zsocket_set_identity( responder_zmq_socket( self ), responder_id( self ) );
 
-  int rc = zsocket_connect( responder_zmq_socket( self ), "tcp://localhost:%u", port );
+  int rc = zsocket_connect( responder_zmq_socket( self ), "tcp://localhost:%zu", port );
   if ( rc ) {
     log_err( "Failed to connect requester using port %u", port );
     send_ng_status( responder_pipe_socket( self ) );

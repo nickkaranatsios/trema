@@ -36,11 +36,11 @@ main( void ) {
 
   // this is the public endpoint for publishers
   void *frontend = zsocket_new( context, ZMQ_XSUB );
-  zsocket_bind( frontend, "tcp://*:%u", PUB_BASE_PORT );
+  zsocket_bind( frontend, "tcp://*:%zu", PUB_BASE_PORT );
 
   // this is the public endpoint for subscribers
   void *backend = zsocket_new( context, ZMQ_XPUB );
-  zsocket_bind( backend, "tcp://*:%u", SUB_BASE_PORT );
+  zsocket_bind( backend, "tcp://*:%zu", SUB_BASE_PORT );
 
   // Run the proxy until the user interrupts us
   zmq_proxy( frontend, backend, NULL );

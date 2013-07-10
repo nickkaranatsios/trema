@@ -117,7 +117,7 @@ typedef struct requester_info {
   int64_t request_expiry; // an expiry timer associated with an outgoing request
   int output_ctrl; // a flag that throttles output from requester
   int notify_in; // the read end of a pipe fd to signal data is ready to be read from application
-  int notify_out; // the write end of a pipe fd used to signal data availability to application
+  int notify_out; // the write end of a pipe fd used to signal data availability to parent thread
   uint32_t timeout_id; // a timeout id associated with an outgoing request
   uint32_t outstanding_id; // the last oudstanding timeout id
   uint32_t port; // a base port a requester connects to.
@@ -133,23 +133,39 @@ typedef struct responder_info {
   zframe_t *service_frame; // the service frame of the last recv'd request
   int64_t expiry; // timeouts replies
   int notify_in; // the read end of a pipe fd to signal data is ready to be read from application
-  int notify_out; //the write end of a pipe fd used to signal data availability to application
+  int notify_out; //the write end of a pipe fd used to signal data availability to parent thread
   uint32_t port; // a base port a responder connects to
 } responder_info;
 
 
+typedef struct publisher_info {
+  void *pipe; // publisher's child thread to main thread i/o socket
+  void *output; // publisher's zmq output socket
+  void *publisher; // publisher's main thread i/o socket
+  uint32_t port; // a base port a publisher connects to
+} publisher_info;
+
+
+typedef struct subscriber_info {
+  zlist_t *callbacks; // a list of user subscription callbacks map to service name
+  void *pipe; // subscriber's child thread to main thread i/o socket
+  void *output; // subscriber's zmq output socket
+  void *subscriber; // subscriber's main thread i/o socket
+  int notify_in; // the read end of a pipe fd to to signal subscriber data availalibility
+  int notify_out; // the write end of a pipe fd to signal data availability to parent thread
+  uint32_t port; // a base port a subscriber connects to
+} subscriber_info;
+
+
 typedef struct emirates_priv {
   zctx_t *ctx;
-  void *pub;
-  void *sub;
-  uint32_t pub_port; // publisher's assigned port
-  uint32_t sub_port; // subscriber's assigned port
-  zlist_t *sub_callbacks;
   poll_handler *sub_handler;
   zlist_t *req_callbacks;
   zlist_t *rep_callbacks;
   requester_info *requester; 
   responder_info *responder;
+  publisher_info *publisher;
+  subscriber_info *subscriber;
 } emirates_priv;
 
 
@@ -175,20 +191,37 @@ typedef struct emirates_priv {
 #define responder_notify_in( self ) ( ( self )->notify_in )
 #define responder_notify_out( self ) ( ( self )->notify_out )
 
-//    read( ##info_type##_notify_in( priv->info_type ), &dummy, sizeof( dummy ) ); 
+#define publisher_socket( self ) ( ( self )->publisher )
+#define publisher_pipe_socket( self ) ( ( self )->pipe )
+#define publisher_zmq_socket( self ) ( ( self )->output )
+#define publisher_port( self ) ( ( self )->port )
+
+
+#define subscriber_socket( self ) ( ( self )->subscriber )
+#define subscriber_pipe_socket( self ) ( ( self )->pipe )
+#define subscriber_zmq_socket( self ) ( ( self )->output )
+#define subscriber_port( self ) ( ( self )->port )
+#define subscriber_callbacks( self ) ( ( self )->callbacks )
+#define subscriber_notify_in( self ) ( ( self )->notify_in )
+#define subscriber_notify_out( self ) ( ( self )->notify_out )
+
 #define notify_in( fd, user_data, info_type ) \
   do { \
     emirates_priv *priv = user_data; \
     char dummy; \
     read( priv->info_type->notify_in, &dummy, sizeof( dummy ) ); \
+    assert( dummy == 'y' ); \
     poll_##info_type( priv ); \
-  } while ( 0 );
+  } while ( 0 )
 
 #define notify_in_requester( fd, user_data ) \
   notify_in( ( fd ), ( user_data ), requester )
 
 #define notify_in_responder( fd, user_data ) \
   notify_in( ( fd ), ( user_data ), responder )
+
+#define notify_in_subscriber( fd, user_data ) \
+  notify_in( ( fd ), ( user_data ), subscriber )
 
 int publisher_init( emirates_priv *iface );
 int subscriber_init( emirates_priv *iface );
@@ -201,6 +234,7 @@ void send_ng_status( void *socket );
 uint32_t send_request( const char *service, emirates_priv *priv );
 void service_request( const char *service, emirates_priv *priv, request_callback *callback );
 void service_reply( const char *service, emirates_priv *priv, reply_callback *callback );
+void subscribe_to_service( const char *service, subscriber_info *self, const char **sub_schema_names, subscriber_callback *user_callback );
 zmsg_t *one_or_more_msg( void *socket );
 int get_time_left( int64_t expiry );
 

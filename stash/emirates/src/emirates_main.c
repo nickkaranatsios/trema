@@ -77,6 +77,12 @@ emirates_initialize( void ) {
     return NULL;
   }
   iface->priv->ctx = ctx;
+  if ( publisher_init( iface->priv ) ) {
+    return NULL;
+  }
+  if ( subscriber_init( iface->priv ) ) {
+    return NULL;
+  }
 #ifdef TEST
   if ( publisher_init( iface->priv ) || subscriber_init( iface->priv ) ||
     responder_init( iface->priv ) || requester_init( iface->priv ) ) {

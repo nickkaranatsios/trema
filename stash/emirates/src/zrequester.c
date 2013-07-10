@@ -24,7 +24,7 @@ requester_output( requester_info *self ) {
 
   if ( msg ) {
     size_t nr_frames = zmsg_size( msg );
-    printf( "requester_output %zu\n", nr_frames );
+    printf( "requester ==> %zu\n", nr_frames );
     zframe_t *msg_type_frame = zmsg_first( msg );
     zframe_t *tx_id_frame = zmsg_next( msg );
     memcpy( &requester_outstanding_id( self ), ( const uint32_t * ) zframe_data( tx_id_frame ), zframe_size( tx_id_frame ) );
@@ -45,7 +45,7 @@ requester_input( requester_info *self ) {
 
   if ( msg ) {
     size_t nr_frames = zmsg_size( msg );
-    printf( "requester_input %zu\n", nr_frames );
+    printf( "requester <== %zu\n", nr_frames );
     zmsg_addmem( msg, &requester_outstanding_id( self ), sizeof( requester_outstanding_id( self ) ) );
     requester_outstanding_id( self ) = 0;
     enable_output( requester_output_ctrl( self ) );
@@ -128,7 +128,7 @@ requester_thread( void *args, zctx_t *ctx, void *pipe ) {
   snprintf( requester_id( self ), REQUESTER_ID_SIZE, "%lld", zclock_time() );
   zsocket_set_identity( requester_zmq_socket( self ), requester_id( self ) );
 
-  int rc = zsocket_connect( requester_zmq_socket( self ), "tcp://localhost:%u", port );
+  int rc = zsocket_connect( requester_zmq_socket( self ), "tcp://localhost:%zu", port );
   if ( rc ) {
     log_err( "Failed to connect requester using port %u", port );
     send_ng_status( requester_pipe_socket( self ) );

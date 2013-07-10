@@ -18,6 +18,7 @@
 
 #include "emirates.h"
 #include "jedex_iface.h"
+#include "trema.h"
 
 
 static void
@@ -37,11 +38,14 @@ request_menu_callback( void *args ) {
 
 static int
 poll_subscriber( emirates_iface *iface ) {
-  zmq_pollitem_t poller = { iface->priv->sub, 0, ZMQ_POLLIN, 0 };
+//  zmq_pollitem_t poller = { subscriber_socket( iface->priv->subscriber ), 0, ZMQ_POLLIN, 0 };
+  zmq_pollitem_t poller = { 0, subscriber_notify_in( iface->priv->subscriber ), ZMQ_POLLIN, 0 };
   int rc = zmq_poll( &poller, 1, 0 ); 
   if ( rc == 1 ) {
-    iface->priv->sub_handler( &poller, iface );
+    poller.socket = subscriber_socket( iface->priv->subscriber );
+    iface->priv->sub_handler( &poller, iface->priv->subscriber );
   }
+
   return rc;
 }
 
@@ -85,9 +89,6 @@ main( int argc, char **argv ) {
       poll_subscriber( iface );
       if ( !i ) {
         subscribe_user_profile( iface, sub_schema_names, user_profile_callback );
-      }
-      if ( i == 1 ) {
-        set_menu_request( iface, request_menu_callback );
       }
       if ( i++ == 5 ) {
         publish_service_profile( iface, parcel );

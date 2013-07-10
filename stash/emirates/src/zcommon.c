@@ -57,7 +57,6 @@ wait_for_reply( void *socket ) {
   zframe_t *msg_type_frame = zmsg_first( msg );
   size_t frame_size = zframe_size( msg_type_frame );
   if ( !msg_is( ADD_SERVICE_REPLY, ( const char * ) zframe_data( msg_type_frame ), frame_size ) ) {
-    printf( "ADD_SERVICE_REPLY\n" );
     return 0;
   }
   if ( !msg_is( ADD_SERVICE_REQUEST, ( const char * ) zframe_data( msg_type_frame ), frame_size ) ) {

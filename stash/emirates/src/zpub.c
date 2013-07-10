@@ -20,9 +20,7 @@
 
 
 static void
-publish_service( const char *service, emirates_iface *iface, jedex_parcel *parcel ) {
-  emirates_priv *priv = iface->priv;
-
+publish_service( const char *service, publisher_info *self, jedex_parcel *parcel ) {
   for ( list_element *e = parcel->values_list->head; e != NULL; e = e->next ) {
     jedex_value *item = e->data;
     char *json;
@@ -31,7 +29,7 @@ publish_service( const char *service, emirates_iface *iface, jedex_parcel *parce
       zmsg_t *msg = zmsg_new();
       zmsg_addmem( msg, service, strlen( service ) );
       zmsg_addmem( msg, json, strlen( json ) );
-      zmsg_send( &msg, priv->pub );
+      zmsg_send( &msg, publisher_socket( self ) );
       zmsg_destroy( &msg );
     }
   }
@@ -42,12 +40,9 @@ publish_service( const char *service, emirates_iface *iface, jedex_parcel *parce
 
 static int
 publish_output( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
-  void *pub = arg;
+  publisher_info *self = arg;
 
-  zmsg_t *msg = zmsg_recv( poller->socket );
-  if ( msg == NULL ) {
-    return EINVAL;
-  }
+  zmsg_t *msg = one_or_more_msg( poller->socket );
 
   size_t nr_frames = zmsg_size( msg );
   assert( nr_frames == 2 );
@@ -55,7 +50,7 @@ publish_output( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
   zframe_t *service_frame = zmsg_first( msg );
   zframe_t *service_data = zmsg_next( msg );
   if ( service_data != NULL ) {
-    zmsg_send( &msg, pub );
+    zmsg_send( &msg, publisher_zmq_socket( self ) );
   }
   else {
     return EINVAL;
@@ -67,106 +62,52 @@ publish_output( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
 
 
 static void
-start_publishing( void *pipe, void *pub ) {
+start_publishing( publisher_info *self ) {
   zloop_t *loop = zloop_new();
-  zmq_pollitem_t poller = { pipe, 0, ZMQ_POLLIN, 0 };
-  zloop_poller( loop, &poller, publish_output, pub );
+  zmq_pollitem_t poller = { publisher_pipe_socket( self ), 0, ZMQ_POLLIN, 0 };
+  zloop_poller( loop, &poller, publish_output, self );
   zloop_start( loop );
 }
 
 
 void
 publish_service_profile( emirates_iface *iface, jedex_parcel *parcel ) {
-  publish_service( "service_profile", iface, parcel );
+  publish_service( "service_profile", iface->priv->publisher, parcel );
 }
 
 
 static void 
 publisher_thread( void *args, zctx_t *ctx, void *pipe ) {
+  publisher_info *self = args;
+  publisher_pipe_socket( self ) = pipe;
   int rc;
-  uint32_t *port = args;
 
-  void *pub = zsocket_new( ctx, ZMQ_PUB );
-  rc = zsocket_connect( pub, "tcp://localhost:%u", *port );
+  publisher_zmq_socket( self ) = zsocket_new( ctx, ZMQ_PUB );
+  rc = zsocket_connect( publisher_zmq_socket( self ), "tcp://localhost:%zu", publisher_port( self ) );
   if ( rc < 0 ) {
     log_err( "Failed to connect to XSUB %d", rc );
-    send_ng_status( pipe );
+    send_ng_status( publisher_pipe_socket( self ) );
     return;
   }
 
-  send_ok_status( pipe );
-  start_publishing( pipe, pub );
+  send_ok_status( publisher_pipe_socket( self ) );
+  start_publishing( self );
 }
 
 
 int
 publisher_init( emirates_priv *priv ) {
-  priv->pub_port = PUB_BASE_PORT;
-  priv->pub = zthread_fork( priv->ctx, publisher_thread, &priv->pub_port );
-  if ( check_status( priv->pub ) ) {
+  priv->publisher = ( publisher_info * ) zmalloc( sizeof( publisher_info ) );
+  publisher_port( priv->publisher ) = PUB_BASE_PORT;
+
+  publisher_socket( priv->publisher ) = zthread_fork( priv->ctx, publisher_thread, priv->publisher );
+  if ( check_status( publisher_socket( priv->publisher ) ) ) {
     zctx_destroy( &priv->ctx );
     return EINVAL;
   }
 
   return 0;
 }
-
-
-#ifdef OLD
-static void 
-publisher_thread( void *args, zctx_t *ctx, void *pipe ) {
-  int rc;
-  void *pub = zsocket_new( ctx, ZMQ_PUB );
-  rc = zsocket_connect( pub, "tcp://localhost:6000" );
-  if ( rc < 0 ) {
-    printf( "Failed to connect to XSUB %d\n", rc );
-    return;
-  }
-
-  uint64_t pub_count = 0;
-  if ( pub != NULL ) {
-    while ( true ) {
-      char *string = zstr_recv( pipe );
-      if ( string == NULL ) {
-        break;
-      }
-      // printf( "publish string %s\n", string );
-      if ( zstr_send( pub, string ) == -1 ) {
-        break;              //  Interrupted
-      }
-      pub_count++;
-      free( string );
-    }
-  }
-  printf( "publish( %" PRIu64 ")\n" ,pub_count );
-}
-
-
-int
-main( int argc, char **argv ) {
-  zctx_t *ctx;
-  ctx = zctx_new(); 
-
-  void *pub = zthread_fork( ctx, publisher_thread, NULL );
-
-  uint64_t end = 2 * 60 * 1000 + zclock_time();
-  while ( !zctx_interrupted ) {
-    if ( zclock_time() >= end ) {
-      break;
-    }
-    char string[ 10 ];
-
-    sprintf( string, "%c-%05d", randof( 10 ) + 'A', randof( 100000 ) );
-    zstr_send( pub, string );
-    // zclock_sleep( 1000 );
-  }
-  
-  zctx_destroy( &ctx );
-
-  return 0; 
-}
-
-#endif
 
 
 /*

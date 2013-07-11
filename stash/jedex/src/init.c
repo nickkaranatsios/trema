@@ -67,7 +67,7 @@ jedex_value_from_iface( jedex_value_iface *val_iface ) {
 
 static jedex_value *
 first_element( const jedex_parcel *parcel ) {
-  list_element *e = parcel->values_list->head;
+  list_element_safe *e = parcel->values_list->head;
 
   return e == NULL ? NULL : e->data;
 }
@@ -78,7 +78,7 @@ lookup_schema_name( const jedex_parcel *parcel, const char *schema_name ) {
   if ( !schema_name || !strcmp( schema_name, "" ) ) {
     return first_element( parcel );
   }
-  for ( list_element *e = parcel->values_list->head; e != NULL; e = e->next ) {
+  for ( list_element_safe *e = parcel->values_list->head; e != NULL; e = e->next ) {
     jedex_value *item = e->data;
     jedex_schema *item_schema = jedex_value_get_schema( item );
     if ( is_jedex_record( item_schema ) ) {
@@ -99,7 +99,7 @@ append_to_parcel( jedex_parcel **parcel, jedex_schema *schema, jedex_value_iface
     if ( *parcel == NULL ) {
       return ENOMEM;
     }
-    ( *parcel )->values_list = create_list();
+    ( *parcel )->values_list = create_list_safe();
   }
   ( *parcel )->schema = schema;
   int rc = 0;
@@ -107,7 +107,7 @@ append_to_parcel( jedex_parcel **parcel, jedex_schema *schema, jedex_value_iface
   if ( val_iface != NULL ) {
     jedex_value *val = jedex_value_from_iface( val_iface );
     if ( val != NULL ) {
-      append_to_tail( ( *parcel )->values_list, val );
+      append_to_tail_safe( ( *parcel )->values_list, val );
     }
     else {
       rc = EINVAL;

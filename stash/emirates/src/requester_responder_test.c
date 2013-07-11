@@ -35,6 +35,19 @@ reply_menu_callback( void *args ) {
 }
 
 
+static int
+poll_subscriber( emirates_priv *priv ) {
+  zmq_pollitem_t poller = { subscriber_socket( iface->priv->subscriber ), 0, ZMQ_POLLIN, 0 };
+  int rc = zmq_poll( &poller, 1, 10 ); 
+  if ( ( rc == 1 ) && ( poller.revents & ZMQ_POLLIN ) ) {
+    printf( "poll subscriber\n" );
+    iface->priv->sub_handler( &poller, priv->subscriber );
+  }
+
+  return rc;
+}
+
+
 static void
 poll_responder( emirates_priv *self ) {
   zmq_pollitem_t poller = { responder_socket( self->responder ), 0, ZMQ_POLLIN, 0 };
@@ -112,20 +125,6 @@ poll_notify_in( int fd, void *user_data ) {
       }
     }
   }
-}
-
-
-static int
-poll_subscriber( emirates_priv *priv ) {
-//  zmq_pollitem_t poller = { subscriber_socket( iface->priv->subscriber ), 0, ZMQ_POLLIN, 0 };
-  zmq_pollitem_t poller = { 0, subscriber_notify_in( priv->subscriber ), ZMQ_POLLIN, 0 };
-  int rc = zmq_poll( &poller, 1, 0 ); 
-  if ( rc == 1 ) {
-    poller.socket = subscriber_socket( priv->subscriber );
-    iface->priv->sub_handler( &poller, priv->subscriber );
-  }
-
-  return rc;
 }
 
 
@@ -220,13 +219,6 @@ handle_timer_event( void *user_data ) {
 
 int
 main( int argc, char **argv ) {
-    jedex_schema *schema = jedex_initialize( "" );
-    const char *sub_schemas[] = { NULL };
-    jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
-    assert( parcel );
-    jedex_value *val = jedex_parcel_value( parcel, "" );
-    assert( val );
-
   char *uuidstr = generate_uuid();
   assert( uuidstr );
   int major, minor, patch;

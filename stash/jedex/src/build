@@ -27,7 +27,7 @@ elif [ /$1/ = /lib/ ]; then
     ./c -li ../.. -li ../include -ll /usr/local/lib -g \
     init.c \
     allocation.c \
-    linked_list.c \
+    linked_list_safe.c \
     generic.c \
     generic_array.c \
     generic_boolean.c \
@@ -54,7 +54,7 @@ elif [ /$1/ = /lib/ ]; then
     ./c -li ../.. -li ../include -ll /usr/local/lib -g -r libjedex \
     init.c \
     allocation.c \
-    linked_list.c \
+    linked_list_safe.c \
     generic.c \
     generic_array.c \
     generic_boolean.c \

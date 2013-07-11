@@ -97,7 +97,9 @@ subscriber_input( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
   if ( rc != 0 ) {
     log_err( "Failed to send subscribed topic to parent thread" );
   }
-  signal_notify_out( subscriber_notify_out( self ) );
+  else {
+    signal_notify_out( subscriber_notify_out( self ) );
+  }
   zmsg_destroy( &msg );
 
   return 0;
@@ -160,7 +162,7 @@ subscriber_thread( void *args, zctx_t *ctx, void *pipe ) {
   subscriber_zmq_socket( self ) = zsocket_new( ctx, ZMQ_SUB );
   rc = zsocket_connect( subscriber_zmq_socket( self ), "tcp://localhost:%zu", subscriber_port( self ) );
   if ( rc < 0 ) {
-    log_err( "Failed to connect to XPUB %d %u", rc, subscriber_port( self ) );
+    log_err( "Failed to connect to XPUB %d %zu", rc, subscriber_port( self ) );
     send_ng_status( subscriber_pipe_socket( self ) );
     return;
   }

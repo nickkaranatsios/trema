@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 NEC Corporation
+ * Copyright (C) 2008-2013 NEC Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2, as
@@ -16,49 +16,35 @@
  */
 
 
-#ifndef JEDEX_H
-#define JEDEX_H
+#ifndef LINKED_LIST_SAFE_H
+#define LINKED_LIST_SAFE_H
 
 
-#ifdef __cplusplus
-extern "C" {
-#define CLOSE_EXTERN }
-#else
-#define CLOSE_EXTERN
-#endif
-
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <stddef.h>
-#include <string.h>
-#include <ctype.h>
-#include <assert.h>
 #include <pthread.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <limits.h>
-#include <jansson.h>
+#include <stdbool.h>
 
 
-#include "log_writer.h"
-#include "linked_list_safe.h"
-#include "priv.h"
-#include "allocation.h"
-#include "basics.h"
-#include "data.h"
-#include "value.h"
-#include "schema.h"
-#include "schema_priv.h"
-#include "generic.h"
-#include "generic_internal.h"
-#include "wrapped_buffer_priv.h"
-#include "st.h"
-#include "parcel.h"
+typedef struct list_element_safe {
+  struct list_element_safe *next;
+  void *data;
+} list_element_safe;
 
 
-CLOSE_EXTERN
-#endif // JEDEX_H
+typedef struct {
+  list_element_safe *head;
+  pthread_mutex_t mutex;
+} list;
+
+
+list *create_list_safe();
+bool insert_in_front_safe( list *l, void *data );
+bool append_to_tail_safe( list *l, void *data );
+bool delete_element_safe( list *l, const void *data );
+bool delete_list_safe( list *l );
+bool delete_list_totally_safe( list *l );
+
+
+#endif // LINKED_LIST_SAFE_H
 
 
 /*

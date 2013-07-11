@@ -19,16 +19,6 @@
 #include "emirates.h"
 
 
-#define check_return( retval, call ) \
-  do { \
-    int  __rc; \
-    __rc = call; \
-    if ( __rc != 0 ) { \
-      return retval; \
-    } \
-  } while ( 0 )
-
-
 int
 main( void ) {
   int rc;

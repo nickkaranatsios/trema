@@ -54,7 +54,7 @@ extern "C" {
 #define SERVICE_MAX 64
 #define IDENTITY_MAX SERVICE_MAX
 #define REQUEST_HEARTBEAT 5000
-#define REPLY_TIMER REQUEST_HEARTBEAT + 1000
+#define REPLY_TIMER REQUEST_HEARTBEAT - 1000
 #define OUTPUT_CTRL_BIT (2U)
 #define use_output( q ) ( ( q ) & OUTPUT_CTRL_BIT )
 #define enable_output( q ) ( ( q ) |= OUTPUT_CTRL_BIT )
@@ -110,11 +110,13 @@ typedef struct rep_callback {
 
 
 typedef struct requester_info {
+  zlist_t *callbacks; // a list of user reply callbacks map to service name
   void *pipe; // requester's child thread to main thread i/o socket
   void *output; // requester's zmq output socket
   void *requester; // requester's main thread i/o socket
   char *own_id; // a unique id for this requester
-  int64_t request_expiry; // an expiry timer associated with an outgoing request
+  int64_t expiry; // an expiry timer associated with an outgoing request
+  char service_name[ SERVICE_MAX ]; // the service name of the last outgoing request
   int output_ctrl; // a flag that throttles output from requester
   int notify_in; // the read end of a pipe fd to signal data is ready to be read from application
   int notify_out; // the write end of a pipe fd used to signal data availability to parent thread
@@ -169,17 +171,22 @@ typedef struct emirates_priv {
 } emirates_priv;
 
 
+#define priv( self ) ( emirates_priv * ) ( self )->priv
 #define requester_socket( self ) ( ( self )->requester )
 #define requester_pipe_socket( self ) ( ( self )->pipe )
 #define requester_zmq_socket( self ) ( ( self )->output )
 #define requester_id( self ) ( ( self )->own_id )
 #define requester_output_ctrl( self ) ( ( self )->output_ctrl )
 #define requester_port( self ) ( ( self )->port )
+#define requester_expiry( self ) ( ( self )->expiry )
 #define requester_timeout_id( self ) ( ( self )->timeout_id )
 #define requester_outstanding_id( self ) ( ( self )->outstanding_id )
 #define requester_inc_timeout_id( self ) ( requester_timeout_id( self )++ )
+#define requester_own_id( self ) ( ( self )->own_id )
 #define requester_notify_in( self ) ( ( self )->notify_in )
 #define requester_notify_out( self ) ( ( self )->notify_out )
+#define requester_callbacks( self ) ( ( self )->callbacks )
+#define requester_service_name( self ) ( ( self )->service_name )
 
 #define responder_socket( self ) ( ( self )->responder )
 #define responder_pipe_socket( self ) ( ( self )->pipe )
@@ -195,6 +202,7 @@ typedef struct emirates_priv {
 #define publisher_pipe_socket( self ) ( ( self )->pipe )
 #define publisher_zmq_socket( self ) ( ( self )->output )
 #define publisher_port( self ) ( ( self )->port )
+//#define publisher( iface ) publisher_socket( ( ( priv( iface ) )->publisher ) )
 
 
 #define subscriber_socket( self ) ( ( self )->subscriber )
@@ -237,7 +245,10 @@ void service_reply( const char *service, emirates_priv *priv, reply_callback *ca
 void subscribe_to_service( const char *service, subscriber_info *self, const char **sub_schema_names, subscriber_callback *user_callback );
 zmsg_t *one_or_more_msg( void *socket );
 int get_time_left( int64_t expiry );
-
+void *get_publisher_socket( emirates_priv *priv );
+void *get_requester_socket( emirates_priv *priv );
+void add_reply_callback( const char *service , reply_callback *user_callback, requester_info *self );
+rep_callback *lookup_reply_callback( zlist_t *callbacks, const char *service );
 
 CLOSE_EXTERN
 #endif // EMIRATES_PRIV_H

@@ -18,6 +18,19 @@
 #include "emirates.h"
 
 
+static void
+send_reply_timeout_to_self( requester_info *self ) {
+  zmsg_t *msg = zmsg_new();
+  zmsg_addstr( msg, REPLY_TIMEOUT );
+  zmsg_addstr( msg, requester_service_name( self ), strlen( requester_service_name( self ) ) );
+  zmsg_addmem( msg , &requester_outstanding_id( self ), sizeof( requester_outstanding_id( self ) ) );
+  requester_outstanding_id( self ) = 0;
+  enable_output( requester_output_ctrl( self ) );
+  zmsg_send( &msg, requester_pipe_socket( self ) );
+  signal_notify_out( requester_notify_out( self ) );
+}
+
+
 static int
 requester_output( requester_info *self ) {
   zmsg_t *msg = one_or_more_msg( requester_pipe_socket( self ) );
@@ -29,9 +42,13 @@ requester_output( requester_info *self ) {
     zframe_t *tx_id_frame = zmsg_next( msg );
     memcpy( &requester_outstanding_id( self ), ( const uint32_t * ) zframe_data( tx_id_frame ), zframe_size( tx_id_frame ) );
     zmsg_remove( msg, tx_id_frame );
+    zframe_t *service_frame = zmsg_next( msg );
+    memcpy( requester_service_name( self ), zframe_data( service_frame ), zframe_size( service_frame ) );
+    requester_service_name( self )[ zframe_size( service_frame ) ] = '\0';
 
     disable_output( requester_output_ctrl( self ) );
     zmsg_send( &msg, requester_zmq_socket( self ) );
+    requester_expiry( self ) = zclock_time() + REQUEST_HEARTBEAT;
     return 0;
   }
 
@@ -51,6 +68,7 @@ requester_input( requester_info *self ) {
     enable_output( requester_output_ctrl( self ) );
     zmsg_send( &msg, requester_pipe_socket( self ) );
     signal_notify_out( requester_notify_out( self ) );
+    requester_expiry( self ) = 0;
     return 0;
   }
 
@@ -61,7 +79,7 @@ requester_input( requester_info *self ) {
 static void
 start_requester( requester_info *self ) {
   requester_output_ctrl( self ) = 0;
-  int64_t request_expiry = 0;
+  requester_expiry( self ) = 0;
 
   enable_output( self->output_ctrl );
   zmq_pollitem_t items[ 2 ];
@@ -81,18 +99,15 @@ start_requester( requester_info *self ) {
       poll_size = 1;
     }
 
-    int rc = zmq_poll( items, poll_size, get_time_left( request_expiry ) );
+    int rc = zmq_poll( items, poll_size, get_time_left( requester_expiry( self ) ) );
     if ( rc == -1 ) {
       break;
     }
     if ( use_output( requester_output_ctrl( self ) ) ) {
       if ( items[ 0 ].revents & ZMQ_POLLIN ) {
-        request_expiry = zclock_time() + REQUEST_HEARTBEAT;
-        request_expiry = 0;
         rc = requester_output( self );
       }
       if ( items[ 1 ].revents & ZMQ_POLLIN ) {
-        request_expiry = 0;
         rc = requester_input( self );
       }
     }
@@ -104,11 +119,12 @@ start_requester( requester_info *self ) {
     if ( rc == -1 ) {
       break;
     }
-    if ( request_expiry ) { 
-      if ( zclock_time() >= request_expiry ) {
+    if ( requester_expiry( self ) ) { 
+      if ( zclock_time() >= requester_expiry( self ) ) {
         printf( "request timeout do something about\n" );
+        send_reply_timeout_to_self( self );
+        requester_expiry( self ) = 0;
       }
-      request_expiry = 0;
     }
   }
   printf( "out of requester\n" );
@@ -140,11 +156,62 @@ requester_thread( void *args, zctx_t *ctx, void *pipe ) {
 }
 
 
+rep_callback *
+lookup_reply_callback( zlist_t *callbacks, const char *service ) {
+  rep_callback *item = zlist_first( callbacks );
+
+  while ( item != NULL ) {
+    if ( !strcmp( item->service, service ) ) {
+      return item;
+    }
+    item = zlist_next( callbacks );
+  }
+
+  return NULL;
+}
+
+
+static int
+reply_callback_add( requester_info *self, rep_callback *cb ) {
+  assert( requester_callbacks( self ) );
+
+  int rc = 0;
+  rep_callback *item = lookup_reply_callback( requester_callbacks( self ), cb->service );
+  if ( !item ) { 
+    rc = zlist_append( requester_callbacks( self ), cb );
+  }
+  else {
+    item->callback = cb->callback;
+  }
+
+  return rc;
+}
+
+
+void
+add_reply_callback( const char *service , reply_callback *user_callback, requester_info *self ) {
+  rep_callback *cb = ( rep_callback * ) zmalloc( sizeof( rep_callback ) );
+  cb->service = service;
+  cb->callback = user_callback;
+  cb->requester_id = requester_own_id( self );
+  if ( reply_callback_add( self, cb ) ) {
+    free( cb );
+  }
+}
+
+
+void *
+get_requester_socket( emirates_priv *priv ) {
+  return requester_socket( priv->requester );
+}
+
+
 int
 requester_init( emirates_priv *priv ) {
   priv->requester = ( requester_info * ) zmalloc( sizeof( requester_info ) );
   requester_port( priv->requester ) = REQUESTER_BASE_PORT;
   requester_socket( priv->requester ) = zthread_fork( priv->ctx, requester_thread, priv->requester );
+  requester_callbacks( priv->requester ) = zlist_new();
   create_notify( priv->requester );
   if ( requester_notify_in( priv->requester ) == -1 || requester_notify_out( priv->requester ) == -1 ) {
     return EINVAL;

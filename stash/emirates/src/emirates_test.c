@@ -38,11 +38,11 @@ request_menu_callback( void *args ) {
 static int
 poll_subscriber( emirates_iface *iface ) {
 //  zmq_pollitem_t poller = { subscriber_socket( iface->priv->subscriber ), 0, ZMQ_POLLIN, 0 };
-  zmq_pollitem_t poller = { 0, subscriber_notify_in( iface->priv->subscriber ), ZMQ_POLLIN, 0 };
+  zmq_pollitem_t poller = { 0, subscriber_notify_in( ( priv( iface ) )->subscriber ), ZMQ_POLLIN, 0 };
   int rc = zmq_poll( &poller, 1, 0 ); 
   if ( rc == 1 ) {
-    poller.socket = subscriber_socket( iface->priv->subscriber );
-    iface->priv->sub_handler( &poller, iface->priv->subscriber );
+    poller.socket = subscriber_socket( ( priv( iface ) )->subscriber );
+    ( priv( iface ) )->sub_handler( &poller, ( priv( iface ) )->subscriber );
   }
 
   return rc;
@@ -80,6 +80,8 @@ main( int argc, char **argv ) {
   emirates_iface *iface = emirates_initialize();
   if ( iface != NULL ) {
     printf( "GOOD iface ptr\n" );
+    void *pub = iface->get_publisher( iface );
+    assert( pub );
 
     const char *sub_schema_names[] = { NULL };
     subscribe_service_profile( iface, sub_schema_names, service_profile_callback );

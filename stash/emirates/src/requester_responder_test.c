@@ -37,11 +37,11 @@ reply_menu_callback( void *args ) {
 
 static int
 poll_subscriber( emirates_priv *priv ) {
-  zmq_pollitem_t poller = { subscriber_socket( iface->priv->subscriber ), 0, ZMQ_POLLIN, 0 };
+  zmq_pollitem_t poller = { subscriber_socket( priv->subscriber ), 0, ZMQ_POLLIN, 0 };
   int rc = zmq_poll( &poller, 1, 10 ); 
   if ( ( rc == 1 ) && ( poller.revents & ZMQ_POLLIN ) ) {
     printf( "poll subscriber\n" );
-    iface->priv->sub_handler( &poller, priv->subscriber );
+    priv->sub_handler( &poller, priv->subscriber );
   }
 
   return rc;
@@ -79,23 +79,37 @@ poll_requester( emirates_priv *self ) {
   if ( ( rc == 1 ) &&  ( poller.revents & ZMQ_POLLIN ) ) {
     printf( "client %s received reply\n", requester_id( self->requester ) );
     // expect reply frame + service frame
-    zmsg_t *msg = zmsg_recv( requester_socket( self->requester ) );
-    size_t nr_frames = zmsg_size( msg );
+    zmsg_t *msg = one_or_more_msg( requester_socket( self->requester ) );
+    if ( msg ) {
+      zframe_t *msg_type_frame = zmsg_first( msg );
+      bool next_service_frame = false;
+      if ( ( !msg_is( REPLY, zframe_data( msg_type_frame ), zframe_size( msg_type_frame ) ) ) ||
+           ( !msg_is( REPLY_TIMEOUT, zframe_data( msg_type_frame ), zframe_size( msg_type_frame ) ) ) ) {
+        next_service_frame = true; 
+      } 
+      if ( next_service_frame ) {
+        zframe_t *service_frame = zmsg_next( msg );
+        size_t frame_size = zframe_size( service_frame );
+        assert( frame_size != 0 );
+        char service[ IDENTITY_MAX ];
+        memcpy( service, zframe_data( service_frame ), frame_size );
+        service[ frame_size ] = '\0';
+        rep_callback *handler = lookup_reply_callback( requester_callbacks( self->requester ), service );
 
-    zframe_t *reply_frame  = zmsg_first( msg );
-    size_t frame_size = zframe_size( reply_frame );
-    assert( frame_size != 0 );
-
-    zframe_t *service_frame = zmsg_next( msg );
-    frame_size = zframe_size( service_frame );
-    assert( frame_size != 0 );
-
-    if ( nr_frames > 2 ) {
-      zframe_t *tx_id_frame = zmsg_next( msg );
-      uint32_t tx_id;
-      memcpy( &tx_id, ( const uint32_t * ) zframe_data( tx_id_frame ), zframe_size( tx_id_frame ) );
-      assert( tx_id );
-      send_menu_request( self );
+        size_t nr_frames = zmsg_size( msg );
+        if ( nr_frames > 2 ) {
+          zframe_t *tx_id_frame = zmsg_next( msg );
+          uint32_t tx_id;
+          memcpy( &tx_id, ( const uint32_t * ) zframe_data( tx_id_frame ), zframe_size( tx_id_frame ) );
+          assert( tx_id );
+          // handler should include the same tx_id
+          if ( handler ) {
+            handler->callback( zframe_data( service_frame ) );
+          }
+          // TESTING send next request
+          //send_menu_request( self );
+        }
+      }
     }
   }
 }
@@ -166,9 +180,9 @@ static void
 initialize_emirates( void ) {
   iface = emirates_initialize();
   assert( iface );
-  set_fd_handler( subscriber_notify_in( iface->priv->subscriber ), check_subscriber_notify_in, iface->priv, NULL, NULL );
-  set_fd_handler( responder_notify_in( iface->priv->responder ), check_responder_notify_in, iface->priv, NULL, NULL );
-  set_fd_handler( requester_notify_in( iface->priv->requester ), check_requester_notify_in, iface->priv, NULL, NULL );
+  set_fd_handler( subscriber_notify_in( ( priv( iface ) )->subscriber ), check_subscriber_notify_in, iface->priv, NULL, NULL );
+  set_fd_handler( responder_notify_in( ( priv( iface ) )->responder ), check_responder_notify_in, iface->priv, NULL, NULL );
+  set_fd_handler( requester_notify_in( ( priv( iface ) )->requester ), check_requester_notify_in, iface->priv, NULL, NULL );
 }
 
 
@@ -198,12 +212,12 @@ handle_timer_event( void *user_data ) {
     set_menu_request( iface, request_menu_callback );
     set_menu_reply( iface, reply_menu_callback );
     set_ready( iface );
-    set_readable( responder_notify_in( iface->priv->responder ), true );
-    uint32_t tx_id = send_menu_request( iface->priv );
-    set_readable( requester_notify_in( iface->priv->requester ), true );
+    set_readable( responder_notify_in( ( priv( iface ) )->responder ), true );
+    uint32_t tx_id = send_menu_request( priv( iface ) );
+    set_readable( requester_notify_in( ( priv( iface ) )->requester ), true );
     delete_timer_event( handle_timer_event, NULL );
 
-    set_readable( subscriber_notify_in( iface->priv->subscriber ), true );
+    set_readable( subscriber_notify_in( ( priv( iface ) )->subscriber ), true );
     jedex_schema *schema = jedex_initialize( "" );
     const char *sub_schemas[] = { NULL };
     jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
@@ -213,6 +227,8 @@ handle_timer_event( void *user_data ) {
     set_menu_record_value( val );
     subscribe_service_profile( iface, sub_schemas, service_profile_callback );
     publish_service_profile( iface, parcel );
+#ifdef TEST
+#endif
   }
 }
 

@@ -19,32 +19,6 @@
 #include "emirates.h"
 
 
-#define POLL_DFLT 1
-
-#define poll_recv( socket ) \
-  recv_reply( ( socket ), POLL_DFLT )
-
-#define poll_recv_timeout( socket, timeout ) \
-  recv_reply( ( socket ), ( timeout ) ) 
-
-
-char *
-recv_reply( void *socket, int timeout ) {
-  int rc;
-  char *reply = NULL;
-
-  zmq_pollitem_t poller = { socket, 0, ZMQ_POLLIN, 0 };
-  rc = zmq_poll( &poller, 1, timeout * 1000 );
-  if ( rc ) {
-    if ( poller.revents & ZMQ_POLLIN ) {
-      reply = zstr_recv( socket );
-    }
-  }
-
-  return reply;
-}
-
-
 static int
 wait_for_reply( void *socket ) {
   zmsg_t *msg = zmsg_recv( socket );
@@ -88,6 +62,7 @@ service_request( const char *service, emirates_priv *priv, request_callback *cal
 void
 service_reply( const char *service, emirates_priv *priv, reply_callback *callback ) {
   requester_inc_timeout_id( priv->requester );
+  add_reply_callback( service, callback, priv->requester );
   zmsg_t *msg = zmsg_new();
   zmsg_addstr( msg, ADD_SERVICE_REPLY );
   zmsg_addmem( msg, &requester_timeout_id( priv->requester ), sizeof( requester_timeout_id( priv->requester ) ) );
@@ -109,6 +84,7 @@ send_request( const char *service, emirates_priv *priv ) {
   return requester_timeout_id( priv->requester );
 }
 
+
 void
 send_ready( void *socket ) {
   send_single_msg( socket, READY );
@@ -117,7 +93,7 @@ send_ready( void *socket ) {
 
 void
 set_ready( emirates_iface *iface ) {
-  send_ready( responder_socket( iface->priv->responder ) );
+  send_ready( responder_socket( ( priv( iface ) )->responder ) );
 }
 
 

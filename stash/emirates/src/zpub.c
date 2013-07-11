@@ -72,7 +72,7 @@ start_publishing( publisher_info *self ) {
 
 void
 publish_service_profile( emirates_iface *iface, jedex_parcel *parcel ) {
-  publish_service( "service_profile", iface->priv->publisher, parcel );
+  publish_service( "service_profile", ( priv( iface ) )->publisher, parcel );
 }
 
 
@@ -92,6 +92,12 @@ publisher_thread( void *args, zctx_t *ctx, void *pipe ) {
 
   send_ok_status( publisher_pipe_socket( self ) );
   start_publishing( self );
+}
+
+
+void *
+get_publisher_socket( emirates_priv *priv ) {
+  return publisher_socket( priv->publisher );
 }
 
 

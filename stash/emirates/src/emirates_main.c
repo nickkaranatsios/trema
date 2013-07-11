@@ -65,37 +65,51 @@ check_status( void *socket ) {
 }
 
 
+static void *
+publisher( emirates_iface *iface ) {
+  return get_publisher_socket( priv( iface ) );
+}
+
+
+static void *
+requester( emirates_iface *iface ) {
+  return get_requester_socket( priv( iface ) );
+}
+
 
 emirates_iface *
 emirates_initialize( void ) {
   emirates_iface *iface = ( emirates_iface * ) zmalloc( sizeof( emirates_iface ) );
-  iface->priv = ( emirates_priv * ) zmalloc( sizeof( emirates_priv ) );
+  emirates_priv *priv =  ( emirates_priv * ) zmalloc( sizeof( emirates_priv ) );
+  iface->priv = priv;
 
   zctx_t *ctx;
   ctx = zctx_new();
   if ( ctx == NULL ) {
     return NULL;
   }
-  iface->priv->ctx = ctx;
-  if ( publisher_init( iface->priv ) ) {
+  priv->ctx = ctx;
+  if ( publisher_init( priv ) ) {
     return NULL;
   }
-  if ( subscriber_init( iface->priv ) ) {
+  iface->get_publisher = publisher;
+  if ( subscriber_init( priv ) ) {
     return NULL;
   }
 #ifdef TEST
-  if ( publisher_init( iface->priv ) || subscriber_init( iface->priv ) ||
+  if ( publisher_init( priv ) || subscriber_init( iface->priv ) ||
     responder_init( iface->priv ) || requester_init( iface->priv ) ) {
      return NULL;
   }
 #endif
   srandom( ( uint32_t ) time( NULL ) );
-  if ( responder_init( iface->priv ) ) {
+  if ( responder_init( priv ) ) {
     return NULL;
   }
-  if ( requester_init( iface->priv ) ) {
+  if ( requester_init( priv ) ) {
     return NULL;
   }
+  iface->get_requester = requester;
 
   return iface;
 }
@@ -108,7 +122,7 @@ emirates_finalize( emirates_iface **iface ) {
   if ( *iface ) {
     assert( ( *iface )->priv );
     
-    zctx_destroy( &( *iface )->priv->ctx );
+    zctx_destroy( &( priv( *iface ) )->ctx );
     *iface = NULL;
   }
 }

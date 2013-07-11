@@ -100,18 +100,24 @@ get_client_worker( zlist_t *list ) {
 
 
 int
-add_service_route( zlist_t **list, const service_route *sroute ) {
+add_service_route( zlist_t **list, const service_route *sroute, bool replace ) {
   if ( *list == NULL ) {
     *list = zlist_new();
   }
 
   int rc = 0;
-  service_route *item = lookup_service_route( *list, sroute, false );
+  service_route *item = NULL;
+  bool partial_search;
+  if ( replace ) {
+    partial_search = true;
+    item = lookup_service_route( *list, sroute, partial_search );
+  }
+  else {
+    partial_search = false;
+    item = lookup_service_route( *list, sroute, partial_search );
+  }
   if ( !item ) {
     service_route *new_sroute = ( service_route * ) zmalloc( sizeof( *sroute ) );
-    if ( new_sroute == NULL ) {
-      return ENOMEM;
-    }
     memcpy( new_sroute, sroute, sizeof( *new_sroute ) );
     rc = zlist_append( *list, new_sroute );
   }
@@ -142,7 +148,13 @@ route_add_service_reply( proxy *self,
   sroute.service[ service_frame_size ] = '\0';
   memcpy( &sroute.identity, client_id, zframe_size( client_id_frame ) );
   sroute.identity[ zframe_size( client_id_frame ) ] = '\0';
-  add_service_route( &self->replies, &sroute );
+#ifndef LOAD_BALANCING
+  bool replace = true;
+  add_service_route( &self->replies, &sroute, replace );
+#else 
+  bool replace = false;
+  add_service_route( &self->replies, &sroute, replace );
+#endif
 
   // send a reply back to client_id
   zmsg_remove( msg, service_frame );
@@ -255,7 +267,13 @@ route_add_service_request( proxy *self,
   sroute.service[ service_frame_size ] = '\0';
   memcpy( sroute.identity, worker_id, worker_id_frame_size );
   sroute.identity[ worker_id_frame_size ] = '\0';
-  add_service_route( &self->requests, &sroute );
+#ifndef LOAD_BALANCING
+  bool replace = true;
+  add_service_route( &self->requests, &sroute, replace );
+#else
+  bool replace = false;
+  add_service_route( &self->requests, &sroute, replace );
+#endif
   zmsg_remove( msg, service_frame );
   zmsg_send( &msg, self->backend );
 }

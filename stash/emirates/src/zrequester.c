@@ -209,6 +209,7 @@ get_requester_socket( emirates_priv *priv ) {
 int
 requester_init( emirates_priv *priv ) {
   priv->requester = ( requester_info * ) zmalloc( sizeof( requester_info ) );
+  memset( priv->requester, 0, sizeof( requester_info ) );
   requester_port( priv->requester ) = REQUESTER_BASE_PORT;
   requester_socket( priv->requester ) = zthread_fork( priv->ctx, requester_thread, priv->requester );
   requester_callbacks( priv->requester ) = zlist_new();
@@ -217,13 +218,27 @@ requester_init( emirates_priv *priv ) {
     return EINVAL;
   }
   if ( check_status( requester_socket( priv->requester ) ) ) {
-    zctx_destroy( &priv->ctx );
     return EINVAL;
   }
 
   return 0;
 }
 
+
+void
+requester_finalize( emirates_priv **priv ) {
+  emirates_priv *priv_p = *priv;
+  if ( priv_p->requester ) {
+    requester_info *self = priv_p->requester;
+    zlist_destroy( &requester_callbacks( self ) );
+    free( requester_id( self ) );
+    close( requester_notify_in( self ) );
+    close( requester_notify_out( self ) );
+    free( priv_p->requester );
+    priv_p->requester = NULL;
+  }
+}
+  
 
 /*
  * Local variables:

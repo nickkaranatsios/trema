@@ -184,7 +184,21 @@ set_meat( jedex_value *val ) {
 
 
 static void
-get_meat( jedex_value *val ) {
+set_fruits( jedex_value *val ) {
+  jedex_value field;
+  size_t index;
+
+  jedex_value_get_by_name( val, "name", &field, &index );
+  assert( index == 0 );
+  jedex_value_set_string( &field, "mango" );
+  jedex_value_get_by_name( val, "price", &field, &index );
+  assert( index == 1 );
+  jedex_value_set_float( &field, 2.40 );
+}
+
+
+static void
+print_groceries( jedex_value *val ) {
   jedex_value field;
   size_t index;
   
@@ -199,6 +213,18 @@ get_meat( jedex_value *val ) {
   float price;
   jedex_value_get_float( &field, &price );
   printf( "price %10.2f\n", price );
+}
+
+
+static void
+get_meat( jedex_value *val ) {
+  print_groceries( val );
+}
+
+
+static void
+get_fruits( jedex_value *val ) {
+  print_groceries( val );
 }
 
 
@@ -362,6 +388,9 @@ main( int argc, char **argv ) {
     "ref_to_another",
     "groceries",
     "menu_array",
+    "menu_record",
+    "groceries_fruits",
+    "groceries_fruits_meat",
     NULL
   };
   
@@ -386,7 +415,7 @@ main( int argc, char **argv ) {
       jedex_value_to_json( val, 1, &json );
       printf( "json: %s\n", json );
 
-      jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
+      jedex_value *ret_val = json_to_jedex_value( schema, json );
 
       get_simple_map_double( ret_val );
     }
@@ -407,7 +436,7 @@ main( int argc, char **argv ) {
       jedex_value_to_json( val, 1, &json );
       printf( "json: %s\n", json );
 
-      jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
+      jedex_value *ret_val = json_to_jedex_value( schema, json );
 
       get_simple_array( ret_val );
     }
@@ -428,7 +457,7 @@ main( int argc, char **argv ) {
       jedex_value_to_json( val, 1, &json );
       printf( "json: %s\n", json );
 
-      jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
+      jedex_value *ret_val = json_to_jedex_value( schema, json );
 
       get_ref_to_another( ret_val );
     }
@@ -450,7 +479,7 @@ main( int argc, char **argv ) {
       jedex_value_to_json( val, 1, &json );
       printf( "json: %s\n", json );
 
-      jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
+      jedex_value *ret_val = json_to_jedex_value( schema, json );
 
       get_union_vegetables( ret_val );
       get_union_meat( ret_val );
@@ -472,7 +501,7 @@ main( int argc, char **argv ) {
       jedex_value_to_json( val, 1, &json );
       printf( "json: %s\n", json );
 
-      jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
+      jedex_value *ret_val = json_to_jedex_value( schema, json );
 
       get_menu_union_value( ret_val );
     }
@@ -493,9 +522,69 @@ main( int argc, char **argv ) {
       jedex_value_to_json( val, 1, &json );
       printf( "json: %s\n", json );
 
-      jedex_value *ret_val = json_to_jedex_value( schema, sub_schemas, json );
+      jedex_value *ret_val = json_to_jedex_value( schema, json );
 
       get_menu_record_value( ret_val );
+    }
+    else if ( !strcmp( test_schema, "groceries_fruits" ) ) {
+      jedex_schema *schema = jedex_initialize( "schema/groceries" );
+      assert( schema );
+
+      const char *sub_schemas[] = { "fruits", NULL };
+      jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
+      assert( parcel );
+
+      jedex_value *val = jedex_parcel_value( parcel, "fruits" );
+      assert( val );
+
+      set_fruits( val );
+
+      char *json;
+      jedex_value_to_json( val, 1, &json );
+      printf( "json: %s\n", json );
+
+      jedex_schema *sub_schema = jedex_schema_get_subschema( schema, sub_schemas[ 0 ] );
+      jedex_value *ret_val = json_to_jedex_value( sub_schema, json );
+      assert( ret_val );
+
+      get_fruits( ret_val );
+    }
+    else if ( !strcmp( test_schema, "groceries_fruits_meat" ) ) {
+      jedex_schema *schema = jedex_initialize( "schema/groceries" );
+      assert( schema );
+
+      const char *sub_schemas[] = { "fruits", "meat", NULL };
+      jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
+      assert( parcel );
+
+      jedex_value *val = jedex_parcel_value( parcel, sub_schemas[ 0 ] );
+      assert( val );
+
+      set_fruits( val );
+
+      char *json;
+      jedex_value_to_json( val, 1, &json );
+      printf( "json: %s\n", json );
+
+      jedex_schema *sub_schema = jedex_schema_get_subschema( schema, sub_schemas[ 0 ] );
+      jedex_value *ret_val = json_to_jedex_value( sub_schema, json );
+      assert( ret_val );
+
+      get_fruits( ret_val );
+
+      val = jedex_parcel_value( parcel, sub_schemas[ 1 ] );
+      assert( val );
+
+      set_meat( val );
+
+      jedex_value_to_json( val, 1, &json );
+      printf( "json: %s\n", json );
+
+      sub_schema = jedex_schema_get_subschema( schema, sub_schemas[ 1 ] );
+      ret_val = json_to_jedex_value( sub_schema, json );
+      assert( ret_val );
+
+      get_meat( ret_val );
     }
   }
    

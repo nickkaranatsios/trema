@@ -42,7 +42,8 @@ poll_subscriber( emirates_iface *iface ) {
   int rc = zmq_poll( &poller, 1, 0 ); 
   if ( rc == 1 ) {
     poller.socket = subscriber_socket( ( priv( iface ) )->subscriber );
-    ( priv( iface ) )->sub_handler( &poller, ( priv( iface ) )->subscriber );
+    emirates_priv *priv = priv( iface );
+    subscriber_handler( priv->subscriber )( &poller, ( priv->subscriber ) );
   }
 
   return rc;
@@ -93,6 +94,7 @@ main( int argc, char **argv ) {
       }
       if ( i++ == 5 ) {
         publish_service_profile( iface, parcel );
+        emirates_finalize( &iface );
       }
       zclock_sleep( 1 * 1000 );
     }

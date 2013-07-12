@@ -163,6 +163,7 @@ responder_thread( void *args, zctx_t *ctx, void *pipe ) {
 int
 responder_init( emirates_priv *priv ) {
   priv->responder = ( responder_info * ) zmalloc( sizeof( responder_info ) );
+  memset( priv->responder, 0, sizeof( responder_info ) );
   responder_port( priv->responder ) = RESPONDER_BASE_PORT;
   responder_socket( priv->responder ) = zthread_fork( priv->ctx, responder_thread, priv->responder );
   create_notify( priv->responder );
@@ -175,6 +176,20 @@ responder_init( emirates_priv *priv ) {
   }
 
   return 0;
+}
+
+
+void
+responder_finalize( emirates_priv **priv ) {
+  emirates_priv *priv_p = *priv;
+  if ( priv_p->responder ) {
+    responder_info *self = priv_p->responder;
+    free( responder_id( self ) );
+    close( responder_notify_in( self ) );
+    close( responder_notify_out( self ) );
+    free( priv_p->responder );
+    priv_p->responder = NULL;
+  }
 }
 
 

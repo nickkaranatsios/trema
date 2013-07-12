@@ -104,6 +104,7 @@ get_publisher_socket( emirates_priv *priv ) {
 int
 publisher_init( emirates_priv *priv ) {
   priv->publisher = ( publisher_info * ) zmalloc( sizeof( publisher_info ) );
+  memset( priv->publisher, 0, sizeof( publisher_info ) );
   publisher_port( priv->publisher ) = PUB_BASE_PORT;
 
   publisher_socket( priv->publisher ) = zthread_fork( priv->ctx, publisher_thread, priv->publisher );
@@ -116,6 +117,16 @@ publisher_init( emirates_priv *priv ) {
 }
 
 
+void
+publisher_finalize( emirates_priv **priv ) {
+  emirates_priv *priv_p = *priv;
+  if ( priv_p->publisher ) {
+    free( priv_p->publisher );
+    priv_p->publisher = NULL;
+  }
+}
+
+ 
 /*
  * Local variables:
  * c-basic-offset: 2

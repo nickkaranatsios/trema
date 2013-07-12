@@ -81,6 +81,7 @@ emirates_iface *
 emirates_initialize( void ) {
   emirates_iface *iface = ( emirates_iface * ) zmalloc( sizeof( emirates_iface ) );
   emirates_priv *priv =  ( emirates_priv * ) zmalloc( sizeof( emirates_priv ) );
+  memset( priv, 0, sizeof( emirates_priv ) );
   iface->priv = priv;
 
   zctx_t *ctx;
@@ -96,12 +97,6 @@ emirates_initialize( void ) {
   if ( subscriber_init( priv ) ) {
     return NULL;
   }
-#ifdef TEST
-  if ( publisher_init( priv ) || subscriber_init( iface->priv ) ||
-    responder_init( iface->priv ) || requester_init( iface->priv ) ) {
-     return NULL;
-  }
-#endif
   srandom( ( uint32_t ) time( NULL ) );
   if ( responder_init( priv ) ) {
     return NULL;
@@ -123,11 +118,14 @@ emirates_finalize( emirates_iface **iface ) {
     assert( ( *iface )->priv );
     
     zctx_destroy( &( priv( *iface ) )->ctx );
+    emirates_priv *priv = priv( *iface );
+    requester_finalize( &priv );
+    responder_finalize( &priv );
+    publisher_finalize( &priv );
+    subscriber_finalize( &priv );
     *iface = NULL;
   }
 }
-
-
 
 
 static char *

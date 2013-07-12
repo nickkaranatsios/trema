@@ -80,6 +80,18 @@ extern "C" {
   } while ( 0 )
 
 
+#define free_array( array ) \
+  do { \
+    int i = 0; \
+    while ( *( array + i ) ) { \
+      void *ptr = *( array + i ); \
+      free( ptr ); \
+      i++; \
+    } \
+    free( array ); \
+  } while ( 0 )
+   
+
 
 typedef void ( subscriber_callback )( void *args );
 typedef void ( request_callback )( void *args );
@@ -90,8 +102,7 @@ typedef int ( poll_handler )( zmq_pollitem_t *item, void *arg );
 typedef struct sub_callback {
   subscriber_callback *callback;
   const char *service;
-  const char **sub_schema_names;
-  void *schema;
+  void **schemas;
 } sub_callback;
 
 
@@ -149,6 +160,7 @@ typedef struct publisher_info {
 
 
 typedef struct subscriber_info {
+  poll_handler *handler;
   zlist_t *callbacks; // a list of user subscription callbacks map to service name
   void *pipe; // subscriber's child thread to main thread i/o socket
   void *output; // subscriber's zmq output socket
@@ -161,9 +173,6 @@ typedef struct subscriber_info {
 
 typedef struct emirates_priv {
   zctx_t *ctx;
-  poll_handler *sub_handler;
-  zlist_t *req_callbacks;
-  zlist_t *rep_callbacks;
   requester_info *requester; 
   responder_info *responder;
   publisher_info *publisher;
@@ -212,6 +221,7 @@ typedef struct emirates_priv {
 #define subscriber_callbacks( self ) ( ( self )->callbacks )
 #define subscriber_notify_in( self ) ( ( self )->notify_in )
 #define subscriber_notify_out( self ) ( ( self )->notify_out )
+#define subscriber_handler( self ) ( ( self )->handler )
 
 #define notify_in( fd, user_data, info_type ) \
   do { \
@@ -231,10 +241,15 @@ typedef struct emirates_priv {
 #define notify_in_subscriber( fd, user_data ) \
   notify_in( ( fd ), ( user_data ), subscriber )
 
-int publisher_init( emirates_priv *iface );
-int subscriber_init( emirates_priv *iface );
-int requester_init( emirates_priv *iface );
-int responder_init( emirates_priv *iface );
+int publisher_init( emirates_priv *priv );
+int subscriber_init( emirates_priv *priv );
+int requester_init( emirates_priv *priv );
+int responder_init( emirates_priv *priv );
+void publisher_finalize( emirates_priv **priv );
+void subscriber_finalize( emirates_priv **priv );
+void requester_finalize( emirates_priv **priv );
+void responder_finalize( emirates_priv **priv );
+
 int check_status( void *socket );
 void send_ok_status( void *socket );
 void send_ng_status( void *socket );

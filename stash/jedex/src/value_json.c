@@ -702,7 +702,7 @@ jedex_decode_json( const char *json ) {
 
 
 jedex_value *
-json_to_jedex_value( void *schema, const char **sub_schema_names, const char *json ) {
+json_to_jedex_value( void *schema, const char *json ) {
   assert( json );
 
   json_t *root;

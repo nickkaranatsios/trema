@@ -25,6 +25,7 @@
 
 static emirates_iface *iface;
 
+
 static void
 request_menu_callback( void *args ) {
 }
@@ -41,7 +42,7 @@ poll_subscriber( emirates_priv *priv ) {
   int rc = zmq_poll( &poller, 1, 10 ); 
   if ( ( rc == 1 ) && ( poller.revents & ZMQ_POLLIN ) ) {
     printf( "poll subscriber\n" );
-    priv->sub_handler( &poller, priv->subscriber );
+    subscriber_handler( priv->subscriber )( &poller, priv->subscriber );
   }
 
   return rc;

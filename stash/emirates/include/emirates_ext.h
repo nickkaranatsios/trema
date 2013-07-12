@@ -35,11 +35,11 @@ extern "C" {
 typedef struct emirates_iface emirates_iface;
 
 
-typedef struct emirates_iface {
+struct emirates_iface {
   void *priv;
   void *( *get_publisher ) ( emirates_iface * );
   void *( *get_requester ) ( emirates_iface * );
-} emirates_iface;
+};
 
 
 emirates_iface *emirates_initialize( void );

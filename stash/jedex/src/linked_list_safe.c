@@ -32,7 +32,11 @@ create_list_safe() {
 
   pthread_mutexattr_t attr;
   pthread_mutexattr_init( &attr );
+#ifdef __linux__
   pthread_mutexattr_settype( &attr, PTHREAD_MUTEX_RECURSIVE_NP );
+#elif __APPLE__ && __MACH__
+  pthread_mutexattr_settype( &attr, PTHREAD_MUTEX_RECURSIVE );
+#endif
   pthread_mutex_init( &new_list->mutex, &attr );
 
   return new_list;

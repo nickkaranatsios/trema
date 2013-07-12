@@ -380,6 +380,7 @@ get_simple_map_double( jedex_value *val ) {
 }
 
 
+
 int
 main( int argc, char **argv ) {
   const char *test_schemas[] =  { 
@@ -418,6 +419,8 @@ main( int argc, char **argv ) {
       jedex_value *ret_val = json_to_jedex_value( schema, json );
 
       get_simple_map_double( ret_val );
+
+      jedex_finalize( &schema );
     }
     if ( !strcmp( test_schema, "simple_array" ) ) {
       jedex_schema *schema = jedex_initialize( "schema/simple_array" );
@@ -439,6 +442,8 @@ main( int argc, char **argv ) {
       jedex_value *ret_val = json_to_jedex_value( schema, json );
 
       get_simple_array( ret_val );
+
+      jedex_finalize( &schema );
     }
     else if ( !strcmp( test_schema, "ref_to_another" ) ) {
       jedex_schema *schema = jedex_initialize( "schema/ref_to_another" );
@@ -460,6 +465,8 @@ main( int argc, char **argv ) {
       jedex_value *ret_val = json_to_jedex_value( schema, json );
 
       get_ref_to_another( ret_val );
+
+      jedex_finalize( &schema );
     }
     else if ( !strcmp( test_schema, "groceries" ) ) {
       jedex_schema *schema = jedex_initialize( "schema/groceries" );
@@ -483,6 +490,8 @@ main( int argc, char **argv ) {
 
       get_union_vegetables( ret_val );
       get_union_meat( ret_val );
+
+      jedex_finalize( &schema );
     }
     else if ( !strcmp( test_schema, "menu_array" ) ) {
       jedex_schema *schema = jedex_initialize( "schema/menu_array" );
@@ -525,6 +534,8 @@ main( int argc, char **argv ) {
       jedex_value *ret_val = json_to_jedex_value( schema, json );
 
       get_menu_record_value( ret_val );
+
+      jedex_finalize( &schema );
     }
     else if ( !strcmp( test_schema, "groceries_fruits" ) ) {
       jedex_schema *schema = jedex_initialize( "schema/groceries" );
@@ -548,6 +559,8 @@ main( int argc, char **argv ) {
       assert( ret_val );
 
       get_fruits( ret_val );
+
+      jedex_finalize( &schema );
     }
     else if ( !strcmp( test_schema, "groceries_fruits_meat" ) ) {
       jedex_schema *schema = jedex_initialize( "schema/groceries" );
@@ -585,6 +598,8 @@ main( int argc, char **argv ) {
       assert( ret_val );
 
       get_meat( ret_val );
+
+      jedex_finalize( &schema );
     }
   }
    

@@ -140,8 +140,8 @@ requester_thread( void *args, zctx_t *ctx, void *pipe ) {
 
   requester_zmq_socket( self ) = zsocket_new( ctx, ZMQ_REQ );
 
-  requester_id( self ) = ( char * ) zmalloc( sizeof( char ) * REQUESTER_ID_SIZE );
-  snprintf( requester_id( self ), REQUESTER_ID_SIZE, "%lld", zclock_time() );
+  requester_id( self ) = ( char * ) zmalloc( sizeof( char ) * IDENTITY_MAX );
+  snprintf( requester_id( self ), IDENTITY_MAX, "%lld", zclock_time() );
   zsocket_set_identity( requester_zmq_socket( self ), requester_id( self ) );
 
   int rc = zsocket_connect( requester_zmq_socket( self ), "tcp://localhost:%zu", port );

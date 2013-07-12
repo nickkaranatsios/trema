@@ -97,20 +97,60 @@ jedex_schema_type_name( const jedex_schema *schema ) {
 
 
 static void
-jedex_schema_record_free( struct jedex_record_schema *record ) {
-  if ( record->name ) {
-    jedex_free( record->name );
+jedex_schema_map_free( jedex_schema *schema ) {
+  struct jedex_map_schema *mschema = jedex_schema_to_map( schema );
+
+  if ( mschema ) {
+    free( mschema->values );
+    free( mschema );
   }
-  if ( record->space ) {
-    jedex_free( record->space );
+}
+
+
+static void
+jedex_schema_array_free( jedex_schema *schema ) {
+  struct jedex_array_schema *aschema = jedex_schema_to_array( schema );
+
+  if ( aschema ) {
+    free( aschema->items );
+    free( aschema );
   }
-  if ( record->fields ) {
-     st_free_table( record->fields );
+}
+
+
+static void
+jedex_schema_union_free( jedex_schema *schema ) {
+  struct jedex_union_schema *uschema = jedex_schema_to_union( schema );
+
+  if ( uschema ) {
+    if ( uschema->branches ) {
+      st_free_table( uschema->branches );
+    }
+    if ( uschema->branches_byname ) {
+      st_free_table( uschema->branches_byname );
+    }
+    free( uschema );
   }
-  if ( record->fields_byname ) {
-    st_free_table( record->fields_byname );
+}
+
+
+static void
+jedex_schema_record_free( jedex_schema *schema ) {
+  struct jedex_record_schema *rschema = jedex_schema_to_record( schema );
+
+  if ( rschema->name ) {
+    jedex_free( rschema->name );
   }
-  jedex_free( record );
+  if ( rschema->space ) {
+    jedex_free( rschema->space );
+  }
+  if ( rschema->fields ) {
+     st_free_table( rschema->fields );
+  }
+  if ( rschema->fields_byname ) {
+    st_free_table( rschema->fields_byname );
+  }
+  jedex_free( rschema );
 }
 
 
@@ -132,14 +172,14 @@ jedex_schema_record( const char *name, const char *space ) {
   record->fields = st_init_numtable_with_size( DEFAULT_TABLE_SIZE );
   if ( !record->fields ) {
     log_err( "Can not allocate memory for new record schema" );
-    jedex_schema_record_free( record );
+    jedex_schema_record_free( &record->obj );
     return NULL;
   }
 
   record->fields_byname = st_init_strtable_with_size( DEFAULT_TABLE_SIZE );
   if ( !record->fields_byname ) {
     log_err( "Can not allocate memory for new record schema" );
-    jedex_schema_record_free( record );
+    jedex_schema_record_free( &record->obj );
     return NULL;
   }
   jedex_schema_init( &record->obj, JEDEX_RECORD );
@@ -526,6 +566,7 @@ jedex_schema_union_append( const jedex_schema *union_schema, const jedex_schema 
   return 0;
 }
 
+
 static int
 save_named_schemas( const char *name, jedex_schema *schema, st_table *st ) {
   return st_insert( st, ( st_data_t ) name, ( st_data_t ) schema );
@@ -580,8 +621,8 @@ jedex_schema_get_subschema( const jedex_schema *schema, const char *name ) {
     if ( st_lookup( rschema->fields_byname, ( st_data_t ) name, &field.data ) ) {
       return field.field->type;
     }
-
     log_err( "No record field named %s", name );
+
     return NULL;
   }
   else if ( is_jedex_union( schema ) ) {
@@ -598,8 +639,8 @@ jedex_schema_get_subschema( const jedex_schema *schema, const char *name ) {
         return val.schema;
       }
     }
-
     log_err( "No union branch named %s", name );
+
     return NULL;
   }
   else if ( is_jedex_array( schema ) ) {
@@ -616,12 +657,12 @@ jedex_schema_get_subschema( const jedex_schema *schema, const char *name ) {
       const struct jedex_map_schema *mschema = jedex_schema_to_map( schema );
       return mschema->values;
     }
-
     log_err( "Map subschema must be called \"{}\"" );
+
     return NULL;
   }
-
   log_err( "Can only retrieve subschemas from record, union, array, or map" );
+
   return NULL;
 }
 
@@ -875,6 +916,26 @@ jedex_schema_from_json_length( const char *jsontext, size_t length, jedex_schema
     return EINVAL;
   }
   return jedex_schema_from_json_root( root, schema );
+}
+
+
+void
+jedex_schema_free( jedex_schema *schema ) {
+  if ( is_jedex_map( schema ) ) {
+    jedex_schema_map_free( schema );
+  }
+  else if ( is_jedex_array( schema ) ) {
+    jedex_schema_array_free( schema );
+  }
+  else if ( is_jedex_union( schema ) ) {
+    jedex_schema_union_free( schema );
+  }
+  else if ( is_jedex_record( schema ) ) {
+    jedex_schema_record_free( schema );
+  }
+  else {
+    free( schema );
+  }
 }
 
 

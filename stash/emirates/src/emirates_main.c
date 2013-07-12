@@ -89,6 +89,7 @@ emirates_initialize( void ) {
   if ( ctx == NULL ) {
     return NULL;
   }
+  srandom( ( uint32_t ) time( NULL ) );
   priv->ctx = ctx;
   if ( publisher_init( priv ) ) {
     return NULL;
@@ -97,7 +98,6 @@ emirates_initialize( void ) {
   if ( subscriber_init( priv ) ) {
     return NULL;
   }
-  srandom( ( uint32_t ) time( NULL ) );
   if ( responder_init( priv ) ) {
     return NULL;
   }

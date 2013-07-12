@@ -238,9 +238,6 @@ int
 main( int argc, char **argv ) {
   char *uuidstr = generate_uuid();
   assert( uuidstr );
-  int major, minor, patch;
-  zmq_version( &major, &minor, &patch );
-  printf ("Current 0MQ version is %d.%d.%d\n", major, minor, patch);
   init_trema( &argc, &argv );
   set_external_callback( initialize_emirates );
 

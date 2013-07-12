@@ -81,6 +81,8 @@ struct jedex_link_schema {
 #define jedex_schema_to_union( schema_ ) ( container_of( schema_, struct jedex_union_schema, obj ) )
 #define jedex_schema_to_link( schema_ ) ( container_of( schema_, struct jedex_link_schema, obj ) )
 
+void jedex_schema_free( jedex_schema *schema );
+
 
 CLOSE_EXTERN
 #endif // SCHEMA_PRIV_H

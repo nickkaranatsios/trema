@@ -35,6 +35,7 @@ extern "C" {
 
 
 jedex_schema *jedex_initialize( const char *schema_name );
+void jedex_finalize( jedex_schema **schema );
 
 
 CLOSE_EXTERN

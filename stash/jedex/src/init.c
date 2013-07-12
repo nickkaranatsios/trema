@@ -200,6 +200,15 @@ jedex_initialize( const char *schema_name ) {
 }
 
 
+void
+jedex_finalize( jedex_schema **schema ) {
+  if ( *schema != NULL ) {
+    jedex_schema_free( *schema );
+    *schema = NULL;
+  }
+}
+
+
 /*
  * Local variables:
  * c-basic-offset: 2

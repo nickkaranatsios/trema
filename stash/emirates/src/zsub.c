@@ -108,7 +108,6 @@ subscriber_input( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
   subscriber_info *self = arg;
 
   zmsg_t *msg = one_or_more_msg( poller->socket );
-  size_t nr_frames = zmsg_size( msg );
 
   int rc = zmsg_send( &msg, subscriber_pipe_socket( self ) );
   if ( !rc ) {
@@ -128,8 +127,6 @@ subscriber_output( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
   subscriber_info *self = arg;
 
   zmsg_t *msg = one_or_more_msg( poller->socket );
-  size_t nr_frames = zmsg_size( msg );
-
   int rc = 0;
 
   zframe_t *msg_type_frame = zmsg_first( msg );

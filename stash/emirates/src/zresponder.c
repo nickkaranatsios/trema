@@ -76,7 +76,6 @@ responder_input( responder_info *self ) {
   zmsg_t *msg = one_or_more_msg( responder_zmq_socket( self ) );
 
   size_t nr_frames = zmsg_size( msg );
-  size_t frame_size;
   printf( "responder <== %zu\n", nr_frames );
   if ( nr_frames == 1 ) {
     zframe_t *msg_type_frame = zmsg_first( msg );

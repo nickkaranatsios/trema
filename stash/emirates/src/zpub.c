@@ -47,7 +47,6 @@ publish_output( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
   size_t nr_frames = zmsg_size( msg );
   assert( nr_frames == 2 );
 
-  zframe_t *service_frame = zmsg_first( msg );
   zframe_t *service_data = zmsg_next( msg );
   if ( service_data != NULL ) {
     zmsg_send( &msg, publisher_zmq_socket( self ) );

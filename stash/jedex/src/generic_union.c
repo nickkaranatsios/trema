@@ -136,8 +136,8 @@ jedex_generic_union_get_branch( const jedex_value_iface *viface,
     return EINVAL;
   }
 
-  self->discriminant = index;
-  self->selected_branches[ index ] = index;
+  self->discriminant = ( int ) index;
+  self->selected_branches[ index ] = ( int ) index;
   branch->iface = &iface->branch_ifaces[ index ]->parent;
   branch->self = jedex_generic_union_branch( iface, self, index );
 
@@ -274,7 +274,7 @@ jedex_generic_union_class( jedex_schema *schema, memoize_state *state )
   size_t next_offset = sizeof( jedex_generic_union );
   size_t i;
   for ( i = 0; i < iface->branch_count; i++ ) {
-    jedex_schema *branch_schema = jedex_schema_union_branch( schema, i );
+    jedex_schema *branch_schema = jedex_schema_union_branch( schema, ( int ) i );
 
     iface->branch_ifaces[ i ] = jedex_generic_class_from_schema_memoized( branch_schema, state );
     if ( iface->branch_ifaces[ i ] == NULL) {

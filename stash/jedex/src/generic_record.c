@@ -94,7 +94,7 @@ jedex_generic_record_get_by_index( const jedex_value_iface *viface,
    */
   if ( name != NULL ) {
     jedex_schema *schema = iface->schema;
-    *name = jedex_schema_record_field_name( schema, index );
+    *name = jedex_schema_record_field_name( schema, ( int ) index );
   }
 
   return 0;
@@ -225,7 +225,7 @@ jedex_generic_record_class( jedex_schema *schema, memoize_state *state ) {
   size_t next_offset = sizeof( jedex_generic_record );
   size_t i;
   for ( i = 0; i < iface->field_count; i++ ) {
-    jedex_schema *field_schema = jedex_schema_record_field_get_by_index( schema, i );
+    jedex_schema *field_schema = jedex_schema_record_field_get_by_index( schema, ( int ) i );
 
     iface->field_offsets[ i ] = next_offset;
 

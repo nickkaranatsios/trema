@@ -38,7 +38,7 @@ jedex_memoize_key_cmp( jedex_memoize_key *a, jedex_memoize_key *b ) {
 
 static int
 jedex_memoize_key_hash( jedex_memoize_key *a ) {
-  return ( ( uintptr_t ) a->key1 ) ^ ( ( uintptr_t ) a->key2 );
+  return ( int ) ( ( ( uintptr_t ) a->key1 ) ^ ( ( uintptr_t ) a->key2 ) );
 }
 
 

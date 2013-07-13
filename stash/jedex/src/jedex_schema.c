@@ -708,7 +708,7 @@ jedex_schema_from_json_t( json_t *json, jedex_schema **schema, st_table *named_s
       json_t *json_name = json_object_get( json, "name" );
       json_t *json_namespace = json_object_get( json, "namespace" );
       json_t *json_fields = json_object_get( json, "fields" );
-      uint32_t num_fields;
+      size_t num_fields;
       const char *record_name;
       const char *record_namespace;
     
@@ -752,7 +752,6 @@ jedex_schema_from_json_t( json_t *json, jedex_schema **schema, st_table *named_s
         json_t *json_field = json_array_get( json_fields, i );
         json_t *json_field_name;
         json_t *json_field_type;
-        jedex_schema json_field_type_name;
         int field_rval;
         
         if ( !json_is_object( json_field ) ) {
@@ -828,7 +827,7 @@ jedex_schema_from_json_t( json_t *json, jedex_schema **schema, st_table *named_s
     }
     break;
     case JEDEX_UNION: {
-      uint32_t num_schemas = json_array_size( json );
+      size_t num_schemas = json_array_size( json );
       if ( num_schemas == 0 ) {
         log_err( "Union type must have at least one branch" );
         return EINVAL;

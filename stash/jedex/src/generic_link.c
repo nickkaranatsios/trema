@@ -374,7 +374,6 @@ jedex_generic_link_done( const jedex_value_iface *iface, void *vself ) {
 
   jedex_value *self = ( jedex_value * ) vself;
   jedex_generic_value_iface *target_giface = container_of( self->iface, jedex_generic_value_iface, parent );
-  size_t target_instance_size = jedex_value_instance_size( target_giface );
   jedex_value_done( target_giface, self->self );
   jedex_free( self->self );
   self->iface = NULL;

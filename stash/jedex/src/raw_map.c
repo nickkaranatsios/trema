@@ -89,7 +89,7 @@ int
 jedex_raw_map_get_or_create( jedex_raw_map *map, const char *key, void **element, size_t *index ) {
   st_data_t data;
   void *el;
-  uint32_t i;
+  size_t i;
   int is_new;
 
   if ( st_lookup( ( st_table * ) map->indices_by_key, ( st_data_t) key, &data ) ) {

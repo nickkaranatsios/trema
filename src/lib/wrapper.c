@@ -18,7 +18,11 @@
  */
 
 
+#ifdef __linux__
 #include <linux/limits.h>
+#elif __APPLE__ && __MACH__
+#include <limits.h>
+#endif
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>

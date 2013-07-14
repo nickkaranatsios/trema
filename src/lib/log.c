@@ -20,7 +20,11 @@
 
 #include <assert.h>
 #include <ctype.h>
+#ifdef __linux__
 #include <linux/limits.h>
+#elif __APPLE__ && __MACH__
+#include <limits.h>
+#endif
 #include <pthread.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -41,7 +45,12 @@ typedef struct {
 static FILE *fd = NULL;
 static logging_level level = -1;
 static bool daemonized = false;
+#ifdef __linux__
 static pthread_mutex_t mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
+#elif __APPLE__ && __MACH__
+static pthread_mutex_t mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
+#endif
+
 
 
 static priority priorities[][ 3 ] = {

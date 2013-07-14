@@ -24,7 +24,11 @@
 #define TCP_H
 
 
+#ifdef __linux__
 #include <endian.h>
+#elif __APPLE__ && __MACH__
+#include <architecture/byte_order.h>
+#endif
 
 
 typedef struct tcp_header {

@@ -61,7 +61,11 @@ void mock_error( const char *format, ... );
 #endif // UNIT_TESTING
 
 static hash_table *stats = NULL;
+#ifdef __linux__
 static pthread_mutex_t stats_table_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
+#elif __APPLE__ && __MACH__
+static pthread_mutex_t stats_table_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
+#endif
 
 
 typedef struct {

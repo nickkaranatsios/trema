@@ -23,8 +23,13 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#ifdef __linux__
 #include <linux/limits.h>
 #include <linux/sockios.h>
+#elif __APPLE__ && __MACH__
+#include <limits.h>
+#include <sys/filio.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
@@ -39,7 +44,7 @@
 #include "messenger.h"
 #include "timer.h"
 #include "wrapper.h"
-
+#include <time.h>
 
 #ifdef UNIT_TESTING
 
@@ -806,7 +811,11 @@ send_queue_connect( send_queue *sq ) {
 
   if ( geteuid() == 0 ) {
     int wmem_size = 1048576;
+#ifdef __linux__
     int ret = setsockopt( sq->server_socket, SOL_SOCKET, SO_SNDBUFFORCE, ( const void * ) &wmem_size, ( socklen_t ) sizeof( wmem_size ) );
+#elif __APPLE__ && __MACH__
+    int ret = setsockopt( sq->server_socket, SOL_SOCKET, SO_SNDBUF, ( const void * ) &wmem_size, ( socklen_t ) sizeof( wmem_size ) );
+#endif
     if ( ret < 0 ) {
       error( "Failed to set SO_SNDBUFFORCE to %d ( %s [%d] ).", wmem_size, strerror( errno ), errno );
       close( sq->server_socket );
@@ -1236,7 +1245,11 @@ on_accept( int fd, void *data ) {
 
   if ( geteuid() == 0 ) {
     int rmem_size = 1048576;
+#ifdef __linux__
     int ret = setsockopt( client_fd, SOL_SOCKET, SO_RCVBUFFORCE, ( const void * ) &rmem_size, ( socklen_t ) sizeof( rmem_size ) );
+#elif __APPLE__ && __MACH__
+    int ret = setsockopt( client_fd, SOL_SOCKET, SO_RCVBUF, ( const void * ) &rmem_size, ( socklen_t ) sizeof( rmem_size ) );
+#endif
     if ( ret < 0 ) {
       error( "Failed to set SO_RCVBUFFORCE to %d ( %s [%d] ).", rmem_size, strerror( errno ), errno );
       close( client_fd );
@@ -1502,7 +1515,11 @@ get_send_data( send_queue *sq, size_t offset ) {
   uint32_t bucket_size = messenger_bucket_size;
   if ( sq->socket_buffer_size != 0 ) {
     int used;
+#ifdef __linux__
     if ( ioctl( sq->server_socket, SIOCOUTQ, &used ) == 0 ) {
+#elif __APPLE__ && __MACH__
+    if ( ioctl( sq->server_socket, TIOCOUTQ, &used ) == 0 ) {
+#endif
       if ( used < sq->socket_buffer_size ) {
         bucket_size = ( uint32_t ) ( sq->socket_buffer_size - used ) << 1;
 	if ( bucket_size > messenger_bucket_size ) {

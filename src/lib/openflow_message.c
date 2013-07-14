@@ -74,10 +74,18 @@ extern void mock_debug( const char *format, ... );
 
 
 static uint32_t transaction_id = 0;
+#ifdef __linux__
 static pthread_mutex_t transaction_id_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
+#elif __APPLE__ && __MACH__
+static pthread_mutex_t transaction_id_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
+#endif
 
 static uint64_t cookie = 0;
+#ifdef __linux__
 static pthread_mutex_t cookie_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
+#elif __APPLE__ && __MACH__
+static pthread_mutex_t cookie_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
+#endif
 
 
 bool

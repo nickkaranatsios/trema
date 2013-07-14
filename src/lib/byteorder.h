@@ -24,8 +24,12 @@
 #define BYTEORDER_H
 
 
+#ifdef __linux__
 #include <endian.h>
 #include <byteswap.h>
+#elif __APPLE__ && __MACH__
+#include <architecture/byte_order.h>
+#endif
 #include <openflow.h>
 
 

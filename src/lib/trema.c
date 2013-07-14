@@ -275,7 +275,11 @@ static char *executable_name = NULL;
 static char *trema_log = NULL;
 static char *trema_pid = NULL;
 static char *trema_sock = NULL;
+#ifdef __linux__
 static pthread_mutex_t mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
+#elif __APPLE__ && __MACH__
+static pthread_mutex_t mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
+#endif
 
 
 static struct option long_options[] = {

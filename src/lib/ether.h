@@ -24,7 +24,11 @@
 #define ETHER_H
 
 
+#ifdef __linux__
 #include <endian.h>
+#elif __APPLE__ && __MACH__
+#include <architecture/byte_order.h>
+#endif
 #include <stdint.h>
 #include "bool.h"
 #include "buffer.h"

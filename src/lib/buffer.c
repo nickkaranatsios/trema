@@ -81,7 +81,11 @@ alloc_private_buffer() {
 
   pthread_mutexattr_t attr;
   pthread_mutexattr_init( &attr );
+#ifdef __linux__ 
   pthread_mutexattr_settype( &attr, PTHREAD_MUTEX_RECURSIVE_NP );
+#elif __APPLE__ && __MACH__
+  pthread_mutexattr_settype( &attr, PTHREAD_MUTEX_RECURSIVE );
+#endif
   new_buf->mutex = xmalloc( sizeof( pthread_mutex_t ) );
   pthread_mutex_init( new_buf->mutex, &attr );
 
@@ -143,7 +147,11 @@ alloc_buffer_with_length( size_t length ) {
 
   pthread_mutexattr_t attr;
   pthread_mutexattr_init( &attr );
+#ifdef __linux__
   pthread_mutexattr_settype( &attr, PTHREAD_MUTEX_RECURSIVE_NP );
+#elif __APPLE__ && __MACH__
+  pthread_mutexattr_settype( &attr, PTHREAD_MUTEX_RECURSIVE );
+#endif
   new_buf->mutex = xmalloc( sizeof( pthread_mutex_t ) );
   pthread_mutex_init( new_buf->mutex, &attr );
 

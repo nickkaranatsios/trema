@@ -108,7 +108,11 @@ create_hash_with_size( const compare_function compare, const hash_function hash,
 
   pthread_mutexattr_t attr;
   pthread_mutexattr_init( &attr );
+#ifdef __linux__
   pthread_mutexattr_settype( &attr, PTHREAD_MUTEX_RECURSIVE_NP );
+#elif __APPLE__ && __MACH__
+  pthread_mutexattr_settype( &attr, PTHREAD_MUTEX_RECURSIVE );
+#endif
   table->mutex = xmalloc( sizeof( pthread_mutex_t ) );
   pthread_mutex_init( table->mutex, &attr );
 

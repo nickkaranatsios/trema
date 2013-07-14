@@ -24,6 +24,9 @@
 #define MESSENGER_H
 
 
+#ifdef __APPLE__ && __MACH__
+#include <sys/socket.h>
+#endif
 #include <net/if.h>
 #include <stdint.h>
 #include <stdlib.h>

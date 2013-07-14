@@ -27,6 +27,19 @@
 #include <stdbool.h>
 #include <time.h>
 
+#ifdef __APPLE__ && __MACH__
+#include <mach/clock.h>
+#include <mach/mach.h>
+#define CLOCK_REALTIME 0
+#define CLOCK_MONOTONIC 0
+struct itimerspec {
+  struct timespec it_interval;
+  struct timespec it_value;
+};
+
+int clock_gettime( int clk_id, struct timespec* ts );
+#endif
+
 
 typedef void ( *timer_callback )( void *user_data );
 

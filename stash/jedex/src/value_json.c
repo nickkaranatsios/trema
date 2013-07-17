@@ -422,7 +422,7 @@ jedex_value_primitive( const jedex_value *value, int *failed ) {
 
 
 int
-jedex_value_to_json( const jedex_value *value, int one_line, char **json_str ) {
+jedex_value_to_json( const jedex_value *value, bool one_line, char **json_str ) {
   check_param( EINVAL, value, "value" );
   check_param( EINVAL, json_str, "string buffer" );
 

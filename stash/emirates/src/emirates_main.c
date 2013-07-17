@@ -132,7 +132,7 @@ static char *
 any_value_to_json( jedex_value *val ) {
   char *json;
 
-  jedex_value_to_json( val, 1, &json );
+  jedex_value_to_json( val, true, &json );
 
   return json;
 }

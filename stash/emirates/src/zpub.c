@@ -24,7 +24,7 @@ publish_service( const char *service, publisher_info *self, jedex_parcel *parcel
   for ( list_element_safe *e = parcel->values_list->head; e != NULL; e = e->next ) {
     jedex_value *item = e->data;
     char *json;
-    jedex_value_to_json( item, 1, &json );
+    jedex_value_to_json( item, true, &json );
     if ( json ) {
       zmsg_t *msg = zmsg_new();
       zmsg_addmem( msg, service, strlen( service ) );

@@ -413,7 +413,7 @@ main( int argc, char **argv ) {
       set_simple_map_double( val );
 
       char *json;
-      jedex_value_to_json( val, 1, &json );
+      jedex_value_to_json( val, false, &json );
       printf( "json: %s\n", json );
 
       jedex_value *ret_val = json_to_jedex_value( schema, json );
@@ -436,7 +436,7 @@ main( int argc, char **argv ) {
       set_simple_array( val );
 
       char *json;
-      jedex_value_to_json( val, 1, &json );
+      jedex_value_to_json( val, false, &json );
       printf( "json: %s\n", json );
 
       jedex_value *ret_val = json_to_jedex_value( schema, json );
@@ -459,7 +459,7 @@ main( int argc, char **argv ) {
       set_ref_to_another( val );
 
       char *json;
-      jedex_value_to_json( val, 1, &json );
+      jedex_value_to_json( val, false, &json );
       printf( "json: %s\n", json );
 
       jedex_value *ret_val = json_to_jedex_value( schema, json );
@@ -483,7 +483,7 @@ main( int argc, char **argv ) {
       set_union_meat( val );
 
       char *json;
-      jedex_value_to_json( val, 1, &json );
+      jedex_value_to_json( val, false, &json );
       printf( "json: %s\n", json );
 
       jedex_value *ret_val = json_to_jedex_value( schema, json );
@@ -507,7 +507,7 @@ main( int argc, char **argv ) {
       set_menu_union_value( val );
 
       char *json;
-      jedex_value_to_json( val, 1, &json );
+      jedex_value_to_json( val, false, &json );
       printf( "json: %s\n", json );
 
       jedex_value *ret_val = json_to_jedex_value( schema, json );
@@ -528,7 +528,7 @@ main( int argc, char **argv ) {
       set_menu_record_value( val );
 
       char *json;
-      jedex_value_to_json( val, 1, &json );
+      jedex_value_to_json( val, false, &json );
       printf( "json: %s\n", json );
 
       jedex_value *ret_val = json_to_jedex_value( schema, json );
@@ -551,7 +551,7 @@ main( int argc, char **argv ) {
       set_fruits( val );
 
       char *json;
-      jedex_value_to_json( val, 1, &json );
+      jedex_value_to_json( val, false, &json );
       printf( "json: %s\n", json );
 
       jedex_schema *sub_schema = jedex_schema_get_subschema( schema, sub_schemas[ 0 ] );
@@ -576,7 +576,7 @@ main( int argc, char **argv ) {
       set_fruits( val );
 
       char *json;
-      jedex_value_to_json( val, 1, &json );
+      jedex_value_to_json( val, false, &json );
       printf( "json: %s\n", json );
 
       jedex_schema *sub_schema = jedex_schema_get_subschema( schema, sub_schemas[ 0 ] );
@@ -590,7 +590,7 @@ main( int argc, char **argv ) {
 
       set_meat( val );
 
-      jedex_value_to_json( val, 1, &json );
+      jedex_value_to_json( val, false, &json );
       printf( "json: %s\n", json );
 
       sub_schema = jedex_schema_get_subschema( schema, sub_schemas[ 1 ] );

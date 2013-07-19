@@ -1,0 +1,18 @@
+[
+  {
+    "type": "record",
+    "name": "db_header",
+    "fields": [
+      { "name": "table_name", "type": "string" }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "fruits",
+    "fields": [
+      { "name": "header", "type": "db_header" },
+      { "name": "name", "type": "string" },
+      { "name": "price", "type": "float" }
+    ]
+  }
+]

@@ -80,8 +80,7 @@ poll_requester( emirates_priv *priv ) {
     frame_size = zframe_size( service_frame );
     assert( frame_size != 0 );
     //send_profile_request( priv );
-    //zclock_sleep( randof( 10 ) * 1000 );
-    send_menu_request( priv );
+    //send_menu_request( priv );
   }
 
   return rc;
@@ -93,17 +92,16 @@ main( int argc, char **argv ) {
   emirates_iface *iface = emirates_initialize();
   zclock_sleep( 2 * 1000 );
   if ( iface != NULL ) {
+    iface->set_service_request( "menu", iface, request_menu_callback );
+    set_ready( iface );
     //set_profile_request( iface, request_profile_callback );
     //set_profile_reply( iface, reply_profile_callback );
-    set_menu_reply( iface, reply_menu_callback );
-    //set_ready( iface );
-    send_menu_request( iface->priv );
     //send_profile_request( iface->priv );
 
     int i = 0;
     while( !zctx_interrupted ) {
       poll_responder( iface->priv );
-      poll_requester( iface->priv );
+      //poll_requester( iface->priv );
 //      zclock_sleep( 1 * 1000 );
     }
 

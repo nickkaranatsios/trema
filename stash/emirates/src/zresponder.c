@@ -126,7 +126,7 @@ start_responder( responder_info *self ) {
     if ( responder_expiry( self ) ) {
       if ( zclock_time() >= responder_expiry( self ) ) {
         printf( "waiting for reply from application expired\n" );
-        //send_reply_timeout( self );
+        send_reply_timeout( self );
         responder_expiry( self ) = 0;
       }
     }

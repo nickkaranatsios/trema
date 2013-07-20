@@ -360,6 +360,8 @@ backend_recv( proxy *self ) {
   if ( msg == NULL ) {
     return EINVAL;
   }
+  size_t nr_frames = zmsg_size( msg );
+  printf( "be nr_frames %zu\n", nr_frames );
   worker_recv( self, msg );
 
   return 0;

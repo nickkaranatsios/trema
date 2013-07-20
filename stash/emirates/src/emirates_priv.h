@@ -92,7 +92,6 @@ extern "C" {
 
 
 typedef void ( subscriber_callback )( void *args );
-typedef void ( request_callback )( void *args );
 typedef void ( reply_callback )( void *args );
 typedef int ( poll_handler )( zmq_pollitem_t *item, void *arg );
 
@@ -104,11 +103,6 @@ typedef struct sub_callback {
 } sub_callback;
 
 
-typedef struct req_callback {
-  request_callback *callback;
-  const char *service;
-  const char *responder_id;
-} req_callback;
 
 
 typedef struct rep_callback {
@@ -253,7 +247,6 @@ void send_ok_status( void *socket );
 void send_ng_status( void *socket );
 
 uint32_t send_request( const char *service, emirates_priv *priv );
-void service_request( const char *service, emirates_priv *priv, request_callback *callback );
 void service_reply( const char *service, emirates_priv *priv, reply_callback *callback );
 void subscribe_to_service( const char *service, subscriber_info *self, const char **sub_schema_names, subscriber_callback *user_callback );
 zmsg_t *one_or_more_msg( void *socket );

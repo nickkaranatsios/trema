@@ -210,7 +210,7 @@ set_menu_record_value( jedex_value *val ) {
 static void
 handle_timer_event( void *user_data ) {
   if ( iface ) {
-    set_menu_request( iface, request_menu_callback );
+    iface->set_service_request( "menu", iface, request_menu_callback );
     set_menu_reply( iface, reply_menu_callback );
     set_ready( iface );
     set_readable( responder_notify_in( ( priv( iface ) )->responder ), true );
@@ -253,6 +253,7 @@ main( int argc, char **argv ) {
 #ifdef TEST
   zclock_sleep( 2 * 1000 );
   if ( iface != NULL ) {
+    iface->set_service_request( "menu", iface, request_menu_callback );
     set_menu_request( iface, request_menu_callback );
     set_menu_reply( iface, reply_menu_callback );
     set_ready( iface );

@@ -101,6 +101,7 @@ emirates_initialize( void ) {
   if ( responder_init( priv ) ) {
     return NULL;
   }
+  iface->set_service_request = service_request;
   if ( requester_init( priv ) ) {
     return NULL;
   }

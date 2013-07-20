@@ -189,10 +189,10 @@ set_fruits( jedex_value *val ) {
   size_t index;
 
   jedex_value_get_by_name( val, "name", &field, &index );
-  assert( index == 0 );
+  //assert( index == 0 );
   jedex_value_set_string( &field, "mango" );
   jedex_value_get_by_name( val, "price", &field, &index );
-  assert( index == 1 );
+  //assert( index == 1 );
   jedex_value_set_float( &field, 2.40 );
 }
 
@@ -281,6 +281,24 @@ set_ref_to_another( jedex_value *val ) {
 
   jedex_value_get_by_name( val, "second_record", &branch, &index );
   set_second_record( &branch );
+}
+
+
+static void
+set_db_record( jedex_value *val ) {
+  jedex_value branch;
+  size_t index;
+  
+  jedex_value_get_by_name( val, "fruits", &branch, &index );
+  jedex_value db_header_record;
+
+  jedex_value_get_by_name( &branch, "header", &db_header_record, &index );
+  jedex_value field;
+  jedex_value_get_by_name( &db_header_record, "table_name", &field, &index );
+  
+  jedex_value_set_string( &field, "fruits" );
+  
+  set_fruits( &branch );
 }
 
 
@@ -384,6 +402,7 @@ get_simple_map_double( jedex_value *val ) {
 int
 main( int argc, char **argv ) {
   const char *test_schemas[] =  { 
+    "db_record",
     "simple_map_double",
     "simple_array",
     "ref_to_another",
@@ -399,6 +418,24 @@ main( int argc, char **argv ) {
   for ( iter = test_schemas; *iter; iter++ ) {
     const char *test_schema = *iter;
     
+    if ( !strcmp( test_schema, "db_record" ) ) {
+      jedex_schema *schema = jedex_initialize( "schema/db_record" );
+      assert( schema );
+
+      const char *sub_schemas[] = { NULL };
+      jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
+      assert( parcel );
+
+      jedex_value *val = jedex_parcel_value( parcel, "" );
+      assert( val );
+
+      set_db_record( val );
+
+      char *json;
+      jedex_value_to_json( val, false, &json );
+      printf( "json: %s\n", json );
+
+    }
     if ( !strcmp( test_schema, "simple_map_double" ) ) {
       jedex_schema *schema = jedex_initialize( "schema/simple_map_double" );
       assert( schema );
@@ -548,7 +585,7 @@ main( int argc, char **argv ) {
       jedex_value *val = jedex_parcel_value( parcel, "fruits" );
       assert( val );
 
-      set_fruits( val );
+      //set_fruits( val );
 
       char *json;
       jedex_value_to_json( val, false, &json );

@@ -144,7 +144,8 @@ responder_thread( void *args, zctx_t *ctx, void *pipe ) {
   responder_zmq_socket( self ) = zsocket_new( ctx, ZMQ_REQ );
 
   responder_id( self ) = ( char * ) zmalloc( sizeof( char ) * IDENTITY_MAX );
-  snprintf( responder_id( self ), IDENTITY_MAX, "%lld", zclock_time() );
+  size_t responder_id_size = IDENTITY_MAX;
+  snprintf( responder_id( self ), responder_id_size, "%lld", zclock_time() );
   zsocket_set_identity( responder_zmq_socket( self ), responder_id( self ) );
 
   int rc = zsocket_connect( responder_zmq_socket( self ), "tcp://localhost:%zu", port );

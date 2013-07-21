@@ -432,14 +432,15 @@ typedef unsigned int    qbyte;          //  Quad byte = 32 bits
 static inline void *
     safe_malloc (
     size_t size,
-    char *file,
+    const char *file,
     unsigned line,
     const char *func)
 {
     void
         *mem;
 
-    mem = calloc (1, size);
+    size_t tmp = 1;
+    mem = calloc (tmp, size);
     if (mem == NULL) {
         fprintf (stderr, "FATAL ERROR at %s:%u, in %s\n", file, line, func);
         fprintf (stderr, "OUT OF MEMORY (malloc returned NULL)\n");

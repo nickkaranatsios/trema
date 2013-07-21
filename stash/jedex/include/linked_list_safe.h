@@ -30,13 +30,13 @@ typedef struct list_element_safe {
 } list_element_safe;
 
 
-typedef struct {
+typedef struct list {
   list_element_safe *head;
   pthread_mutex_t mutex;
 } list;
 
 
-list *create_list_safe();
+list *create_list_safe( void );
 bool insert_in_front_safe( list *l, void *data );
 bool append_to_tail_safe( list *l, void *data );
 bool delete_element_safe( list *l, const void *data );

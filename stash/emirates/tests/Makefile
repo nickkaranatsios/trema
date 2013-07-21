@@ -1,4 +1,4 @@
-# Emirates Makefile
+# Makefile for test programs
 
 OPTIMIZATION?=-O2
 
@@ -9,13 +9,12 @@ OPT= $(OPTIMIZATION)
 
 
 FINAL_CFLAGS= $(STD) $(WARN) $(OPT) $(DEBUG) $(CFLAGS)
-FINAL_CFLAGS+= -I. -I../include -I../czmq/include -I../.. -I../../jedex/include -I../usr/local/include
+FINAL_CFLAGS+= -I. -I../src -I../include -I../czmq/include -I../.. -I../../jedex/include -I../usr/local/include
 FINAL_LDFLAGS= $(LDFLAGS) -g -rdynamic -ggdb $(ARCH)
+FINAL_LIBS= -lczmq -lsodium -ljedex -ljansson -lzmq -lm -pthread $(ARCH)
 DEBUG= -g -ggdb
 
-PREFIX?=/usr/local
-INSTALL_LIB= $(PREFIX)/lib
-INSTALL= cp -pf
+EMIRATES_LD=$(QUIET_LINK)$(CC) $(FINAL_LDFLAGS)
 
 CCCOLOR="\033[34m"
 LINKCOLOR="\033[34;1m"
@@ -27,23 +26,21 @@ ENDCOLOR="\033[0m"
 ifndef V
 QUIET_CC = @printf '    %b %b\n' $(CCCOLOR)$(CC)$(ENDCOLOR) $(SRCCOLOR)$<$(ENDCOLOR) 1>&2;
 QUIET_LINK = @printf '    %b %b\n' $(LINKCOLOR)link$(ENDCOLOR) $(LIBCOLOR)$@$(ENDCOLOR) 1>&2;
-QUIET_INSTALL = @printf '    %b %b\n' $(LINKCOLOR)install$(ENDCOLOR) $(LIBCOLOR)$@$(ENDCOLOR) 1>&2;
 endif
 
-LIB_OBJS += emirates_main.o
-LIB_OBJS += zcommon.o
-LIB_OBJS += zpub.o
-LIB_OBJS += zsub.o
-LIB_OBJS += zrequester.o
-LIB_OBJS += zresponder.o
+EMIRATES_TEST=emirates_test
+EMIRATES_TEST_OBJS := emirates_test.o
+REQUESTER_RESPONDER_TEST=requester_responder_test
+REQUESTER_RESPONDER_TEST_OBJS := requester_responder_test.o
 
-LIB_FILE=libemirates.a
-
-QUIET_AR= @echo '   ' ar $@;
 RM = rm -f
-AR = ar
 
-OBJECTS := $(LIB_OBJS)
+all: $(EMIRATES_TEST) $(REQUESTER_RESPONDER_TEST)
+
+.PHONY: all
+
+OBJECTS += $(EMIRATES_TEST_OBJS)
+OBJECTS += $(REQUESTER_RESPONDER_TEST_OBJS)
 
 dep_files := $(foreach f,$(OBJECTS),$(dir $f).depend/$(notdir $f).d)
 dep_dirs := $(addsuffix .depend,$(sort $(dir $(OBJECTS))))
@@ -56,22 +53,21 @@ missing_dep_dirs := $(filter-out $(wildcard $(dep_dirs)),$(dep_dirs))
 dep_file = $(dir $@).depend/$(notdir $@).d
 dep_args = -MF $(dep_file) -MQ $@ -MMD -MP
 
-all: $(LIB_FILE) install
-.PHONY : all
+$(EMIRATES_TEST): $(EMIRATES_TEST_OBJS)
+	$(EMIRATES_LD) -o $@ $^ ../src/libemirates.a $(FINAL_LIBS)
 
-$(LIB_FILE): $(dep_dirs) $(LIB_OBJS)
-	$(QUIET_AR)$(RM) $@ && $(AR) rcs $@ $(LIB_OBJS)
+$(REQUESTER_RESPONDER_TEST): $(REQUESTER_RESPONDER_TEST_OBJS)
+	$(EMIRATES_LD) -o $@ $^ ../src/libemirates.a $(FINAL_LIBS)
 
 clean:
-	rm -rf $(LIB_FILE) *.o *.gcda *.gcov
+	rm -rf $(EMIRATES_TEST) $(REQUESTER_RESPONDER_TEST) *.o *.gcda *.gcov
+
+.PHONY: clean
 
 distclean: clean
-	-(rm -f $(INSTALL_LIB)/$(LIB_FILE))
+	-(rm -f $(EMIRATES_TEST))
 
 .PHONY: distclean
 
-$(OBJECTS): %.o: %.c $(missing_dep_files)
+$(OBJECTS): %.o: %.c $(dep_dirs) $(missing_dep_files)
 	$(QUIET_CC)$(CC) -o $*.o -c $(dep_args) $(FINAL_CFLAGS) $<
-
-install:
-	$(QUIET_INSTALL)$(INSTALL) $(LIB_FILE) $(INSTALL_LIB)

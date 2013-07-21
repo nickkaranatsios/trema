@@ -250,7 +250,7 @@ uint32_t send_request( const char *service, emirates_priv *priv );
 void service_reply( const char *service, emirates_priv *priv, reply_callback *callback );
 void subscribe_to_service( const char *service, subscriber_info *self, const char **sub_schema_names, subscriber_callback *user_callback );
 zmsg_t *one_or_more_msg( void *socket );
-int get_time_left( int64_t expiry );
+long get_time_left( int64_t expiry );
 void *get_publisher_socket( emirates_priv *priv );
 void *get_requester_socket( emirates_priv *priv );
 void add_reply_callback( const char *service , reply_callback *user_callback, requester_info *self );

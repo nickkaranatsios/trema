@@ -1,12 +1,10 @@
 # Jedex Makefile
 
-uname_S := $(shell sh -c 'uname -s 2>/dev/null || echo not')
-
 OPTIMIZATION?=-O2
 
-#gcc -c  -I../include -I../..  -g -std=gnu99 -D_REENTRANT -D_GNU_SOURCE -Wall -Wno-unused -fno-strict-aliasing  -DBASE_THREADSAFE -I. st.c
+CC=gcc
 STD= -std=gnu99 -D_REENTRANT -D_GNU_SOURCE
-WARN= -Wall -W -Wstrict-prototypes -Wno-unused -fno-strict-aliasing -Wwrite-strings
+WARN= -Wall -Wextra -Wformat=2 -Wcast-qual -Wcast-align -Wwrite-strings -Wconversion -Wfloat-equal -Wpointer-arith -fno-strict-aliasing
 OPT= $(OPTIMIZATION)
 
 
@@ -15,16 +13,12 @@ FINAL_CFLAGS+= -I../include -I../.. -I../usr/local/include
 FINAL_LDFLAGS= $(LDFLAGS) -g -rdynamic -ggdb $(ARCH)
 FINAL_LIBS= -lm -pthread $(ARCH)
 DEBUG= -g -ggdb
-JEDEX_CC=$(QUIET_CC)$(CC) $(FINAL_CFLAGS)
+
 JEDEX_LD=$(QUIET_LINK)$(CC) $(FINAL_LDFLAGS)
-JEDEX_INSTALL=$(QUIET_INSTALL)$(INSTALL)
 
 PREFIX?=/usr/local
 INSTALL_LIB= $(PREFIX)/lib
-INSTALL= cp -pf
-
-ifeq ($(uname_S),Darwin)
-endif
+INSTALL= install -p
 
 CCCOLOR="\033[34m"
 LINKCOLOR="\033[34;1m"
@@ -34,9 +28,9 @@ MAKECOLOR="\033[32;1m"
 ENDCOLOR="\033[0m"
 
 ifndef V
-QUIET_CC = @printf '    %b %b\n' $(CCCOLOR)CC$(ENDCOLOR) $(SRCCOLOR)$@$(ENDCOLOR) 1>&2;
-QUIET_LINK = @printf '    %b %b\n' $(LINKCOLOR)LINK$(ENDCOLOR) $(LIBCOLOR)$@$(ENDCOLOR) 1>&2;
-QUIET_INSTALL = @printf '    %b %b\n' $(LINKCOLOR)INSTALL$(ENDCOLOR) $(LIBCOLOR)$@$(ENDCOLOR) 1>&2;
+QUIET_CC = @printf '    %b %b\n' $(CCCOLOR)$(CC)$(ENDCOLOR) $(SRCCOLOR)$<$(ENDCOLOR) 1>&2;
+QUIET_LINK = @printf '    %b %b\n' $(LINKCOLOR)link$(ENDCOLOR) $(LIBCOLOR)$@$(ENDCOLOR) 1>&2;
+QUIET_INSTALL = @printf '    %b %b\n' $(LINKCOLOR)install$(ENDCOLOR) $(LIBCOLOR)$@$(ENDCOLOR) 1>&2;
 endif
 
 LIB_OBJS += init.o
@@ -67,48 +61,39 @@ LIB_OBJS += wrapped_buffer.o
 
 LIB_FILE=libjedex.a
 
-QUIET_AR= @echo '   ' AR $@;
+QUIET_AR= @echo '   ' ar $@;
 RM = rm -f
 AR = ar
 
 OBJECTS := $(LIB_OBJS)
-dep_files := $(foreach f,$(OBJECTS),$(dir $f).depend/$(notdir $f).d)
 
-$(LIB_FILE):$(LIB_OBJS)
+dep_files := $(foreach f,$(OBJECTS),$(dir $f).depend/$(notdir $f).d)
+dep_dirs := $(addsuffix .depend,$(sort $(dir $(OBJECTS))))
+
+
+$(dep_dirs):
+	@mkdir -p $@
+
+missing_dep_dirs := $(filter-out $(wildcard $(dep_dirs)),$(dep_dirs))
+dep_file = $(dir $@).depend/$(notdir $@).d
+dep_args = -MF $(dep_file) -MQ $@ -MMD -MP
+
+all: $(LIB_FILE) install
+.PHONY : all
+
+$(LIB_FILE): $(dep_dirs) $(LIB_OBJS)
 	$(QUIET_AR)$(RM) $@ && $(AR) rcs $@ $(LIB_OBJS)
 
-# Prerequisites target
-.make-prerequisites:
-	@touch $@
-
-
-persist-settings: distclean
-  echo STD=$(STD) >> .make-settings
-  echo WARN=$(WARN) >> .make-settings
-  echo OPT=$(OPT) >> .make-settings
-  echo CFLAGS=$(CFLAGS) >> .make-settings
-  echo LDFLAGS=$(LDFLAGS) >> .make-settings
-  echo PREV_FINAL_CFLAGS=$(FINAL_CFLAGS) >> .make-settings
-  echo PREV_FINAL_LDFLAGS=$(FINAL_LDFLAGS) >> .make-settings
-
-.PHONY: persist-settings
-
-# Clean everything, persist settings and build dependencies if anything changed
-ifneq ($(strip $(PREV_FINAL_CFLAGS)), $(strip $(FINAL_CFLAGS)))
-.make-prerequisites: persist-settings
-endif
-
-ifneq ($(strip $(PREV_FINAL_LDFLAGS)), $(strip $(FINAL_LDFLAGS)))
-.make-prerequisites: persist-settings
-endif
-
 clean:
-	rm -rf LIB_FILE *.o *.gcda *.gcov
+	rm -rf $(LIB_FILE) *.o *.gcda *.gcov
 
 distclean: clean
-	-(rm -f $(INSTALL_LIB)/LIB_FILE )
+	-(rm -f $(INSTALL_LIB)/$(LIB_FILE))
 
 .PHONY: distclean
 
-%.o: %.c .make-prerequisites
-	$(JEDEX_CC) -c $<
+$(OBJECTS): %.o: %.c $(missing_dep_files)
+	$(QUIET_CC)$(CC) -o $*.o -c $(dep_args) $(FINAL_CFLAGS) $<
+
+install:
+	$(QUIET_INSTALL)$(INSTALL) $(LIB_FILE) $(INSTALL_LIB)

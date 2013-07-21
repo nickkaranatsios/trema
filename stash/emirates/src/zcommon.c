@@ -113,15 +113,15 @@ one_or_more_msg( void *socket ) {
 }
 
 
-int
+long
 get_time_left( int64_t expiry ) {
-  int time_left;
+  long time_left;
 
  if ( !expiry ) {
     time_left = -1;
   }
   else {
-    time_left = ( int ) ( expiry - zclock_time() );
+    time_left = ( long ) ( expiry - zclock_time() );
     if ( time_left < 0 ) {
       time_left = 0;
     }

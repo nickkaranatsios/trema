@@ -77,6 +77,84 @@ requester( emirates_iface *iface ) {
 }
 
 
+static nfds_t
+count_rfds( const emirates_priv *priv ) {
+   nfds_t nr_fds = 0;
+
+  if ( subscriber_notify_in( priv->subscriber ) ) {
+    nr_fds++;
+  }
+  if ( requester_notify_in( priv->requester ) ) {
+    nr_fds++;
+  }
+  if ( responder_notify_in( priv->responder ) ) {
+    nr_fds++;
+  }
+
+  return nr_fds;
+}
+
+
+static void
+set_rfds( const emirates_priv *priv, struct pollfd rfds[] ) {
+  if ( responder_notify_in( priv->responder ) ) {
+    rfds[ 0 ].fd = responder_notify_in( priv->responder );
+    rfds[ 0 ].events = POLLIN;
+  }
+  if ( requester_notify_in( priv->requester ) ) {
+    rfds[ 1 ].fd = requester_notify_in( priv->requester );
+    rfds[ 1 ].events = POLLIN;
+  }
+  if ( subscriber_notify_in( priv->subscriber ) ) {
+    rfds[ 2 ].fd = subscriber_notify_in( priv->subscriber );
+    rfds[ 2 ].events = POLLIN;
+  }
+}
+
+
+static void
+rfds_check( const emirates_priv *priv, struct pollfd rfds[] ) {
+  if ( responder_notify_in( priv->responder ) ) {
+    if ( rfds[ 0 ].revents & POLLIN ) {
+    }
+  }
+  if ( requester_notify_in( priv->requester ) ) {
+    if ( rfds[ 1 ].revents & POLLIN ) {
+    }
+  }
+  if ( subscriber_notify_in( priv->subscriber ) ) {
+    if ( rfds[ 1 ].revents & POLLIN ) {
+    }
+  }
+}
+
+
+int
+emirates_loop( emirates_iface *iface ) {
+  nfds_t nr_fds = count_rfds( iface->priv );
+  struct pollfd rfds[ nr_fds ];
+  int msec = -1;
+  
+  set_rfds( iface->priv, rfds );
+  int res;
+  while ( !zctx_interrupted ) {
+    if ( ( res = poll( rfds, nr_fds, msec ) ) == -1 ) {
+      res = EIO;
+      break;
+    }
+    if ( res == 0 ) {
+      res = ETIMEDOUT;
+      break;
+    }
+    else {
+      rfds_check( iface->priv, rfds );
+    }
+  }
+
+  return EINVAL;
+}
+
+
 emirates_iface *
 emirates_initialize( void ) {
   emirates_iface *iface = ( emirates_iface * ) zmalloc( sizeof( emirates_iface ) );

@@ -35,6 +35,7 @@ extern "C" {
 #include <ctype.h>
 #include <assert.h>
 #include <pthread.h>
+#include <poll.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef __linux__

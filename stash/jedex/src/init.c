@@ -40,7 +40,8 @@ file_read( const char *dirpath, const char *fn ) {
   if ( !fp ) {
     return NULL;
   }
-  size_t bytes_read = fread( jscontent, 1, ( size_t ) buf.st_size, fp );
+  size_t nitems = 1;
+  size_t bytes_read = fread( jscontent, nitems, ( size_t ) buf.st_size, fp );
   fclose( fp );
   jscontent[ bytes_read ] = '\0';
 

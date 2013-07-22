@@ -44,7 +44,7 @@ jedex_wrapped_copy_copy( jedex_wrapped_buffer *dest,
 
 
 int
-jedex_wrapped_buffer_new( jedex_wrapped_buffer *dest, const void *buf, size_t length ) {
+jedex_wrapped_buffer_new( jedex_wrapped_buffer *dest, void *buf, size_t length ) {
   dest->buf = buf;
   dest->size = length;
   dest->user_data = NULL;

@@ -281,14 +281,14 @@ jedex_generic_link_get_size( const jedex_value_iface *iface, const void *vself, 
 
 static int
 jedex_generic_link_get_by_index( const jedex_value_iface *iface,
-                                 const void *vself,
+                                 void *vself,
                                  size_t index,
                                  jedex_value *child,
                                  const char **name ) {
   UNUSED( iface );
 
   const jedex_value *self = ( const jedex_value * ) vself;
-  return jedex_value_get_by_index(self, index, child, name);
+  return jedex_value_get_by_index( self, index, child, name);
 }
 
 static int
@@ -345,7 +345,7 @@ static int
 jedex_generic_link_init( const jedex_value_iface *viface, void *vself ) {
   int rval;
 
-  jedex_generic_link_value_iface *iface = container_of( viface, jedex_generic_link_value_iface, parent.parent );
+  const jedex_generic_link_value_iface *iface = container_of( viface, jedex_generic_link_value_iface, parent.parent );
 
   jedex_value *self = ( jedex_value * ) vself;
   size_t target_instance_size = jedex_value_instance_size( iface->target_giface );
@@ -373,7 +373,7 @@ jedex_generic_link_done( const jedex_value_iface *iface, void *vself ) {
   UNUSED( iface );
 
   jedex_value *self = ( jedex_value * ) vself;
-  jedex_generic_value_iface *target_giface = container_of( self->iface, jedex_generic_value_iface, parent );
+  const jedex_generic_value_iface *target_giface = container_of( self->iface, jedex_generic_value_iface, parent );
   jedex_value_done( target_giface, self->self );
   jedex_free( self->self );
   self->iface = NULL;

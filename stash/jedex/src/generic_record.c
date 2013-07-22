@@ -75,12 +75,12 @@ jedex_generic_record_get_size( const jedex_value_iface *viface,
 
 static int
 jedex_generic_record_get_by_index( const jedex_value_iface *viface,
-                                   const void *vself,
+                                   void *vself,
                                    size_t index,
                                    jedex_value *child,
                                    const char **name ) {
   const jedex_generic_record_value_iface *iface = container_of( viface, jedex_generic_record_value_iface, parent );
-  const jedex_generic_record *self = ( const jedex_generic_record * ) vself;
+  jedex_generic_record *self = ( jedex_generic_record * ) vself;
 
   if ( index >= iface->field_count ) {
     log_err( "Field index %zu out of range", index );
@@ -120,7 +120,7 @@ jedex_generic_record_get_by_name( const jedex_value_iface *viface,
   child->iface = &iface->field_ifaces[ index ]->parent;
   child->self = jedex_generic_record_field( iface, self, index );
   if ( index_out != NULL ) {
-    *index_out = index;
+    *index_out = ( size_t ) index;
   }
 
   return 0;

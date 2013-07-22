@@ -56,7 +56,7 @@ missing_dep_dirs := $(filter-out $(wildcard $(dep_dirs)),$(dep_dirs))
 dep_file = $(dir $@).depend/$(notdir $@).d
 dep_args = -MF $(dep_file) -MQ $@ -MMD -MP
 
-all: $(LIB_FILE) install
+all: $(LIB_FILE)
 .PHONY : all
 
 $(LIB_FILE): $(dep_dirs) $(LIB_OBJS)

@@ -3,7 +3,8 @@
     "type": "record",
     "name": "db_header",
     "fields": [
-      { "name": "table_name", "type": "string" }
+      { "name": "table_name", "type": "string" },
+      { "name": "table_size", "type": "long" }
     ]
   },
   {

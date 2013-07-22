@@ -116,7 +116,7 @@ jedex_generic_union_get_by_name( const jedex_value_iface *viface,
   branch->iface = &iface->branch_ifaces[ index ]->parent;
   branch->self = jedex_generic_union_branch( iface, self, index );
   if ( index_out != NULL ) {
-    *index_out = index;
+    *index_out = ( size_t ) index;
   }
 
   return 0;
@@ -215,11 +215,11 @@ generic_union_class( void ) {
 
 int
 jedex_generic_union_get_next_branch( const jedex_value_iface *viface,
-                                     const void *vself,
+                                     void *vself,
                                      size_t *index,
                                      jedex_value *branch ) {
   const jedex_generic_union_value_iface *iface = container_of( viface, jedex_generic_union_value_iface, parent );
-  const jedex_generic_union *self = ( jedex_generic_union * ) vself;
+  jedex_generic_union *self = ( jedex_generic_union * ) vself;
 
   size_t start;
 
@@ -232,7 +232,7 @@ jedex_generic_union_get_next_branch( const jedex_value_iface *viface,
   }
   
   for ( size_t i = start; i < iface->branch_count; i++ ) {
-    if ( i == self->selected_branches[ i ] ) {
+    if ( i == ( size_t ) self->selected_branches[ i ] ) {
        branch->iface = &iface->branch_ifaces[ i ]->parent;
        branch->self = jedex_generic_union_branch( iface, self, i );
        *index = i;

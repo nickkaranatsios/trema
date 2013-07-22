@@ -38,7 +38,7 @@ jedex_raw_map_free_keys( jedex_raw_map *map ) {
   for ( i = 0; i < jedex_raw_map_size( map ); i++ ) {
     void *ventry = ( ( char * ) map->elements.data + map->elements.element_size * i );
     jedex_raw_map_entry *entry = ( jedex_raw_map_entry * ) ventry;
-    jedex_free( ( char * ) entry->key );
+    jedex_free( entry->key );
   }
 }
 

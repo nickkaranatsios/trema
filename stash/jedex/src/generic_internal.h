@@ -195,7 +195,7 @@ struct jedex_generic_link_value_iface {
 
 
 int jedex_generic_union_get_next_branch( const jedex_value_iface *viface,
-                                         const void *vself,
+                                         void *vself,
                                          size_t *index,
                                          jedex_value *branch );
 

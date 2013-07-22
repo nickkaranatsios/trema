@@ -85,7 +85,7 @@ jedex_generic_map_get_size( const jedex_value_iface *viface, const void *vself, 
 
 static int
 jedex_generic_map_get_by_index( const jedex_value_iface *viface,
-                                const void *vself,
+                                void *vself,
                                 size_t index,
                                 jedex_value *child,
                                 const char **name ) {

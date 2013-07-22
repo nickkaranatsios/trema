@@ -35,14 +35,14 @@ file_read( const char *dirpath, const char *fn ) {
   if ( rval ) {
     return NULL;
   }
-  char *jscontent = ( char * ) jedex_malloc( buf.st_size + 1 );
+  char *jscontent = ( char * ) jedex_malloc( ( size_t ) buf.st_size + 1 );
   fp = fopen( filepath, "r" );
   if ( !fp ) {
     return NULL;
   }
-  rval = fread( jscontent, 1, buf.st_size, fp );
+  size_t bytes_read = fread( jscontent, 1, ( size_t ) buf.st_size, fp );
   fclose( fp );
-  jscontent[ rval ] = '\0';
+  jscontent[ bytes_read ] = '\0';
 
   return jscontent;
 }

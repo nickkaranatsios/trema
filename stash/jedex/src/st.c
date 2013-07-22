@@ -76,7 +76,7 @@ static void rehash( st_table * );
 #define EQUAL( table,x,y ) ( ( x )==( y ) || ( *table->type->compare )( ( x ),( y ) ) == 0 )
 
 #define do_hash( key,table ) ( unsigned int )( *( table )->type->hash )( ( key ) )
-#define do_hash_bin( key,table ) ( do_hash( key, table ) % ( table )->num_bins )
+#define do_hash_bin( key,table ) ( do_hash( key, table ) % ( unsigned int ) ( table )->num_bins )
 
 /*
  * MINSIZE is the minimum size of a dictionary.
@@ -177,7 +177,7 @@ st_init_table_with_size( struct st_hash_type *type, int size ) {
 	tbl->type = type;
 	tbl->num_entries = 0;
 	tbl->num_bins = size;
-	tbl->bins = ( st_table_entry ** ) Calloc( size, sizeof( st_table_entry * ) );
+	tbl->bins = ( st_table_entry ** ) Calloc( ( size_t ) size, sizeof( st_table_entry * ) );
 
 	return tbl;
 }
@@ -240,7 +240,7 @@ st_free_table( st_table *table ) {
 #endif
 
 #define FIND_ENTRY( table, ptr, hash_val, bin_pos ) do {\
-    bin_pos = hash_val%( table )->num_bins;\
+    bin_pos = hash_val%( unsigned int ) ( table )->num_bins;\
     ptr = ( table )->bins[ bin_pos ];\
     if ( PTR_NOT_EQUAL(table, ptr, hash_val, key ) ) {\
 	COLLISION;\
@@ -274,7 +274,7 @@ do {\
     st_table_entry *entry;\
     if ( table->num_entries/( table->num_bins ) > ST_DEFAULT_MAX_DENSITY ) {\
 	    rehash( table );\
-      bin_pos = hash_val % table->num_bins;\
+      bin_pos = hash_val % ( unsigned int ) table->num_bins;\
     }\
     \
     entry = ( st_table_entry * ) jedex_new( st_table_entry );\
@@ -312,7 +312,7 @@ st_add_direct( st_table *table, st_data_t key, st_data_t value ) {
 	unsigned int hash_val, bin_pos;
 
 	hash_val = do_hash( key, table );
-	bin_pos = hash_val % table->num_bins;
+	bin_pos = hash_val % ( unsigned int ) table->num_bins;
 	ADD_DIRECT( table, key, value, hash_val, bin_pos );
 }
 
@@ -325,13 +325,13 @@ rehash( register st_table *table ) {
 
 	new_num_bins = new_size( old_num_bins + 1 );
 	new_bins =
-	    ( st_table_entry ** ) Calloc( new_num_bins, sizeof( st_table_entry * ) );
+	    ( st_table_entry ** ) Calloc( ( size_t ) new_num_bins, sizeof( st_table_entry * ) );
 
 	for ( i = 0; i < old_num_bins; i++ ) {
 		ptr = table->bins[ i ];
 		while ( ptr != 0 ) {
 			next = ptr->next;
-			hash_val = ptr->hash % new_num_bins;
+			hash_val = ptr->hash % ( unsigned int ) new_num_bins;
 			ptr->next = new_bins[ hash_val ];
 			new_bins[ hash_val ] = ptr;
 			ptr = next;

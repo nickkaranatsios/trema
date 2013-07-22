@@ -127,7 +127,8 @@ set_vegetables( jedex_value *val ) {
   jedex_value_set_string( &field, "brocoli" );
   jedex_value_get_by_name( val, "price", &field, &index );
   assert( index == 1 );
-  jedex_value_set_float( &field, 2.45 );
+  float price = 2.45f;
+  jedex_value_set_float( &field, price );
 }
 
 
@@ -179,7 +180,8 @@ set_meat( jedex_value *val ) {
   jedex_value_set_string( &field, "hamburger steak" );
   jedex_value_get_by_name( val, "price", &field, &index );
   assert( index == 1 );
-  jedex_value_set_float( &field, 11.45 );
+  float price = 11.45f;
+  jedex_value_set_float( &field, price );
 }
 
 
@@ -193,7 +195,8 @@ set_fruits( jedex_value *val ) {
   jedex_value_set_string( &field, "mango" );
   jedex_value_get_by_name( val, "price", &field, &index );
   //assert( index == 1 );
-  jedex_value_set_float( &field, 2.40 );
+  float price = 2.40f;
+  jedex_value_set_float( &field, price );
 }
 
 
@@ -295,10 +298,37 @@ set_db_record( jedex_value *val ) {
   jedex_value_get_by_name( &branch, "header", &db_header_record, &index );
   jedex_value field;
   jedex_value_get_by_name( &db_header_record, "table_name", &field, &index );
-  
   jedex_value_set_string( &field, "fruits" );
+  jedex_value_get_by_name( &db_header_record, "table_size", &field, &index );
+  jedex_value_set_long( &field, 12345 );
+  
   
   set_fruits( &branch );
+}
+
+
+static void
+get_db_record( jedex_value *val ) {
+  jedex_value branch;
+  size_t index;
+
+  jedex_value_get_by_name( val, "fruits", &branch, &index );
+  jedex_value db_header_record;
+
+  jedex_value_get_by_name( &branch, "header", &db_header_record, &index );
+  jedex_value field;
+  jedex_value_get_by_name( &db_header_record, "table_name", &field, &index );
+  
+  const char *cstr = NULL;
+  size_t size = 0;
+  jedex_value_get_string( &field, &cstr, &size );
+  printf( "table_name: %s\n", cstr );
+
+  jedex_value_get_by_name( &db_header_record, "table_size", &field, &index );
+  int64_t table_size;
+  jedex_value_get_long( &field, &table_size );
+  printf( "table_size(%zu) : %lld\n", index, table_size );
+  get_fruits( &branch );
 }
 
 
@@ -401,6 +431,8 @@ get_simple_map_double( jedex_value *val ) {
 
 int
 main( int argc, char **argv ) {
+  UNUSED( argc );
+  UNUSED( argv );
   const char *test_schemas[] =  { 
     "db_record",
     "simple_map_double",
@@ -435,6 +467,11 @@ main( int argc, char **argv ) {
       jedex_value_to_json( val, false, &json );
       printf( "json: %s\n", json );
 
+      jedex_value *ret_val = json_to_jedex_value( schema, json );
+      
+      get_db_record( ret_val );
+
+      jedex_finalize( &schema );
     }
     if ( !strcmp( test_schema, "simple_map_double" ) ) {
       jedex_schema *schema = jedex_initialize( "schema/simple_map_double" );
@@ -585,7 +622,7 @@ main( int argc, char **argv ) {
       jedex_value *val = jedex_parcel_value( parcel, "fruits" );
       assert( val );
 
-      //set_fruits( val );
+      set_fruits( val );
 
       char *json;
       jedex_value_to_json( val, false, &json );

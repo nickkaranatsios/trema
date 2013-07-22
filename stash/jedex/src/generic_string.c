@@ -91,7 +91,9 @@ jedex_generic_string_grab( const jedex_value_iface *iface, const void *vself, je
   const char *contents = ( const char * ) jedex_raw_string_get( self );
 
   if ( contents == NULL ) {
-    return jedex_wrapped_buffer_new( dest, "", 1 );
+    char *empty_string = jedex_malloc( sizeof( char ) );
+    memcpy( empty_string, "", sizeof( char ) );
+    return jedex_wrapped_buffer_new( dest, empty_string, sizeof( char ) );
   }
   else {
     return jedex_raw_string_grab( self, dest );

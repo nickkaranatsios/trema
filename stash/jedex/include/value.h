@@ -72,7 +72,7 @@ struct jedex_value_iface {
   int ( *set_string ) ( const jedex_value_iface *iface, void *self, const char *str );
   /* and size must INCLUDE the NUL terminator */
   int ( *set_string_len ) ( const jedex_value_iface *iface, void *self, const char *str, size_t size );
-  int ( *give_string_len ) (const jedex_value_iface *iface, void *self, jedex_wrapped_buffer *buf );
+  int ( *give_string_len ) ( const jedex_value_iface *iface, void *self, jedex_wrapped_buffer *buf );
 
   /*-------------------------------------------------------------
    * Compound value getters
@@ -92,7 +92,7 @@ struct jedex_value_iface {
    * filled in with the key or field name of the returned value.
    * For arrays, the name parameter will always be ignored.
    */
-  int ( *get_by_index ) ( const jedex_value_iface *iface, const void *self, size_t index, jedex_value *child, const char **name );
+  int ( *get_by_index ) ( const jedex_value_iface *iface, void *self, size_t index, jedex_value *child, const char **name );
 
   /*
    * For maps, returns the element with the given key.  For

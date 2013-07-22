@@ -34,7 +34,7 @@ extern "C" {
 typedef struct jedex_obj jedex_schema;
 
 
-const char *jedex_schema_type_name( const jedex_schema *schema );
+const char *jedex_schema_type_name( jedex_schema *schema );
 
 jedex_schema *jedex_schema_string( void );
 jedex_schema *jedex_schema_bytes( void );
@@ -47,32 +47,32 @@ jedex_schema *jedex_schema_null( void );
 
 
 jedex_schema *jedex_schema_record( const char *name, const char *space );
-jedex_schema *jedex_schema_record_field_get( const jedex_schema *schema, const char *field_name );
-const char *jedex_schema_record_field_name( const jedex_schema *schema, int index );
-int jedex_schema_record_field_get_index( const jedex_schema *schema, const char *field_name );
-jedex_schema *jedex_schema_record_field_get_by_index( const jedex_schema *schema, int index );
-size_t jedex_schema_record_size( const jedex_schema *schema );
+jedex_schema *jedex_schema_record_field_get( jedex_schema *schema, const char *field_name );
+const char *jedex_schema_record_field_name( jedex_schema *schema, int index );
+int jedex_schema_record_field_get_index( jedex_schema *schema, const char *field_name );
+jedex_schema *jedex_schema_record_field_get_by_index( jedex_schema *schema, int index );
+size_t jedex_schema_record_size( jedex_schema *schema );
 
 
 jedex_schema *jedex_schema_map( jedex_schema *values );
-jedex_schema *jedex_schema_map_values( const jedex_schema *map );
+jedex_schema *jedex_schema_map_values( jedex_schema *map );
 
 
 jedex_schema *jedex_schema_array( jedex_schema *items );
-jedex_schema *jedex_schema_array_items( const jedex_schema *array );
+jedex_schema *jedex_schema_array_items( jedex_schema *array );
 
 jedex_schema *jedex_schema_union( void );
-size_t jedex_schema_union_size( const jedex_schema *union_schema );
-int jedex_schema_union_append( const jedex_schema *union_schema, const jedex_schema *schema );
-int jedex_schema_union_branch_get_index( const jedex_schema *schema, const char *branch_name );
-jedex_schema *jedex_schema_union_branch( const jedex_schema *union_schema, int branch_index );
+size_t jedex_schema_union_size( jedex_schema *union_schema );
+int jedex_schema_union_append( jedex_schema *union_schema, jedex_schema *schema );
+int jedex_schema_union_branch_get_index( jedex_schema *schema, const char *branch_name );
+jedex_schema *jedex_schema_union_branch( jedex_schema *union_schema, int branch_index );
 jedex_schema *jedex_schema_union_branch_by_name( jedex_schema *union_schema, int *branch_index, const char *name );
 
 jedex_schema *jedex_schema_link_target( jedex_schema *schema );
 
 int jedex_schema_from_json( const char *jsontext, jedex_schema **schema );
 int jedex_schema_from_json_length( const char *jsontext, size_t length, jedex_schema **schema );
-jedex_schema *jedex_schema_get_subschema( const jedex_schema *schema, const char *name );
+jedex_schema *jedex_schema_get_subschema( jedex_schema *schema, const char *name );
 
 #define jedex_schema_from_json_literal( json, schema ) \
   jedex_schema_from_json_length( ( json ), sizeof( ( json ) ) - 1, ( schema ) )

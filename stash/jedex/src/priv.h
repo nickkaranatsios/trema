@@ -51,6 +51,9 @@ extern "C" {
   } while ( 0 )
 
 #define container_of( ptr_, type_, member_ )  \
+    ( ( const type_ * )( ( const char * ) ptr_ - ( size_t )&( ( type_ * ) 0 )->member_ ) )
+
+#define container_non_const_of( ptr_, type_, member_ )  \
     ( ( type_ * )( ( char * ) ptr_ - ( size_t )&( ( type_ * ) 0 )->member_ ) )
 
 

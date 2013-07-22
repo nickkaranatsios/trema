@@ -30,7 +30,9 @@ extern "C" {
 
 #include "emirates.h"
 
-
+#ifndef UNUSED
+#define UNUSED( var ) ( void ) var;
+#endif
 #define STATUS_MSG "STATUS:"
 #define STATUS_NG  "NG"
 #define STATUS_OK "OK"
@@ -53,7 +55,7 @@ extern "C" {
 #define IDENTITY_MAX 64
 #define REQUEST_HEARTBEAT 5000
 #define REPLY_TIMER REQUEST_HEARTBEAT - 1000
-#define OUTPUT_CTRL_BIT (2U)
+#define OUTPUT_CTRL_BIT ( 2 )
 #define use_output( q ) ( ( q ) & OUTPUT_CTRL_BIT )
 #define enable_output( q ) ( ( q ) |= OUTPUT_CTRL_BIT )
 #define disable_output( q ) ( ( q ) &= ~OUTPUT_CTRL_BIT )
@@ -74,7 +76,8 @@ extern "C" {
 #define signal_notify_out( fd ) \
   do { \
     char dummy = 'y'; \
-    write( ( fd ), &dummy, sizeof( dummy ) ); \
+    ssize_t bytes_written = write( ( fd ), &dummy, sizeof( dummy ) ); \
+    UNUSED( bytes_written );\
   } while ( 0 )
 
 
@@ -219,7 +222,8 @@ typedef struct emirates_priv {
   do { \
     emirates_priv *priv = user_data; \
     char dummy; \
-    read( priv->info_type->notify_in, &dummy, sizeof( dummy ) ); \
+    ssize_t bytes_read = read( priv->info_type->notify_in, &dummy, sizeof( dummy ) ); \
+    UNUSED( bytes_read ); \
     assert( dummy == 'y' ); \
     poll_##info_type( priv ); \
   } while ( 0 )

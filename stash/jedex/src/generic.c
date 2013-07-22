@@ -117,7 +117,7 @@ jedex_generic_class_from_schema( jedex_schema *schema ) {
 int
 jedex_generic_value_new( jedex_value_iface *iface, jedex_value *dest ) {
   int rval;
-  jedex_generic_value_iface *giface = container_of( iface, jedex_generic_value_iface, parent );
+  jedex_generic_value_iface *giface = container_non_const_of( iface, jedex_generic_value_iface, parent );
 
   size_t instance_size = jedex_value_instance_size( giface );
   void *self = jedex_malloc( instance_size );

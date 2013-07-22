@@ -39,6 +39,7 @@ requester_output( requester_info *self ) {
     size_t nr_frames = zmsg_size( msg );
     printf( "requester ==> %zu\n", nr_frames );
     zframe_t *msg_type_frame = zmsg_first( msg );
+    UNUSED( msg_type_frame );
     zframe_t *tx_id_frame = zmsg_next( msg );
     memcpy( &requester_outstanding_id( self ), ( const uint32_t * ) zframe_data( tx_id_frame ), zframe_size( tx_id_frame ) );
     zmsg_remove( msg, tx_id_frame );

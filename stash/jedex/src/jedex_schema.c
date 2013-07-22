@@ -53,7 +53,7 @@ is_jedex_id( const char *name ) {
 
 
 const char *
-jedex_schema_type_name( const jedex_schema *schema ) {
+jedex_schema_type_name( jedex_schema *schema ) {
   if ( is_jedex_record( schema ) ) {
     return ( jedex_schema_to_record( schema ) )->name;
   }
@@ -189,13 +189,13 @@ jedex_schema_record( const char *name, const char *space ) {
 
 
 size_t
-jedex_schema_record_size( const jedex_schema *record ) {
-  return jedex_schema_to_record( record )->fields->num_entries;
+jedex_schema_record_size( jedex_schema *record ) {
+  return ( size_t ) jedex_schema_to_record( record )->fields->num_entries;
 }
 
 
 jedex_schema *
-jedex_schema_record_field_get( const jedex_schema *record, const char *field_name ) {
+jedex_schema_record_field_get( jedex_schema *record, const char *field_name ) {
   union {
     st_data_t data;
     struct jedex_record_field *field;
@@ -207,7 +207,7 @@ jedex_schema_record_field_get( const jedex_schema *record, const char *field_nam
 
 
 int
-jedex_schema_record_field_get_index( const jedex_schema *record, const char *field_name ) {
+jedex_schema_record_field_get_index( jedex_schema *record, const char *field_name ) {
   union {
     st_data_t data;
     struct jedex_record_field *field;
@@ -225,24 +225,24 @@ jedex_schema_record_field_get_index( const jedex_schema *record, const char *fie
   
 
 const char *
-jedex_schema_record_field_name( const jedex_schema *record, int index ) {
+jedex_schema_record_field_name( jedex_schema *record, int index ) {
   union {
     st_data_t data;
     struct jedex_record_field *field;
   } val;
-  st_lookup( jedex_schema_to_record( record )->fields, index, &val.data );
+  st_lookup( jedex_schema_to_record( record )->fields, ( st_data_t ) index, &val.data );
 
   return val.field->name;
 }
 
 
 jedex_schema *
-jedex_schema_record_field_get_by_index( const jedex_schema *record, int index ) {
+jedex_schema_record_field_get_by_index( jedex_schema *record, int index ) {
   union {
     st_data_t data;
     struct jedex_record_field *field;
   } val;
-  st_lookup( jedex_schema_to_record( record )->fields, index, &val.data );
+  st_lookup( jedex_schema_to_record( record )->fields, ( st_data_t ) index, &val.data );
 
   return val.field->type;
 }
@@ -456,7 +456,7 @@ jedex_schema_array( jedex_schema *items ) {
 
 
 jedex_schema *
-jedex_schema_array_items( const jedex_schema *array ) {
+jedex_schema_array_items( jedex_schema *array ) {
   return jedex_schema_to_array( array )->items;
 }
 
@@ -476,29 +476,29 @@ jedex_schema_map( jedex_schema *values ) {
 
 
 jedex_schema *
-jedex_schema_map_values( const jedex_schema *map ) {
+jedex_schema_map_values( jedex_schema *map ) {
   return jedex_schema_to_map( map )->values;
 }
 
 
 size_t
-jedex_schema_union_size( const jedex_schema *union_schema ) {
+jedex_schema_union_size( jedex_schema *union_schema ) {
 	check_param( EINVAL, is_jedex_schema( union_schema ), "union schema" );
 	check_param( EINVAL, is_jedex_union( union_schema ), "union schema" );
 	struct jedex_union_schema *unionp = jedex_schema_to_union( union_schema );
 
-	return unionp->branches->num_entries;
+	return ( size_t ) unionp->branches->num_entries;
 }
 
 
 jedex_schema *
-jedex_schema_union_branch( const jedex_schema *unionp, int branch_index ) {
+jedex_schema_union_branch( jedex_schema *unionp, int branch_index ) {
 	union {
 		st_data_t data;
 		jedex_schema *schema;
 	} val;
 
-	if ( st_lookup( jedex_schema_to_union( unionp )->branches, branch_index, &val.data ) ) {
+	if ( st_lookup( jedex_schema_to_union( unionp )->branches, ( st_data_t ) branch_index, &val.data ) ) {
 		return val.schema;
 	}
   else {
@@ -509,7 +509,7 @@ jedex_schema_union_branch( const jedex_schema *unionp, int branch_index ) {
 
 
 int
-jedex_schema_union_branch_get_index( const jedex_schema *unionp, const char *branch_name ) {
+jedex_schema_union_branch_get_index( jedex_schema *unionp, const char *branch_name ) {
   union {
     st_data_t data;
     int index;
@@ -549,7 +549,7 @@ jedex_schema_union( void ) {
 
 
 int
-jedex_schema_union_append( const jedex_schema *union_schema, const jedex_schema *schema ) {
+jedex_schema_union_append( jedex_schema *union_schema, jedex_schema *schema ) {
   check_param( EINVAL, is_jedex_schema( union_schema ), "union schema" );
   check_param( EINVAL, is_jedex_union( union_schema ), "union schema" );
   check_param( EINVAL, is_jedex_schema( schema ), "schema" );
@@ -557,7 +557,7 @@ jedex_schema_union_append( const jedex_schema *union_schema, const jedex_schema 
   struct jedex_union_schema *unionp = jedex_schema_to_union( union_schema );
 
   int new_index = unionp->branches->num_entries;
-  st_insert( unionp->branches, new_index, ( st_data_t ) schema );
+  st_insert( unionp->branches, ( st_data_t ) new_index, ( st_data_t ) schema );
 
   const char *name = jedex_schema_type_name( schema );
   // ?? new_index not schema
@@ -574,7 +574,7 @@ save_named_schemas( const char *name, jedex_schema *schema, st_table *st ) {
 
 
 static int
-jedex_schema_record_field_append( const jedex_schema *record_schema, 
+jedex_schema_record_field_append( jedex_schema *record_schema, 
                                   const char *field_name, 
                                   jedex_schema *field_schema ) {
   check_param( EINVAL, is_jedex_schema( record_schema ), "record schema" );
@@ -602,7 +602,7 @@ jedex_schema_record_field_append( const jedex_schema *record_schema,
   new_field->index = record->fields->num_entries;
   new_field->name = strdup( field_name );
   new_field->type = field_schema;
-  st_insert( record->fields, record->fields->num_entries, ( st_data_t ) new_field );
+  st_insert( record->fields, ( st_data_t ) record->fields->num_entries, ( st_data_t ) new_field );
   st_insert( record->fields_byname, ( st_data_t ) new_field->name, ( st_data_t ) new_field );
 
   return 0;
@@ -610,9 +610,9 @@ jedex_schema_record_field_append( const jedex_schema *record_schema,
 
 
 jedex_schema *
-jedex_schema_get_subschema( const jedex_schema *schema, const char *name ) {
+jedex_schema_get_subschema( jedex_schema *schema, const char *name ) {
   if ( is_jedex_record( schema ) ) {
-    const struct jedex_record_schema *rschema = jedex_schema_to_record( schema );
+    struct jedex_record_schema *rschema = jedex_schema_to_record( schema );
     union {
       st_data_t data;
       struct jedex_record_field *field;
@@ -634,7 +634,7 @@ jedex_schema_get_subschema( const jedex_schema *schema, const char *name ) {
         st_data_t data;
         jedex_schema *schema;
       } val;
-      st_lookup( uschema->branches, i, &val.data );
+      st_lookup( uschema->branches, ( st_data_t ) i, &val.data );
       if ( strcmp( jedex_schema_type_name( val.schema ), name ) == 0 ) {
         return val.schema;
       }

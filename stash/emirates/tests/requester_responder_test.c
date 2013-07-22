@@ -28,11 +28,13 @@ static emirates_iface *iface;
 
 static void
 request_menu_callback( void *args ) {
+  UNUSED( args );
 }
 
 
 static void
 reply_menu_callback( void *args ) {
+  UNUSED( args );
 }
 
 
@@ -55,12 +57,15 @@ poll_responder( emirates_priv *self ) {
   int rc = zmq_poll( &poller, 1, 10 );
   if ( ( rc == 1 ) && ( poller.revents & ZMQ_POLLIN  ) ) {
     zmsg_t *msg = zmsg_recv( responder_socket( self->responder ) );
-    int nr_frames = zmsg_size( msg );
+    size_t nr_frames = zmsg_size( msg );
     printf( "poll responder(%d)\n", nr_frames );
     zframe_t *client_id_frame = zmsg_first( msg );
     zframe_t *empty_frame = zmsg_next( msg );
+    UNUSED( empty_frame );
     zframe_t *msg_type_frame = zmsg_next( msg );
+    UNUSED( msg_type_frame );
     zframe_t *service_frame = zmsg_next( msg );
+    UNUSED( service_frame );
     zmsg_t *reply = zmsg_new();
     zmsg_addmem( reply, ( const char * ) zframe_data( client_id_frame ), zframe_size( client_id_frame ) );
     zmsg_addstr( reply, "" );
@@ -116,8 +121,10 @@ poll_requester( emirates_priv *self ) {
 }
   
   
+#ifdef TEST
 static void
 poll_notify_in( int fd, void *user_data ) {
+  UNUSED( fd );
   emirates_priv *priv = user_data;
   struct pollfd pfd;
   nfds_t nfds = 1;
@@ -141,22 +148,26 @@ poll_notify_in( int fd, void *user_data ) {
     }
   }
 }
+#endif
 
 
 static void
 check_requester_notify_in( int fd, void *user_data ) {
+  UNUSED( fd );
   notify_in_requester( fd, user_data );
 }
 
 
 static void
 check_responder_notify_in( int fd, void *user_data ) {
+  UNUSED( fd );
   notify_in_responder( fd, user_data );
 }
 
 
 static void
 check_subscriber_notify_in( int fd, void *user_data ) {
+  UNUSED( fd );
   notify_in_subscriber( fd, user_data );
 }
 
@@ -167,7 +178,7 @@ generate_uuid( void ) {
   char *uuidstr = zmalloc( sizeof( uuid_t ) * 2 + 1 );
   uuid_t uuid;
   uuid_generate( uuid );
-  int byte_nbr;
+  size_t byte_nbr;
   for ( byte_nbr = 0; byte_nbr < sizeof( uuid_t ); byte_nbr++ ) {
     uuidstr[ byte_nbr * 2 + 0] = hex_char[ uuid[ byte_nbr ] >> 4 ];
     uuidstr[ byte_nbr * 2 + 1 ] = hex_char [uuid[ byte_nbr ] & 15 ];
@@ -189,6 +200,7 @@ initialize_emirates( void ) {
 
 static void
 service_profile_callback( void *args ) {
+  UNUSED( args );
 }
 
 
@@ -209,12 +221,14 @@ set_menu_record_value( jedex_value *val ) {
 
 static void
 handle_timer_event( void *user_data ) {
+  UNUSED( user_data );
   if ( iface ) {
     iface->set_service_request( "menu", iface, request_menu_callback );
     set_menu_reply( iface, reply_menu_callback );
     set_ready( iface );
     set_readable( responder_notify_in( ( priv( iface ) )->responder ), true );
     uint32_t tx_id = send_menu_request( priv( iface ) );
+    UNUSED( tx_id );
     set_readable( requester_notify_in( ( priv( iface ) )->requester ), true );
     delete_timer_event( handle_timer_event, NULL );
 

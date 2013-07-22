@@ -68,7 +68,7 @@ encode_utf8_bytes( const void *src, size_t src_len, void **dest, size_t *dest_le
   for ( i = 0; i < src_len; i++ ) {
     if ( src8[ i ] & 0x80 ) {
       *curr++ = ( 0xc0 | ( src8[ i ] >> 6 ) );
-      *curr++ = ( 0x80 | ( src8[ i ] & 0x3f ) );
+      *curr++ = ( uint8_t ) ( 0x80 | ( src8[ i ] & 0x3f ) );
     }
     else {
       *curr++ = src8[i];
@@ -466,10 +466,18 @@ unpack_string( jedex_value *val, json_t *json_value ) {
 
 void
 unpack_int( jedex_value *val, json_t *json_value ) {
-  int json_int;
+  jedex_type value_type = jedex_value_get_type( val );
 
-  json_unpack( json_value, "i", &json_int ); 
-  jedex_value_set_int( val, json_int );
+  if ( value_type == JEDEX_INT64 ) {
+    json_int_t json_int;
+    json_unpack( json_value, "I", &json_int ); 
+    jedex_value_set_long( val, json_int );
+  }
+  else if ( value_type == JEDEX_INT32 ) {
+    int json_int;
+    json_unpack( json_value, "i", &json_int ); 
+    jedex_value_set_int( val, json_int );
+  }
 }
 
 
@@ -478,7 +486,7 @@ unpack_real( jedex_value *val, json_t *json_value ) {
   double json_real;
 
   json_unpack( json_value, "f", &json_real );
-  jedex_value_set_float( val, json_real );
+  jedex_value_set_float( val, ( float ) json_real );
   jedex_value_set_double( val, json_real );
 }
 
@@ -524,7 +532,15 @@ unpack_object( json_t *json_value, jedex_value *val ) {
       unpack_map( value, val );
     }
     else if ( json_is_object( value ) ) {
-      unpack_object( value, val );
+      jedex_value field;
+      size_t index;
+      int rc = jedex_value_get_by_name( val, key, &field, &index );
+      if ( !rc ) { 
+        unpack_object( value, &field );
+      }
+      else {
+        unpack_object( value, val );
+      }
     }
     else if ( json_is_array( value ) ) {
       jedex_value field;

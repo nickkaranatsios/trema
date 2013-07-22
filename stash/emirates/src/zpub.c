@@ -40,6 +40,7 @@ publish_service( const char *service, publisher_info *self, jedex_parcel *parcel
 
 static int
 publish_output( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
+  UNUSED( loop );
   publisher_info *self = arg;
 
   zmsg_t *msg = one_or_more_msg( poller->socket );

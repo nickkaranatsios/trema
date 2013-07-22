@@ -85,14 +85,14 @@ jedex_generic_array_get_size( const jedex_value_iface *viface, const void *vself
 
 static int
 jedex_generic_array_get_by_index( const jedex_value_iface *viface,
-                                  const void *vself,
+                                  void *vself,
                                   size_t index,
                                   jedex_value *child,
                                   const char **name ) {
   UNUSED( name );
 
   const jedex_generic_array_value_iface *iface = container_of( viface, jedex_generic_array_value_iface, parent );
-  const jedex_generic_array *self = ( jedex_generic_array * ) vself;
+  jedex_generic_array *self = ( jedex_generic_array * ) vself;
 
   if ( index >= jedex_raw_array_size( &self->array ) ) {
     log_err( "Array index %zu out of range", index );

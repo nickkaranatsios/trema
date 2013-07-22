@@ -124,7 +124,7 @@ void *jedex_raw_array_append( jedex_raw_array *array );
  */
 
 typedef struct jedex_raw_map_entry {
-	const char *key;
+	char *key;
 } jedex_raw_map_entry;
 
 /**
@@ -235,7 +235,7 @@ typedef struct jedex_wrapped_buffer  jedex_wrapped_buffer;
 
 struct jedex_wrapped_buffer {
 	/** A pointer to the memory region */
-	const void *buf;
+	void *buf;
 
 	/** The size of the memory region */
 	size_t size;
@@ -322,7 +322,7 @@ int jedex_wrapped_buffer_slice( jedex_wrapped_buffer *self,
  */
 
 int
-jedex_wrapped_buffer_new( jedex_wrapped_buffer *dest, const void *buf, size_t length );
+jedex_wrapped_buffer_new( jedex_wrapped_buffer *dest, void *buf, size_t length );
 
 /**
  * Creates a new wrapped buffer wrapping the given C string.

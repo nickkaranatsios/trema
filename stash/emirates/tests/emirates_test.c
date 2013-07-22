@@ -22,16 +22,13 @@
 
 static void
 service_profile_callback( void *args ) {
+  UNUSED( args );
 }
 
 
 static void
 user_profile_callback( void *args ) {
-}
-
-
-static void
-request_menu_callback( void *args ) {
+  UNUSED( args );
 }
 
 
@@ -67,6 +64,8 @@ set_menu_record_value( jedex_value *val ) {
 
 int
 main( int argc, char **argv ) {
+  UNUSED( argc );
+  UNUSED( argv );
   jedex_schema *schema = jedex_initialize( "" );
 
   const char *sub_schemas[] = { NULL };

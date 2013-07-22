@@ -105,6 +105,7 @@ subscriber_data_handler( zmq_pollitem_t *poller, void *arg ) {
 
 static int
 subscriber_input( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
+  UNUSED( loop );
   subscriber_info *self = arg;
 
   zmsg_t *msg = one_or_more_msg( poller->socket );
@@ -118,12 +119,13 @@ subscriber_input( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
   }
   zmsg_destroy( &msg );
 
-  return 0;
+  return rc;
 }
 
 
 static int
 subscriber_output( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
+  UNUSED( loop );
   subscriber_info *self = arg;
 
   zmsg_t *msg = one_or_more_msg( poller->socket );
@@ -195,13 +197,13 @@ subscribe_to_service( const char *service,
   cb->service = service;
 
   if ( *schema_names ) {
-    int nr_schema_names = 0;
+    size_t nr_schema_names = 0;
     while ( *( schema_names + nr_schema_names ) ) {
       nr_schema_names++;
     }
     size_t schema_size = sizeof( void * ) * nr_schema_names + 1;
     cb->schemas = ( void ** ) zmalloc( schema_size );
-    int i;
+    size_t i;
     for ( i = 0; i < nr_schema_names; i++ ) {
       cb->schemas[ i ] = jedex_initialize( schema_names[ i ] );
     }

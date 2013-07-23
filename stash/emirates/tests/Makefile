@@ -9,9 +9,9 @@ OPT= $(OPTIMIZATION)
 
 
 FINAL_CFLAGS= $(STD) $(WARN) $(OPT) $(DEBUG) $(CFLAGS)
-FINAL_CFLAGS+= -I. -I../src -I../include -I../czmq/include -I../.. -I../../jedex/include -I../usr/local/include
+FINAL_CFLAGS+= -I. -I../src -I../include -I../czmq/include -I../.. -I../../jedex/include -I../../../network_controller/trema/objects/openflow -I../../../network_controller/trema/src/lib -I../usr/local/include
 FINAL_LDFLAGS= $(LDFLAGS) -g -rdynamic -ggdb $(ARCH)
-FINAL_LIBS= -lczmq -lsodium -ljedex -ljansson -lzmq -lm -pthread $(ARCH)
+FINAL_LIBS= -ltrema -lsqlite3 -lczmq -lsodium -ljedex -ljansson -lzmq -lm -pthread $(ARCH)
 DEBUG= -g -ggdb
 
 EMIRATES_LD=$(QUIET_LINK)$(CC) $(FINAL_LDFLAGS)

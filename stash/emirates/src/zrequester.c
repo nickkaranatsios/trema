@@ -190,6 +190,56 @@ reply_callback_add( requester_info *self, rep_callback *cb ) {
 }
 
 
+static int
+requester_poll( const emirates_priv *self ) {
+  long timeout = POLL_TIMEOUT;
+  zmq_pollitem_t poller = { requester_socket( self->requester ), 0, ZMQ_POLLIN, 0 };
+  int rc = zmq_poll( &poller, 1, timeout );
+  if ( ( rc == 1 ) &&  ( poller.revents & ZMQ_POLLIN ) ) {
+    // expect reply frame + service frame
+    zmsg_t *msg = one_or_more_msg( requester_socket( self->requester ) );
+    if ( msg ) {
+      zframe_t *msg_type_frame = zmsg_first( msg );
+      bool next_service_frame = false;
+      if ( ( !msg_is( REPLY, zframe_data( msg_type_frame ), zframe_size( msg_type_frame ) ) ) ||
+         ( !msg_is( REPLY_TIMEOUT, zframe_data( msg_type_frame ), zframe_size( msg_type_frame ) ) ) ) {
+        next_service_frame = true;
+      }
+      if ( next_service_frame ) {
+        zframe_t *service_frame = zmsg_next( msg );
+        size_t frame_size = zframe_size( service_frame );
+        assert( frame_size != 0 );
+
+        char service[ IDENTITY_MAX ];
+        memcpy( service, zframe_data( service_frame ), frame_size );
+        service[ frame_size ] = '\0';
+        rep_callback *handler = lookup_reply_callback( requester_callbacks( self->requester ), service );
+
+        size_t nr_frames = zmsg_size( msg );
+        if ( nr_frames > 2 ) {
+          zframe_t *tx_id_frame = zmsg_next( msg );
+          uint32_t tx_id;
+          memcpy( &tx_id, ( const uint32_t * ) zframe_data( tx_id_frame ), zframe_size( tx_id_frame ) );
+          assert( tx_id );
+          // handler should include the same tx_id
+          if ( handler ) {
+            handler->callback( zframe_data( service_frame ) );
+          }
+        }
+      }
+    }
+  }
+
+  return rc;
+}
+
+
+int
+requester_invoke( const emirates_priv *priv ) {
+  return requester_poll( priv );
+}
+
+
 void
 add_reply_callback( const char *service , reply_callback *user_callback, requester_info *self ) {
   rep_callback *cb = ( rep_callback * ) zmalloc( sizeof( rep_callback ) );

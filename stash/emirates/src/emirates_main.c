@@ -117,14 +117,17 @@ static void
 rfds_check( const emirates_priv *priv, struct pollfd rfds[] ) {
   if ( responder_notify_in( priv->responder ) ) {
     if ( rfds[ 0 ].revents & POLLIN ) {
+      responder_invoke( priv );
     }
   }
   if ( requester_notify_in( priv->requester ) ) {
     if ( rfds[ 1 ].revents & POLLIN ) {
+      requester_invoke( priv );
     }
   }
   if ( subscriber_notify_in( priv->subscriber ) ) {
-    if ( rfds[ 1 ].revents & POLLIN ) {
+    if ( rfds[ 2 ].revents & POLLIN ) {
+      subscriber_invoke( priv );
     }
   }
 }

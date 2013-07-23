@@ -28,7 +28,6 @@ extern "C" {
 #endif
 
 
-#include "emirates_priv.h"
 #include "jedex_iface.h"
 
 
@@ -45,9 +44,9 @@ struct emirates_iface {
 
 
 typedef struct req_callback {
-  request_handler *callback;
   const char *service;
   const char *responder_id;
+  request_handler *callback;
 } req_callback;
 
 

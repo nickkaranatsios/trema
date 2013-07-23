@@ -187,6 +187,26 @@ subscriber_thread( void *args, zctx_t *ctx, void *pipe ) {
 }
 
 
+static int
+subscriber_poll( const emirates_priv *priv ) {
+  long timeout = POLL_TIMEOUT;
+
+  zmq_pollitem_t poller = { subscriber_socket( priv->subscriber ), 0, ZMQ_POLLIN, 0 };
+  int rc = zmq_poll( &poller, 1, timeout );
+  if ( ( rc == 1 ) && ( poller.revents & ZMQ_POLLIN ) ) {
+    rc = subscriber_handler( priv->subscriber )( &poller, priv->subscriber );
+  }
+
+  return rc;
+}
+
+
+int
+subscriber_invoke( const emirates_priv *priv ) {
+  return subscriber_poll( priv );
+}
+
+
 void
 subscribe_to_service( const char *service,
                       subscriber_info *self,

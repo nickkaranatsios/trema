@@ -48,9 +48,10 @@ send_single_msg( void *socket, const char *content ) {
 
 void
 service_request( const char *service, emirates_iface *iface, request_handler callback ) {
-  UNUSED( callback );
   emirates_priv *priv = iface->priv;
   assert( priv );
+
+  add_request_callback( service, callback, priv->responder );
   zmsg_t *msg = zmsg_new();
   zmsg_addstr( msg, ADD_SERVICE_REQUEST );
   zmsg_addstr( msg, service );

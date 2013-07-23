@@ -160,12 +160,44 @@ responder_thread( void *args, zctx_t *ctx, void *pipe ) {
 }
 
 
+static int
+responder_poll( emirates_priv *self ) {
+  long timeout = POLL_TIMEOUT;
+
+  zmq_pollitem_t poller = { responder_socket( self->responder ), 0, ZMQ_POLLIN, 0 };
+  int rc = zmq_poll( &poller, 1, timeout );
+  if ( ( rc == 1 ) && ( poller.revents & ZMQ_POLLIN  ) ) {
+    zmsg_t *msg = zmsg_recv( responder_socket( self->responder ) );
+    size_t nr_frames = zmsg_size( msg );
+    log_debug( "poll responder(%zu)\n", nr_frames );
+    printf( "poll responder(%zu)\n", nr_frames );
+    zframe_t *client_id_frame = zmsg_first( msg );
+    UNUSED( client_id_frame );
+    zframe_t *empty_frame = zmsg_next( msg );
+    UNUSED( empty_frame ); 
+    zframe_t *msg_type_frame = zmsg_next( msg );
+    UNUSED( msg_type_frame ); 
+    zframe_t *service_frame = zmsg_next( msg );
+    UNUSED( service_frame );
+  }
+
+  return rc;
+}
+
+
+int
+responder_invoke( emirates_priv *priv ) {
+  return responder_poll( priv );
+}
+
+
 int
 responder_init( emirates_priv *priv ) {
   priv->responder = ( responder_info * ) zmalloc( sizeof( responder_info ) );
   memset( priv->responder, 0, sizeof( responder_info ) );
   responder_port( priv->responder ) = RESPONDER_BASE_PORT;
   responder_socket( priv->responder ) = zthread_fork( priv->ctx, responder_thread, priv->responder );
+  responder_callbacks( priv->responder ) = zlist_new();
   create_notify( priv->responder );
   if ( responder_notify_in( priv->responder ) == -1 || responder_notify_out( priv->responder ) == -1 ) {
     return EINVAL;
@@ -184,6 +216,7 @@ responder_finalize( emirates_priv **priv ) {
   emirates_priv *priv_p = *priv;
   if ( priv_p->responder ) {
     responder_info *self = priv_p->responder;
+    zlist_destroy( &responder_callbacks( self ) );
     free( responder_id( self ) );
     close( responder_notify_in( self ) );
     close( responder_notify_out( self ) );

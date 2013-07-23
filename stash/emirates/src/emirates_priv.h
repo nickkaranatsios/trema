@@ -36,7 +36,7 @@ extern "C" {
 #define STATUS_MSG "STATUS:"
 #define STATUS_NG  "NG"
 #define STATUS_OK "OK"
-#define POLL_TIMEOUT 500
+#define POLL_TIMEOUT 10
 #define PUB_BASE_PORT 6000
 #define SUB_BASE_PORT 6001
 #define REQUESTER_BASE_PORT 6100
@@ -106,11 +106,14 @@ typedef struct sub_callback {
 } sub_callback;
 
 
+typedef struct callback_key {
+  const char *service;
+} callback_key;
 
 
 typedef struct rep_callback {
-  reply_callback *callback;
   const char *service;
+  reply_callback *callback;
   const char *requester_id;
 } rep_callback;
 
@@ -133,6 +136,7 @@ typedef struct requester_info {
 
 
 typedef struct responder_info {
+  zlist_t *callbacks; // a list of user callbacks to call for processing of a request
   void *pipe; // responder's child thread to main thread i/o socket
   void *output; // responder's zmq output socket
   void *responder; // responder's main thread i/o socket
@@ -201,6 +205,7 @@ typedef struct emirates_priv {
 #define responder_service_frame( self ) ( ( self )->service_frame )
 #define responder_notify_in( self ) ( ( self )->notify_in )
 #define responder_notify_out( self ) ( ( self )->notify_out )
+#define responder_callbacks( self ) ( ( self )->callbacks )
 
 #define publisher_socket( self ) ( ( self )->publisher )
 #define publisher_pipe_socket( self ) ( ( self )->pipe )
@@ -245,6 +250,8 @@ void publisher_finalize( emirates_priv **priv );
 void subscriber_finalize( emirates_priv **priv );
 void requester_finalize( emirates_priv **priv );
 void responder_finalize( emirates_priv **priv );
+int subscriber_invoke( const emirates_priv *priv );
+int requester_invoke( const emirates_priv *priv );
 
 int check_status( void *socket );
 void send_ok_status( void *socket );
@@ -257,7 +264,7 @@ zmsg_t *one_or_more_msg( void *socket );
 long get_time_left( int64_t expiry );
 void *get_publisher_socket( emirates_priv *priv );
 void *get_requester_socket( emirates_priv *priv );
-void add_reply_callback( const char *service , reply_callback *user_callback, requester_info *self );
+void add_reply_callback( const char *service, reply_callback *user_callback, requester_info *self );
 rep_callback *lookup_reply_callback( zlist_t *callbacks, const char *service );
 
 CLOSE_EXTERN

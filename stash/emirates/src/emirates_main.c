@@ -112,6 +112,7 @@ set_rfds( const emirates_priv *priv, struct pollfd rfds[] ) {
 }
 
 
+// TODO insert the read loops for each entity
 static void
 rfds_check( const emirates_priv *priv, struct pollfd rfds[] ) {
   if ( responder_notify_in( priv->responder ) ) {

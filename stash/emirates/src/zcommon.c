@@ -16,10 +16,19 @@
  */
 
 
-#include "emirates.h"
+#include "emirates_priv.h"
+#include "callback.h"
 
 
-static int
+static void
+send_single_msg( void *socket, const char *content ) {
+  zmsg_t *msg = zmsg_new();
+  zmsg_addstr( msg, content );
+  zmsg_send( &msg, socket );
+}
+
+
+int
 wait_for_reply( void *socket ) {
   zmsg_t *msg = zmsg_recv( socket );
   if ( msg == NULL ) {
@@ -38,51 +47,19 @@ wait_for_reply( void *socket ) {
 }
 
 
-static void
-send_single_msg( void *socket, const char *content ) {
-  zmsg_t *msg = zmsg_new();
-  zmsg_addstr( msg, content );
-  zmsg_send( &msg, socket );
-}
+void *
+lookup_callback( zlist_t *callbacks, const char *service ) {
+  void *item = zlist_first( callbacks );
+  callback_key *key = ( callback_key * ) item;
 
+  while ( item != NULL ) {
+    if ( !strcmp( key->service, service ) ) {
+      return item;
+    }
+    item = zlist_next( callbacks );
+  }
 
-void
-service_request( const char *service, emirates_iface *iface, request_handler callback ) {
-  emirates_priv *priv = iface->priv;
-  assert( priv );
-
-  add_request_callback( service, callback, priv->responder );
-  zmsg_t *msg = zmsg_new();
-  zmsg_addstr( msg, ADD_SERVICE_REQUEST );
-  zmsg_addstr( msg, service );
-  zmsg_send( &msg, responder_socket( priv->responder ) );
-  wait_for_reply( responder_socket( priv->responder ) );
-}
-
-
-void
-service_reply( const char *service, emirates_priv *priv, reply_callback *callback ) {
-  requester_inc_timeout_id( priv->requester );
-  add_reply_callback( service, callback, priv->requester );
-  zmsg_t *msg = zmsg_new();
-  zmsg_addstr( msg, ADD_SERVICE_REPLY );
-  zmsg_addmem( msg, &requester_timeout_id( priv->requester ), sizeof( requester_timeout_id( priv->requester ) ) );
-  zmsg_addstr( msg, service );
-  zmsg_send( &msg, requester_socket( priv->requester ) );
-  wait_for_reply( requester_socket( priv->requester ) );
-}
-
-
-uint32_t
-send_request( const char *service, emirates_priv *priv ) {
-  requester_inc_timeout_id( priv->requester );
-  zmsg_t *msg = zmsg_new();
-  zmsg_addstr( msg, REQUEST );
-  zmsg_addmem( msg, &requester_timeout_id( priv->requester ), sizeof( requester_timeout_id( priv->requester ) ) );
-  zmsg_addstr( msg, service );
-  zmsg_send( &msg, requester_socket( priv->requester ) );
-
-  return requester_timeout_id( priv->requester );
+  return NULL;
 }
 
 

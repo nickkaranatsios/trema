@@ -16,12 +16,11 @@
  */
 
 
-#include "emirates.h"
+#include "emirates_priv.h"
 
 
 int
 main( void ) {
-  int rc;
   zctx_t *context = zctx_new();
 
   // this is the public endpoint for publishers

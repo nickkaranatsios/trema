@@ -16,7 +16,7 @@
  */
 
 
-#include "emirates.h"
+#include "emirates_priv.h"
 
 
 static void
@@ -70,12 +70,6 @@ start_publishing( publisher_info *self ) {
 }
 
 
-void
-publish_service_profile( emirates_iface *iface, jedex_parcel *parcel ) {
-  publish_service( "service_profile", ( priv( iface ) )->publisher, parcel );
-}
-
-
 static void 
 publisher_thread( void *args, zctx_t *ctx, void *pipe ) {
   publisher_info *self = args;
@@ -98,6 +92,12 @@ publisher_thread( void *args, zctx_t *ctx, void *pipe ) {
 void *
 get_publisher_socket( emirates_priv *priv ) {
   return publisher_socket( priv->publisher );
+}
+
+
+void
+publish( emirates_iface *iface, const char *service, jedex_parcel *parcel ) {
+  publish_service( service, ( priv( iface ) )->publisher, parcel );
 }
 
 

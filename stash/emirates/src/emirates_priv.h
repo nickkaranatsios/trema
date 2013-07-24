@@ -30,6 +30,7 @@ extern "C" {
 
 #include "emirates.h"
 
+
 #ifndef UNUSED
 #define UNUSED( var ) ( void ) var;
 #endif
@@ -59,6 +60,9 @@ extern "C" {
 #define use_output( q ) ( ( q ) & OUTPUT_CTRL_BIT )
 #define enable_output( q ) ( ( q ) |= OUTPUT_CTRL_BIT )
 #define disable_output( q ) ( ( q ) &= ~OUTPUT_CTRL_BIT )
+
+#define msg_is( type, msg, msg_size ) \
+  memcmp( ( type ), ( msg ), ( msg_size ) )
 
 #define create_notify( ptr ) \
   do {  \
@@ -94,28 +98,7 @@ extern "C" {
    
 
 
-typedef void ( subscriber_callback )( void *args );
-typedef void ( reply_callback )( void *args );
 typedef int ( poll_handler )( zmq_pollitem_t *item, void *arg );
-
-
-typedef struct sub_callback {
-  subscriber_callback *callback;
-  const char *service;
-  void **schemas;
-} sub_callback;
-
-
-typedef struct callback_key {
-  const char *service;
-} callback_key;
-
-
-typedef struct rep_callback {
-  const char *service;
-  reply_callback *callback;
-  const char *requester_id;
-} rep_callback;
 
 
 typedef struct requester_info {
@@ -170,8 +153,14 @@ typedef struct subscriber_info {
 } subscriber_info;
 
 
+typedef struct timer_callback_info {
+  void *timer;
+} timer_callback_info;
+
+
 typedef struct emirates_priv {
   zctx_t *ctx;
+  void *timer;
   requester_info *requester; 
   responder_info *responder;
   publisher_info *publisher;
@@ -202,6 +191,7 @@ typedef struct emirates_priv {
 #define responder_id( self ) ( ( self )->own_id )
 #define responder_port( self ) ( ( self )->port )
 #define responder_expiry( self ) ( ( self )->expiry )
+#define responder_own_id( self ) ( ( self )->own_id )
 #define responder_service_frame( self ) ( ( self )->service_frame )
 #define responder_notify_in( self ) ( ( self )->notify_in )
 #define responder_notify_out( self ) ( ( self )->notify_out )
@@ -211,7 +201,6 @@ typedef struct emirates_priv {
 #define publisher_pipe_socket( self ) ( ( self )->pipe )
 #define publisher_zmq_socket( self ) ( ( self )->output )
 #define publisher_port( self ) ( ( self )->port )
-//#define publisher( iface ) publisher_socket( ( ( priv( iface ) )->publisher ) )
 
 
 #define subscriber_socket( self ) ( ( self )->subscriber )
@@ -252,20 +241,18 @@ void requester_finalize( emirates_priv **priv );
 void responder_finalize( emirates_priv **priv );
 int subscriber_invoke( const emirates_priv *priv );
 int requester_invoke( const emirates_priv *priv );
+int responder_invoke( const emirates_priv *priv );
 
 int check_status( void *socket );
 void send_ok_status( void *socket );
 void send_ng_status( void *socket );
+int wait_for_reply( void *socket );
 
-uint32_t send_request( const char *service, emirates_priv *priv );
-void service_reply( const char *service, emirates_priv *priv, reply_callback *callback );
-void subscribe_to_service( const char *service, subscriber_info *self, const char **sub_schema_names, subscriber_callback *user_callback );
 zmsg_t *one_or_more_msg( void *socket );
 long get_time_left( int64_t expiry );
 void *get_publisher_socket( emirates_priv *priv );
 void *get_requester_socket( emirates_priv *priv );
-void add_reply_callback( const char *service, reply_callback *user_callback, requester_info *self );
-rep_callback *lookup_reply_callback( zlist_t *callbacks, const char *service );
+
 
 CLOSE_EXTERN
 #endif // EMIRATES_PRIV_H

@@ -15,7 +15,9 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "emirates.h"
+
+#include "emirates_priv.h"
+#include "callback.h"
 
 
 static void
@@ -158,27 +160,12 @@ requester_thread( void *args, zctx_t *ctx, void *pipe ) {
 }
 
 
-rep_callback *
-lookup_reply_callback( zlist_t *callbacks, const char *service ) {
-  rep_callback *item = zlist_first( callbacks );
-
-  while ( item != NULL ) {
-    if ( !strcmp( item->service, service ) ) {
-      return item;
-    }
-    item = zlist_next( callbacks );
-  }
-
-  return NULL;
-}
-
-
 static int
-reply_callback_add( requester_info *self, rep_callback *cb ) {
+reply_callback_add( requester_info *self, reply_callback *cb ) {
   assert( requester_callbacks( self ) );
 
   int rc = 0;
-  rep_callback *item = lookup_reply_callback( requester_callbacks( self ), cb->service );
+  reply_callback *item = lookup_callback( requester_callbacks( self ), cb->key.service );
   if ( !item ) { 
     rc = zlist_append( requester_callbacks( self ), cb );
   }
@@ -189,6 +176,17 @@ reply_callback_add( requester_info *self, rep_callback *cb ) {
   return rc;
 }
 
+
+static void
+add_reply_callback( const char *service , reply_handler user_callback, requester_info *self ) {
+  reply_callback *cb = ( reply_callback * ) zmalloc( sizeof( reply_callback ) );
+  cb->key.service = service;
+  cb->requester_id = requester_own_id( self );
+  cb->callback = user_callback;
+  if ( reply_callback_add( self, cb ) ) {
+    free( cb );
+  }
+}
 
 static int
 requester_poll( const emirates_priv *self ) {
@@ -213,7 +211,7 @@ requester_poll( const emirates_priv *self ) {
         char service[ IDENTITY_MAX ];
         memcpy( service, zframe_data( service_frame ), frame_size );
         service[ frame_size ] = '\0';
-        rep_callback *handler = lookup_reply_callback( requester_callbacks( self->requester ), service );
+        reply_callback *handler = lookup_callback( requester_callbacks( self->requester ), service );
 
         size_t nr_frames = zmsg_size( msg );
         if ( nr_frames > 2 ) {
@@ -236,25 +234,48 @@ requester_poll( const emirates_priv *self ) {
 
 int
 requester_invoke( const emirates_priv *priv ) {
+  char dummy;
+  ssize_t bytes_read = read( priv->requester->notify_in, &dummy, sizeof( dummy ) );
+  UNUSED( bytes_read );
   return requester_poll( priv );
-}
-
-
-void
-add_reply_callback( const char *service , reply_callback *user_callback, requester_info *self ) {
-  rep_callback *cb = ( rep_callback * ) zmalloc( sizeof( rep_callback ) );
-  cb->service = service;
-  cb->callback = user_callback;
-  cb->requester_id = requester_own_id( self );
-  if ( reply_callback_add( self, cb ) ) {
-    free( cb );
-  }
 }
 
 
 void *
 get_requester_socket( emirates_priv *priv ) {
   return requester_socket( priv->requester );
+}
+
+
+void
+service_reply( emirates_iface *iface, const char *service, reply_handler callback ) {
+  emirates_priv *priv = iface->priv;
+  assert( priv );
+
+  requester_inc_timeout_id( priv->requester );
+  add_reply_callback( service, callback, priv->requester );
+  zmsg_t *msg = zmsg_new();
+  zmsg_addstr( msg, ADD_SERVICE_REPLY );
+  zmsg_addmem( msg, &requester_timeout_id( priv->requester ), sizeof( requester_timeout_id( priv->requester ) ) );
+  zmsg_addstr( msg, service );
+  zmsg_send( &msg, requester_socket( priv->requester ) );
+  wait_for_reply( requester_socket( priv->requester ) );
+}
+
+
+uint32_t
+send_request( emirates_iface *iface, const char *service, jedex_parcel *parcel ) {
+  UNUSED( parcel );
+  emirates_priv *priv = iface->priv;
+  assert( priv );
+  requester_inc_timeout_id( priv->requester );
+  zmsg_t *msg = zmsg_new();
+  zmsg_addstr( msg, REQUEST );
+  zmsg_addmem( msg, &requester_timeout_id( priv->requester ), sizeof( requester_timeout_id( priv->requester ) ) );
+  zmsg_addstr( msg, service );
+  zmsg_send( &msg, requester_socket( priv->requester ) );
+
+  return requester_timeout_id( priv->requester );
 }
 
 

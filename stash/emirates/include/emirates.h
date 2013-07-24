@@ -46,8 +46,6 @@ extern "C" {
 #include "czmq.h"
 #include "log_writer.h"
 #include "emirates_ext.h"
-#include "emirates_priv.h"
-#include "zrequester_responder.h"
 
 
 CLOSE_EXTERN

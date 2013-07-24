@@ -16,32 +16,18 @@
  */
 
 
-#include "emirates.h"
-
-
-static sub_callback *
-lookup_subscription_service( zlist_t *sub_callbacks, const char *service ) {
-  sub_callback *item = zlist_first( sub_callbacks );
-
-  while ( item != NULL ) {
-    if ( !strcmp( item->service, service ) ) {
-      return item;
-    }
-    item = zlist_next( sub_callbacks );
-  }
-
-  return NULL;
-}
+#include "emirates_priv.h"
+#include "callback.h"
 
 
 static int
-subscription_callback_add( subscriber_info *self, sub_callback *cb ) {
+subscription_callback_add( subscriber_info *self, subscriber_callback *cb ) {
   if ( subscriber_callbacks( self ) == NULL ) {
     subscriber_callbacks( self ) = zlist_new();
   }
 
   int rc = 0;
-  sub_callback *item = lookup_subscription_service( subscriber_callbacks( self ), cb->service );
+  subscriber_callback *item = lookup_callback( subscriber_callbacks( self ), cb->key.service );
   if ( !item ) { 
     rc = zlist_append( subscriber_callbacks( self ), cb );
   }
@@ -55,7 +41,7 @@ subscription_callback_add( subscriber_info *self, sub_callback *cb ) {
 
 static void
 subscription_callback_free( zlist_t *callbacks ) {
-  sub_callback *item = zlist_first( callbacks );
+  subscriber_callback *item = zlist_first( callbacks );
 
   while ( item != NULL ) {
     if ( *item->schemas ) {
@@ -82,7 +68,7 @@ subscriber_data_handler( zmq_pollitem_t *poller, void *arg ) {
   zframe_t *sub_frame = zmsg_first( msg );
   if ( sub_frame != NULL ) {
     // match subscription and send to application
-    sub_callback *item = lookup_subscription_service( subscriber_callbacks( self ), ( const char * ) zframe_data( sub_frame ) );  
+    subscriber_callback *item = lookup_callback( subscriber_callbacks( self ), ( const char * ) zframe_data( sub_frame ) );  
     if ( item != NULL ) {
       zframe_t *service_frame = zmsg_next( msg );
       const char *json_data = ( const char * ) zframe_data( service_frame );
@@ -201,20 +187,14 @@ subscriber_poll( const emirates_priv *priv ) {
 }
 
 
-int
-subscriber_invoke( const emirates_priv *priv ) {
-  return subscriber_poll( priv );
-}
-
-
-void
+static void
 subscribe_to_service( const char *service,
                       subscriber_info *self,
                       const char **schema_names,
-                      subscriber_callback *user_callback ) {
-  sub_callback *cb = ( sub_callback * ) zmalloc( sizeof( sub_callback ) );
+                      subscription_handler user_callback ) {
+  subscriber_callback *cb = ( subscriber_callback * ) zmalloc( sizeof( subscriber_callback ) );
   cb->callback = user_callback;
-  cb->service = service;
+  cb->key.service = service;
 
   if ( *schema_names ) {
     size_t nr_schema_names = 0;
@@ -247,6 +227,20 @@ subscribe_to_service( const char *service,
     free_array( cb->schemas );
     free( cb );
   }
+}
+
+
+int
+subscriber_invoke( const emirates_priv *priv ) {
+  return subscriber_poll( priv );
+}
+
+
+void
+subscription( emirates_iface *iface, const char *service, const char **schema_names, subscription_handler callback ) {
+  emirates_priv *priv = iface->priv;
+  assert( priv );
+  subscribe_to_service( service, priv->subscriber, schema_names, callback );
 }
 
 

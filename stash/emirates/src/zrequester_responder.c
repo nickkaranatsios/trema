@@ -16,7 +16,8 @@
  */
 
 
-#include "emirates.h"
+#include "emirates_priv.h"
+#include "zrequester_responder.h"
 
 
 static const char *
@@ -164,7 +165,6 @@ route_add_service_reply( proxy *self,
 
 static void
 route_request( proxy *self,
-               zmsg_t *msg,
                zframe_t *client_id_frame,
                zframe_t *service_frame ) {
   size_t service_frame_size = zframe_size( service_frame );
@@ -206,7 +206,7 @@ route_client_msg( proxy *self, zmsg_t *msg, zframe_t *client_id_frame, zframe_t 
     route_add_service_reply( self, msg, client_id_frame, service_frame );
   }
   else if ( !msg_is( REQUEST, zframe_data( msg_type_frame ), msg_type_frame_size ) ) {
-    route_request( self, msg, client_id_frame, service_frame );
+    route_request( self, client_id_frame, service_frame );
   }
 }
 
@@ -433,6 +433,8 @@ proxy_fe( proxy *proxy ) {
 
 int
 main (int argc, char *argv []) {
+  UNUSED( argc );
+  UNUSED( argv );
   proxy *self = ( proxy * ) zmalloc( sizeof( *self ) );
   memset( self, 0, sizeof( *self ) );
   self->ctx = zctx_new();

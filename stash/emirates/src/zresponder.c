@@ -16,7 +16,8 @@
  */
 
 
-#include "emirates.h"
+#include "emirates_priv.h"
+#include "callback.h"
 
 
 static void
@@ -161,7 +162,36 @@ responder_thread( void *args, zctx_t *ctx, void *pipe ) {
 
 
 static int
-responder_poll( emirates_priv *self ) {
+request_callback_add( responder_info *self, request_callback *cb ) {
+  assert( responder_callbacks( self ) );
+
+  int rc = 0;
+  request_callback *item = lookup_callback( responder_callbacks( self ), cb->key.service );
+  if ( !item ) { 
+    rc = zlist_append( responder_callbacks( self ), cb );
+  }
+  else {
+    item->callback = cb->callback;
+  }
+
+  return rc;
+}
+
+
+static void
+add_request_callback( const char *service , request_handler user_callback, responder_info *self ) {
+  request_callback *cb = ( request_callback * ) zmalloc( sizeof( request_callback ) );
+  cb->key.service = service;
+  cb->responder_id = responder_own_id( self );
+  cb->callback = user_callback;
+  if ( request_callback_add( self, cb ) ) {
+    free( cb );
+  }
+}
+
+
+static int
+responder_poll( const emirates_priv *self ) {
   long timeout = POLL_TIMEOUT;
 
   zmq_pollitem_t poller = { responder_socket( self->responder ), 0, ZMQ_POLLIN, 0 };
@@ -186,8 +216,22 @@ responder_poll( emirates_priv *self ) {
 
 
 int
-responder_invoke( emirates_priv *priv ) {
+responder_invoke( const emirates_priv *priv ) {
   return responder_poll( priv );
+}
+
+
+void
+service_request( emirates_iface *iface, const char *service, request_handler callback ) {
+  emirates_priv *priv = iface->priv;
+  assert( priv );
+
+  add_request_callback( service, callback, priv->responder );
+  zmsg_t *msg = zmsg_new();
+  zmsg_addstr( msg, ADD_SERVICE_REQUEST );
+  zmsg_addstr( msg, service );
+  zmsg_send( &msg, responder_socket( priv->responder ) );
+  wait_for_reply( responder_socket( priv->responder ) );
 }
 
 

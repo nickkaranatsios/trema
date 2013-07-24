@@ -16,8 +16,8 @@
  */
 
 
-#ifndef ZREQUESTER_RESPONDER_H
-#define ZREQUESTER_RESPONDER_H
+#ifndef CALLBACK_H
+#define CALLBACK_H
 
 
 #ifdef __cplusplus
@@ -28,28 +28,47 @@ extern "C" {
 #endif
 
 
+#include "emirates_ext.h"
 
 
-typedef struct service_route {
-  char service[ SERVICE_MAX ];
-  char identity[ IDENTITY_MAX ];
-} service_route;
+typedef struct callback_key {
+  const char *service;
+} callback_key;
 
 
-typedef struct proxy {
-  zctx_t *ctx;
-  void *frontend;
-  void *backend;
-  zloop_t *loop;
-  zlist_t *requests;
-  zlist_t *replies;
-  zlist_t *clients;
-  zlist_t *workers;
-} proxy;
+typedef struct request_callback {
+  callback_key key;
+  const char *responder_id;
+  request_handler callback;
+} request_callback;
+
+
+typedef struct reply_callback {
+  callback_key key;
+  const char *requester_id;
+  reply_handler callback;
+} reply_callback;
+
+
+typedef struct subscriber_callback {
+  callback_key key;
+  void **schemas;
+  subscription_handler callback;
+} subscriber_callback;
+
+
+typedef struct timer_callback {
+  int msecs;
+  timer_handler callback;
+  void *user_data;
+} timer_callback;
+
+
+void *lookup_callback( zlist_t *callbacks, const char *service );
 
 
 CLOSE_EXTERN
-#endif // ZREQUESTER_RESPONDER_H
+#endif // CALLBACK_H
 
 
 /*

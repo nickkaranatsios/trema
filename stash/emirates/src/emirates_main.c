@@ -16,7 +16,8 @@
  */
 
 
-#include "emirates.h"
+#include "emirates_priv.h"
+#include "callback.h"
 
 
 static void
@@ -77,17 +78,30 @@ requester( emirates_iface *iface ) {
 }
 
 
+void
+set_periodic_timer( emirates_iface *iface, int msecs, timer_handler callback, void *user_data ) {
+  emirates_priv *priv = priv( iface );
+
+  timer_callback *timer = priv->timer;
+  assert( timer );
+
+  timer->msecs = msecs;
+  timer->callback = callback;
+  timer->user_data = user_data;
+}
+
+
 static nfds_t
 count_rfds( const emirates_priv *priv ) {
    nfds_t nr_fds = 0;
 
-  if ( subscriber_notify_in( priv->subscriber ) ) {
+  if ( priv->subscriber && subscriber_notify_in( priv->subscriber ) ) {
     nr_fds++;
   }
-  if ( requester_notify_in( priv->requester ) ) {
+  if ( priv->requester && requester_notify_in( priv->requester ) ) {
     nr_fds++;
   }
-  if ( responder_notify_in( priv->responder ) ) {
+  if ( priv->responder && responder_notify_in( priv->responder ) ) {
     nr_fds++;
   }
 
@@ -97,17 +111,19 @@ count_rfds( const emirates_priv *priv ) {
 
 static void
 set_rfds( const emirates_priv *priv, struct pollfd rfds[] ) {
-  if ( responder_notify_in( priv->responder ) ) {
-    rfds[ 0 ].fd = responder_notify_in( priv->responder );
-    rfds[ 0 ].events = POLLIN;
+  int idx = 0;
+
+  if ( priv->responder && responder_notify_in( priv->responder ) ) {
+    rfds[ idx ].fd = responder_notify_in( priv->responder );
+    rfds[ idx++ ].events = POLLIN;
   }
-  if ( requester_notify_in( priv->requester ) ) {
-    rfds[ 1 ].fd = requester_notify_in( priv->requester );
-    rfds[ 1 ].events = POLLIN;
+  if ( priv->requester && requester_notify_in( priv->requester ) ) {
+    rfds[ idx ].fd = requester_notify_in( priv->requester );
+    rfds[ idx++ ].events = POLLIN;
   }
-  if ( subscriber_notify_in( priv->subscriber ) ) {
-    rfds[ 2 ].fd = subscriber_notify_in( priv->subscriber );
-    rfds[ 2 ].events = POLLIN;
+  if ( priv->subscriber && subscriber_notify_in( priv->subscriber ) ) {
+    rfds[ idx ].fd = subscriber_notify_in( priv->subscriber );
+    rfds[ idx ].events = POLLIN;
   }
 }
 
@@ -115,56 +131,33 @@ set_rfds( const emirates_priv *priv, struct pollfd rfds[] ) {
 // TODO insert the read loops for each entity
 static void
 rfds_check( const emirates_priv *priv, struct pollfd rfds[] ) {
-  if ( responder_notify_in( priv->responder ) ) {
-    if ( rfds[ 0 ].revents & POLLIN ) {
+  int idx = 0;
+
+  // the order of checking should be exactly as the order of setting
+  if ( priv->responder && responder_notify_in( priv->responder ) ) {
+    if ( rfds[ idx ].revents & POLLIN ) {
       responder_invoke( priv );
     }
   }
-  if ( requester_notify_in( priv->requester ) ) {
-    if ( rfds[ 1 ].revents & POLLIN ) {
+  if ( priv->requester && requester_notify_in( priv->requester ) ) {
+    if ( rfds[ idx++ ].revents & POLLIN ) {
       requester_invoke( priv );
     }
   }
-  if ( subscriber_notify_in( priv->subscriber ) ) {
-    if ( rfds[ 2 ].revents & POLLIN ) {
+  if ( priv->subscriber && subscriber_notify_in( priv->subscriber ) ) {
+    if ( rfds[ idx ].revents & POLLIN ) {
       subscriber_invoke( priv );
     }
   }
 }
 
 
-int
-emirates_loop( emirates_iface *iface ) {
-  nfds_t nr_fds = count_rfds( iface->priv );
-  struct pollfd rfds[ nr_fds ];
-  int msec = -1;
-  
-  set_rfds( iface->priv, rfds );
-  int res;
-  while ( !zctx_interrupted ) {
-    if ( ( res = poll( rfds, nr_fds, msec ) ) == -1 ) {
-      res = EIO;
-      break;
-    }
-    if ( res == 0 ) {
-      res = ETIMEDOUT;
-      break;
-    }
-    else {
-      rfds_check( iface->priv, rfds );
-    }
-  }
-
-  return EINVAL;
-}
-
-
-emirates_iface *
-emirates_initialize( void ) {
-  emirates_iface *iface = ( emirates_iface * ) zmalloc( sizeof( emirates_iface ) );
+static emirates_iface *
+init_emirates_iface( emirates_iface **iface ) {
+  *iface = ( emirates_iface * ) zmalloc( sizeof( emirates_iface ) );
   emirates_priv *priv =  ( emirates_priv * ) zmalloc( sizeof( emirates_priv ) );
   memset( priv, 0, sizeof( emirates_priv ) );
-  iface->priv = priv;
+  ( *iface )->priv = priv;
 
   zctx_t *ctx;
   ctx = zctx_new();
@@ -173,23 +166,105 @@ emirates_initialize( void ) {
   }
   srandom( ( uint32_t ) time( NULL ) );
   priv->ctx = ctx;
-  if ( publisher_init( priv ) ) {
-    return NULL;
+
+  timer_callback *callback = ( timer_callback * ) zmalloc( sizeof( timer_callback ) );
+  memset( callback, 0, sizeof( timer_callback ) );
+  priv->timer = callback;
+  ( *iface )->set_periodic_timer = set_periodic_timer;
+
+  return *iface;
+}
+
+
+static emirates_iface *
+initialize_entities( emirates_iface *iface, const int flag ) {
+  if ( ENTITY_TST( flag, PUBLISHER ) ) {
+    if ( publisher_init( iface->priv ) ) {
+      return NULL;
+    }
+    iface->get_publisher = publisher;
+    iface->publish = publish;
   }
-  iface->get_publisher = publisher;
-  if ( subscriber_init( priv ) ) {
-    return NULL;
+  if ( ENTITY_TST( flag, SUBSCRIBER ) ) {
+    if ( subscriber_init( iface->priv ) ) {
+      return NULL;
+    }
+    iface->set_subscription = subscription;
   }
-  if ( responder_init( priv ) ) {
-    return NULL;
+  if ( ENTITY_TST( flag, RESPONDER ) ) {
+    if ( responder_init( iface->priv ) ) {
+      return NULL;
+    }
+    iface->set_service_request = service_request;
   }
-  iface->set_service_request = service_request;
-  if ( requester_init( priv ) ) {
-    return NULL;
+  if ( ENTITY_TST( flag, REQUESTER ) ) {
+    if ( requester_init( iface->priv ) ) {
+      return NULL;
+    }
+    iface->set_service_reply = service_reply;
+    iface->send_request = send_request;
+    iface->get_requester = requester;
   }
-  iface->get_requester = requester;
 
   return iface;
+}
+
+
+int
+emirates_loop( emirates_iface *iface ) {
+  nfds_t nr_fds = count_rfds( iface->priv );
+  struct pollfd rfds[ nr_fds ];
+  int msec = -1;
+  emirates_priv *priv = iface->priv;
+  timer_callback *timer = priv->timer;
+  if ( timer->msecs ) {
+    msec = timer->msecs;
+  }
+  
+  set_rfds( iface->priv, rfds );
+  int res = 0;
+  while ( !zctx_interrupted ) {
+    if ( ( res = poll( rfds, nr_fds, msec ) ) == -1 ) {
+      res = EIO;
+      break;
+    }
+    if ( res == 0 ) {
+      if ( timer->callback ) {
+        timer->callback( timer->user_data );
+      }
+    }
+    else {
+      rfds_check( iface->priv, rfds );
+    }
+  }
+
+  return res;
+}
+
+
+emirates_iface *
+emirates_initialize( void ) {
+  emirates_iface *iface = NULL; 
+
+  if ( ( iface = init_emirates_iface( &iface ) ) == NULL ) {
+    return NULL;
+  }
+  int flag = 0;
+
+  // initialize all entities
+  return initialize_entities( iface, flag );
+}
+
+
+emirates_iface *
+emirates_initialize_only( const int flag ) {
+  emirates_iface *iface = NULL;
+
+  if ( ( iface = init_emirates_iface( &iface ) ) == NULL ) {
+    return NULL;
+  }
+  // initialize only those entities set by the flag
+  return initialize_entities( iface, flag );
 }
 
 

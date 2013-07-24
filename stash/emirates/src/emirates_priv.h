@@ -212,24 +212,22 @@ typedef struct emirates_priv {
 #define subscriber_notify_out( self ) ( ( self )->notify_out )
 #define subscriber_handler( self ) ( ( self )->handler )
 
-#define notify_in( fd, user_data, info_type ) \
+#define notify_in( self, info_type ) \
   do { \
-    emirates_priv *priv = user_data; \
     char dummy; \
-    ssize_t bytes_read = read( priv->info_type->notify_in, &dummy, sizeof( dummy ) ); \
+    ssize_t bytes_read = read( self->info_type->notify_in, &dummy, sizeof( dummy ) ); \
     UNUSED( bytes_read ); \
     assert( dummy == 'y' ); \
-    poll_##info_type( priv ); \
   } while ( 0 )
 
-#define notify_in_requester( fd, user_data ) \
-  notify_in( ( fd ), ( user_data ), requester )
+#define notify_in_requester( self ) \
+  notify_in( ( self ), requester )
 
-#define notify_in_responder( fd, user_data ) \
-  notify_in( ( fd ), ( user_data ), responder )
+#define notify_in_responder( self ) \
+  notify_in( ( self ), responder )
 
-#define notify_in_subscriber( fd, user_data ) \
-  notify_in( ( fd ), ( user_data ), subscriber )
+#define notify_in_subscriber( self ) \
+  notify_in( ( self ), subscriber )
 
 int publisher_init( emirates_priv *priv );
 int subscriber_init( emirates_priv *priv );

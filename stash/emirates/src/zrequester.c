@@ -203,6 +203,9 @@ requester_poll( const emirates_priv *self ) {
          ( !msg_is( REPLY_TIMEOUT, zframe_data( msg_type_frame ), zframe_size( msg_type_frame ) ) ) ) {
         next_service_frame = true;
       }
+      if ( !msg_is( ADD_SERVICE_REPLY, ( const char * ) zframe_data( msg_type_frame ), zframe_size( msg_type_frame ) ) ) {
+        return rc;
+      }
       if ( next_service_frame ) {
         zframe_t *service_frame = zmsg_next( msg );
         size_t frame_size = zframe_size( service_frame );
@@ -234,9 +237,12 @@ requester_poll( const emirates_priv *self ) {
 
 int
 requester_invoke( const emirates_priv *priv ) {
+#ifdef TEST
   char dummy;
   ssize_t bytes_read = read( priv->requester->notify_in, &dummy, sizeof( dummy ) );
   UNUSED( bytes_read );
+#endif
+  notify_in_requester( priv );
   return requester_poll( priv );
 }
 
@@ -259,7 +265,6 @@ service_reply( emirates_iface *iface, const char *service, reply_handler callbac
   zmsg_addmem( msg, &requester_timeout_id( priv->requester ), sizeof( requester_timeout_id( priv->requester ) ) );
   zmsg_addstr( msg, service );
   zmsg_send( &msg, requester_socket( priv->requester ) );
-  wait_for_reply( requester_socket( priv->requester ) );
 }
 
 

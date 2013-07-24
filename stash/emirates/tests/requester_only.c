@@ -23,6 +23,7 @@
 
 static void
 menu_reply_callback( void *args ) {
+  printf( "request callback called\n" );
   UNUSED( args );
 }
 
@@ -68,8 +69,8 @@ main( int argc, char **argv ) {
   emirates_iface *iface = emirates_initialize_only( ENTITY_SET( flag, REQUESTER ) );
   if ( iface != NULL ) {
     iface->set_service_reply( iface, "menu", menu_reply_callback );
-    iface->set_periodic_timer( iface, 5000,  my_timer, parcel );
-    //iface->send_request( iface, "menu", parcel );
+    //iface->set_periodic_timer( iface, 5000,  my_timer, parcel );
+    iface->send_request( iface, "menu", parcel );
     emirates_loop( iface );
     emirates_finalize( &iface );
   }

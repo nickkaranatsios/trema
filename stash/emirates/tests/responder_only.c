@@ -71,8 +71,6 @@ main( int argc, char **argv ) {
     iface->set_service_request( iface, "menu", request_menu_callback );
     set_ready( iface );
 
-    zclock_sleep( 2 * 1000 );
-    //iface->send_request( iface, "menu", parcel );
     emirates_loop( iface );
     emirates_finalize( &iface );
   }

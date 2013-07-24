@@ -217,6 +217,7 @@ responder_poll( const emirates_priv *self ) {
 
 int
 responder_invoke( const emirates_priv *priv ) {
+  notify_in_responder( priv );
   return responder_poll( priv );
 }
 
@@ -231,7 +232,6 @@ service_request( emirates_iface *iface, const char *service, request_handler cal
   zmsg_addstr( msg, ADD_SERVICE_REQUEST );
   zmsg_addstr( msg, service );
   zmsg_send( &msg, responder_socket( priv->responder ) );
-  wait_for_reply( responder_socket( priv->responder ) );
 }
 
 

@@ -42,7 +42,7 @@ extern "C" {
 
 typedef struct emirates_iface emirates_iface;
 typedef void ( *request_handler ) ( void *user_data );
-typedef void ( *reply_handler ) ( void *user_data );
+typedef void ( *reply_handler ) ( const uint32_t tx_id, jedex_value *val, const char *json );
 typedef void ( *subscription_handler ) ( void *user_data );
 typedef void ( *timer_handler ) ( void *user_data );
 

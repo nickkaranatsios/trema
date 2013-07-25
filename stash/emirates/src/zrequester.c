@@ -20,6 +20,31 @@
 #include "callback.h"
 
 
+static int
+schema_per_request_add( zlist_t *schemas, jedex_schema *schema, uint32_t timeout_id ) {
+  schema_per_request *item = ( schema_per_request * ) zmalloc( sizeof( *item ) );
+  item->schema = schema;
+  item->timeout_id = timeout_id;
+
+  return zlist_append( schemas, item );
+}
+
+
+static schema_per_request *
+schema_per_request_lookup( zlist_t *schemas, const uint32_t timeout_id ) {
+  schema_per_request *item = zlist_first( schemas );
+
+  while ( item != NULL ) {
+    if ( item->timeout_id == timeout_id ) {
+      return item;
+    }
+    item = zlist_next( schemas );
+  }
+
+  return item;
+}
+
+
 static void
 send_reply_timeout_to_self( requester_info *self ) {
   zmsg_t *msg = zmsg_new();
@@ -39,6 +64,7 @@ requester_output( requester_info *self ) {
 
   if ( msg ) {
     size_t nr_frames = zmsg_size( msg );
+    log_debug( "requester ==> %zu", nr_frames );
     printf( "requester ==> %zu\n", nr_frames );
     zframe_t *msg_type_frame = zmsg_first( msg );
     UNUSED( msg_type_frame );
@@ -65,6 +91,7 @@ requester_input( requester_info *self ) {
 
   if ( msg ) {
     size_t nr_frames = zmsg_size( msg );
+    log_debug( "requester <== %zu", nr_frames );
     printf( "requester <== %zu\n", nr_frames );
     zmsg_addmem( msg, &requester_outstanding_id( self ), sizeof( requester_outstanding_id( self ) ) );
     requester_outstanding_id( self ) = 0;
@@ -203,27 +230,33 @@ route_msg( const emirates_priv *self, zmsg_t *msg ) {
   service[ zframe_size( service_frame ) ] = '\0';
   reply_callback *handler = lookup_callback( requester_callbacks( self->requester ), service );
 
+  zframe_t *data_frame = NULL;
   if ( ( !msg_is( REPLY, zframe_data( msg_type_frame ), zframe_size( msg_type_frame ) ) ) ) {
-    zframe_t *data_frame = zmsg_next( msg );
-    zframe_t *tx_id_frame = zmsg_next( msg );
-    uint32_t tx_id;
-    memcpy( &tx_id, ( const uint32_t * ) zframe_data( tx_id_frame ), zframe_size( tx_id_frame ) );
-
-    if ( handler ) {
-      handler->callback( zframe_data( data_frame ) );
-    }
+    data_frame = zmsg_next( msg );
   }
   else if ( ( !msg_is( REPLY_TIMEOUT, zframe_data( msg_type_frame ), zframe_size( msg_type_frame ) ) ) ) {
+  }
+  if ( handler ) {
     zframe_t *tx_id_frame = zmsg_next( msg );
     uint32_t tx_id;
     memcpy( &tx_id, ( const uint32_t * ) zframe_data( tx_id_frame ), zframe_size( tx_id_frame ) );
+    jedex_value *val = NULL;
+    const char *json = NULL;
     if ( !tx_id ) {
       log_debug( "Late response to request" );
       printf( "Late response to request\n" );
     }
-    if ( handler ) {
-      handler->callback( zframe_data( service_frame ) );
-    } 
+    else {
+      schema_per_request *request_schema = schema_per_request_lookup( requester_schemas( self->requester ), tx_id );
+      jedex_schema *schema = request_schema->schema;
+      if ( schema && data_frame ) {
+        json = ( const char * ) zframe_data( data_frame );
+        val = json_to_jedex_value( schema, json ); 
+        zlist_remove( requester_schemas( self->requester ), request_schema );
+      }
+    }
+    
+    handler->callback( tx_id, val, json );
   }
 }
 
@@ -238,41 +271,6 @@ requester_poll( const emirates_priv *self ) {
     zmsg_t *msg = one_or_more_msg( requester_socket( self->requester ) );
     if ( msg ) {
       route_msg( self, msg );
-#ifdef TEST
-      zframe_t *msg_type_frame = zmsg_first( msg );
-      bool next_service_frame = false;
-      if ( ( !msg_is( REPLY, zframe_data( msg_type_frame ), zframe_size( msg_type_frame ) ) ) ||
-         ( !msg_is( REPLY_TIMEOUT, zframe_data( msg_type_frame ), zframe_size( msg_type_frame ) ) ) ) {
-        next_service_frame = true;
-      }
-      if ( !msg_is( ADD_SERVICE_REPLY, ( const char * ) zframe_data( msg_type_frame ), zframe_size( msg_type_frame ) ) ) {
-        return rc;
-      }
-      if ( next_service_frame ) {
-        zframe_t *service_frame = zmsg_next( msg );
-        size_t frame_size = zframe_size( service_frame );
-        assert( frame_size != 0 );
-
-        char service[ IDENTITY_MAX ];
-        memcpy( service, zframe_data( service_frame ), frame_size );
-        service[ frame_size ] = '\0';
-        reply_callback *handler = lookup_callback( requester_callbacks( self->requester ), service );
-
-        size_t nr_frames = zmsg_size( msg );
-        if ( nr_frames > 2 ) {
-          zframe_t *tx_id_frame = zmsg_next( msg );
-          uint32_t tx_id;
-          memcpy( &tx_id, ( const uint32_t * ) zframe_data( tx_id_frame ), zframe_size( tx_id_frame ) );
-          if ( tx_id == 0 ) {
-            printf( "late response to request\n" );
-          }
-          // handler should include the same tx_id
-          if ( handler ) {
-            handler->callback( zframe_data( service_frame ) );
-          }
-        }
-      }
-#endif
     }
   }
 
@@ -316,14 +314,18 @@ send_request( emirates_iface *iface, const char *service, jedex_value *value ) {
   char *json;
   jedex_value_to_json( value, true, &json );
   if ( json ) {
-    requester_inc_timeout_id( priv->requester );
-    zmsg_t *msg = zmsg_new();
-    zmsg_addstr( msg, REQUEST );
-    zmsg_addmem( msg, &requester_timeout_id( priv->requester ), sizeof( requester_timeout_id( priv->requester ) ) );
-    zmsg_addstr( msg, service );
-    zmsg_addmem( msg, json, strlen( json ) );
-    zmsg_send( &msg, requester_socket( priv->requester ) );
-    return requester_timeout_id( priv->requester );
+    jedex_schema *schema = jedex_value_get_schema( value );
+    if ( schema ) {
+      requester_inc_timeout_id( priv->requester );
+      schema_per_request_add( requester_schemas( priv->requester ), schema, requester_timeout_id( priv->requester ) );
+      zmsg_t *msg = zmsg_new();
+      zmsg_addstr( msg, REQUEST );
+      zmsg_addmem( msg, &requester_timeout_id( priv->requester ), sizeof( requester_timeout_id( priv->requester ) ) );
+      zmsg_addstr( msg, service );
+      zmsg_addmem( msg, json, strlen( json ) );
+      zmsg_send( &msg, requester_socket( priv->requester ) );
+     return requester_timeout_id( priv->requester );
+    }
   }
 
   return 0;
@@ -337,6 +339,7 @@ requester_init( emirates_priv *priv ) {
   requester_port( priv->requester ) = REQUESTER_BASE_PORT;
   requester_socket( priv->requester ) = zthread_fork( priv->ctx, requester_thread, priv->requester );
   requester_callbacks( priv->requester ) = zlist_new();
+  requester_schemas( priv->requester ) = zlist_new();
   create_notify( priv->requester );
   if ( requester_notify_in( priv->requester ) == -1 || requester_notify_out( priv->requester ) == -1 ) {
     return EINVAL;
@@ -355,6 +358,7 @@ requester_finalize( emirates_priv **priv ) {
   if ( priv_p->requester ) {
     requester_info *self = priv_p->requester;
     zlist_destroy( &requester_callbacks( self ) );
+    zlist_destroy( &requester_schemas( self ) );
     free( requester_id( self ) );
     close( requester_notify_in( self ) );
     close( requester_notify_out( self ) );

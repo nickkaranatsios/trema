@@ -24,9 +24,10 @@
 static emirates_iface *iface;
 
 static void
-menu_handler( void *args ) {
-  char *data = args;
-  printf( "menu handler called %s\n", data );
+menu_handler( uint32_t tx_id, jedex_value *val, const char *json ) {
+  if ( val != NULL ) {
+    printf( "menu handler called tx_id(%u) %s\n", tx_id, json );
+  }
 }
 
 

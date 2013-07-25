@@ -100,8 +100,14 @@ extern "C" {
 
 typedef int ( poll_handler )( zmq_pollitem_t *item, void *arg );
 
+typedef struct schema_per_request {
+  jedex_schema *schema;
+  uint32_t timeout_id;
+} schema_per_request;
+  
 
 typedef struct requester_info {
+  zlist_t *schemas; // a list of schemas for every outstanding request
   zlist_t *callbacks; // a list of user reply callbacks map to service name
   void *pipe; // requester's child thread to main thread i/o socket
   void *output; // requester's zmq output socket
@@ -113,7 +119,7 @@ typedef struct requester_info {
   int notify_in; // the read end of a pipe fd to signal data is ready to be read from application
   int notify_out; // the write end of a pipe fd used to signal data availability to parent thread
   uint32_t timeout_id; // a timeout id associated with an outgoing request
-  uint32_t outstanding_id; // the last oudstanding timeout id
+  uint32_t outstanding_id; // the last outstanding timeout id
   uint32_t port; // a base port a requester connects to.
 } requester_info;
 
@@ -183,6 +189,7 @@ typedef struct emirates_priv {
 #define requester_notify_in( self ) ( ( self )->notify_in )
 #define requester_notify_out( self ) ( ( self )->notify_out )
 #define requester_callbacks( self ) ( ( self )->callbacks )
+#define requester_schemas( self ) ( ( self )->schemas )
 #define requester_service_name( self ) ( ( self )->service_name )
 
 #define responder_socket( self ) ( ( self )->responder )

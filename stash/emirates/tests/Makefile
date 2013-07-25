@@ -28,18 +28,32 @@ QUIET_CC = @printf '    %b %b\n' $(CCCOLOR)$(CC)$(ENDCOLOR) $(SRCCOLOR)$<$(ENDCO
 QUIET_LINK = @printf '    %b %b\n' $(LINKCOLOR)link$(ENDCOLOR) $(LIBCOLOR)$@$(ENDCOLOR) 1>&2;
 endif
 
-EMIRATES_TEST=emirates_test
-EMIRATES_TEST_OBJS := emirates_test.o
+SUBSCRIBER_ONLY=subscriber_only
+SUBSCRIBER_ONLY_OBJS := subscriber_only.o
+PUBLISHER_ONLY=publisher_only
+PUBLISHER_ONLY_OBJS := publisher_only.o
+REQUESTER_ONLY := requester_only
+REQUESTER_ONLY_OBJS := requester_only.o
+RESPONDER_ONLY := responder_only
+RESPONDER_ONLY_OBJS := responder_only.o
+
 REQUESTER_RESPONDER_TEST=requester_responder_test
 REQUESTER_RESPONDER_TEST_OBJS := requester_responder_test.o
 
+
 RM = rm -f
 
-all: $(EMIRATES_TEST) $(REQUESTER_RESPONDER_TEST)
+all: $(SUBSCRIBER_ONLY) \
+	$(PUBLISHER_ONLY) \
+	$(REQUESTER_ONLY) \
+  $(RESPONDER_ONLY)
 
 .PHONY: all
 
-OBJECTS += $(EMIRATES_TEST_OBJS)
+OBJECTS += $(SUBSCRIBER_ONLY_OBJS)
+OBJECTS += $(PUBLISHER_ONLY_OBJS)
+OBJECTS += $(REQUESTER_ONLY_OBJS)
+OBJECTS += $(RESPONDER_ONLY_OBJS)
 OBJECTS += $(REQUESTER_RESPONDER_TEST_OBJS)
 
 dep_files := $(foreach f,$(OBJECTS),$(dir $f).depend/$(notdir $f).d)
@@ -53,19 +67,33 @@ missing_dep_dirs := $(filter-out $(wildcard $(dep_dirs)),$(dep_dirs))
 dep_file = $(dir $@).depend/$(notdir $@).d
 dep_args = -MF $(dep_file) -MQ $@ -MMD -MP
 
-$(EMIRATES_TEST): $(EMIRATES_TEST_OBJS)
+$(SUBSCRIBER_ONLY): $(SUBSCRIBER_ONLY_OBJS)
+	$(EMIRATES_LD) -o $@ $^ ../src/libemirates.a $(FINAL_LIBS)
+
+$(PUBLISHER_ONLY): $(PUBLISHER_ONLY_OBJS)
+	$(EMIRATES_LD) -o $@ $^ ../src/libemirates.a $(FINAL_LIBS)
+
+$(REQUESTER_ONLY): $(REQUESTER_ONLY_OBJS)
+	$(EMIRATES_LD) -o $@ $^ ../src/libemirates.a $(FINAL_LIBS)
+
+$(RESPONDER_ONLY): $(RESPONDER_ONLY_OBJS)
 	$(EMIRATES_LD) -o $@ $^ ../src/libemirates.a $(FINAL_LIBS)
 
 $(REQUESTER_RESPONDER_TEST): $(REQUESTER_RESPONDER_TEST_OBJS)
 	$(EMIRATES_LD) -o $@ $^ ../src/libemirates.a $(FINAL_LIBS)
 
 clean:
-	rm -rf $(EMIRATES_TEST) $(REQUESTER_RESPONDER_TEST) *.o *.gcda *.gcov
+	rm -rf $(SUBSCRIBER_ONLY) \
+    $(PUBLISHER_ONLY) \
+    $(REQUESTER_ONLY) \
+    $(RESPONDER_ONLY) \
+    $(REQUESTER_RESPONDER_TEST) \
+    *.o *.gcda *.gcov
 
 .PHONY: clean
 
 distclean: clean
-	-(rm -f $(EMIRATES_TEST))
+	-(rm -f $(SUBSCRIBER_ONLY))
 
 .PHONY: distclean
 

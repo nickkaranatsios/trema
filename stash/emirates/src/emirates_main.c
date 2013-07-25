@@ -196,6 +196,8 @@ initialize_entities( emirates_iface *iface, const int flag ) {
       return NULL;
     }
     iface->set_service_request = service_request;
+    iface->send_reply_raw = send_reply_raw;
+    iface->send_reply = send_reply;
   }
   if ( ENTITY_TST( flag, REQUESTER ) ) {
     if ( requester_init( iface->priv ) ) {
@@ -249,7 +251,7 @@ emirates_initialize( void ) {
   if ( ( iface = init_emirates_iface( &iface ) ) == NULL ) {
     return NULL;
   }
-  int flag = 0;
+  int flag = ~0;
 
   // initialize all entities
   return initialize_entities( iface, flag );

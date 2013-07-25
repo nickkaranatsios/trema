@@ -42,6 +42,7 @@ self_msg_recv( responder_info *self, zmsg_t *msg, zframe_t *msg_type_frame ) {
   }
   if ( !msg_is( ADD_SERVICE_REQUEST, ( const char * ) zframe_data( msg_type_frame ), msg_type_frame_size ) ) {
     zmsg_send( &msg, responder_pipe_socket( self ) );
+    signal_notify_out( responder_notify_out( self ) );
   }
 }
 
@@ -190,6 +191,26 @@ add_request_callback( const char *service , request_handler user_callback, respo
 }
 
 
+static void
+route_msg( const emirates_priv *self, zmsg_t *msg, zframe_t *msg_type_frame ) {
+  char service[ IDENTITY_MAX ];
+
+  if ( !msg_is( REQUEST, ( const char * ) zframe_data( msg_type_frame ), zframe_size( msg_type_frame ) ) ) {
+    zframe_t *service_frame = zmsg_next( msg );
+    size_t frame_size = zframe_size( service_frame );
+
+    memcpy( service, zframe_data( service_frame ), frame_size );
+    service[ frame_size ] = '\0';
+
+    request_callback *handler = lookup_callback( responder_callbacks( self->responder ), service );
+    if ( handler ) {
+      zframe_t *data_frame = zmsg_next( msg );
+      handler->callback( zframe_data( data_frame ) );
+    }
+  }
+}
+
+
 static int
 responder_poll( const emirates_priv *self ) {
   long timeout = POLL_TIMEOUT;
@@ -206,9 +227,7 @@ responder_poll( const emirates_priv *self ) {
     zframe_t *empty_frame = zmsg_next( msg );
     UNUSED( empty_frame ); 
     zframe_t *msg_type_frame = zmsg_next( msg );
-    UNUSED( msg_type_frame ); 
-    zframe_t *service_frame = zmsg_next( msg );
-    UNUSED( service_frame );
+    route_msg( self, msg, msg_type_frame );
   }
 
   return rc;
@@ -219,6 +238,40 @@ int
 responder_invoke( const emirates_priv *priv ) {
   notify_in_responder( priv );
   return responder_poll( priv );
+}
+
+
+static void
+form_send_reply( emirates_priv *priv, const char *service, const char *json ) {
+  zmsg_t *msg = zmsg_new();
+  zmsg_addmem( msg, priv->responder->client_id, strlen( priv->responder->client_id ) );
+  zmsg_addstr( msg, "" );
+  zmsg_addstr( msg, REPLY );
+  zmsg_addstr( msg, service );
+  zmsg_addmem( msg, json, strlen( json ) );
+  zmsg_send( &msg, responder_socket( priv->responder ) );
+}
+
+
+void
+send_reply( emirates_iface *iface, const char *service, jedex_value *value ) {
+  emirates_priv *priv = iface->priv;
+  assert( priv );
+
+  char *json;
+  jedex_value_to_json( value, true, &json );
+  if ( json ) {
+    form_send_reply( priv, service, json );
+  }
+}
+
+
+void
+send_reply_raw( emirates_iface *iface, const char *service, const char *json ) {
+  emirates_priv *priv = iface->priv;
+  assert( priv );
+
+  form_send_reply( priv, service, json );
 }
 
 

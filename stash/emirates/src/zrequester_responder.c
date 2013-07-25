@@ -166,7 +166,8 @@ route_add_service_reply( proxy *self,
 static void
 route_request( proxy *self,
                zframe_t *client_id_frame,
-               zframe_t *service_frame ) {
+               zframe_t *service_frame,
+               zframe_t *data_frame ) {
   size_t service_frame_size = zframe_size( service_frame );
   assert( service_frame_size < SERVICE_MAX );
 
@@ -192,6 +193,7 @@ printf( "routing request to  worker_id %s from client %s\n", worker_id, client_i
     zmsg_addmem( route_msg, &blank, 0 );
     zmsg_addmem( route_msg, REQUEST, strlen( REQUEST ) );
     zmsg_addmem( route_msg, ( const char * ) zframe_data( service_frame ), service_frame_size ); 
+    zmsg_addmem( route_msg, ( const char * ) zframe_data( data_frame ), zframe_size( data_frame ) );
     zmsg_send( &route_msg, self->backend );
   }
 }
@@ -206,7 +208,8 @@ route_client_msg( proxy *self, zmsg_t *msg, zframe_t *client_id_frame, zframe_t 
     route_add_service_reply( self, msg, client_id_frame, service_frame );
   }
   else if ( !msg_is( REQUEST, zframe_data( msg_type_frame ), msg_type_frame_size ) ) {
-    route_request( self, client_id_frame, service_frame );
+    zframe_t *data_frame = zmsg_next( msg );
+    route_request( self, client_id_frame, service_frame, data_frame );
   }
 }
 
@@ -330,6 +333,10 @@ printf( "routing worker reply to client id %s\n", client_id );
     zmsg_addstr( route_msg, "" );
     zmsg_addmem( route_msg, ( const char * ) zframe_data( msg_type_frame ), zframe_size( msg_type_frame ) );
     zmsg_addmem( route_msg, ( const char * ) zframe_data( service_frame ), service_frame_size );
+    if ( zframe_more( service_frame ) ) {
+      zframe_t *data_frame = zmsg_next( msg );
+      zmsg_addmem( route_msg, ( const char * ) zframe_data( data_frame ), zframe_size( data_frame ) );
+    }
     zmsg_send( &route_msg, self->frontend ); 
   }
 }
@@ -348,7 +355,7 @@ worker_recv( proxy *self, zmsg_t *msg ) {
     zframe_t *msg_type_frame = zmsg_next( msg );
     route_msg_back_to_worker( self, msg, worker_id_frame, msg_type_frame );
   }
-  else if ( nr_frames == 5 || nr_frames == 6 ) {
+  else if ( nr_frames >= 5 ) {
     route_worker_reply( self, msg );   
   }
 }

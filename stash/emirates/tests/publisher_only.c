@@ -54,9 +54,10 @@ main( int argc, char **argv ) {
   int flag = 0;
   emirates_iface *iface = emirates_initialize_only( ENTITY_SET( flag, PUBLISHER ) );
   if ( iface != NULL ) {
+    zclock_sleep( 5 * 1000 );
     iface->publish( iface, "menu", parcel );
+    zclock_sleep( 5 * 1000 );
   }
-  zclock_sleep( 5 * 1000 );
   emirates_finalize( &iface );
 
   return 0;

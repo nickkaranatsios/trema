@@ -188,6 +188,46 @@ add_reply_callback( const char *service , reply_handler user_callback, requester
   }
 }
 
+
+static void
+route_msg( const emirates_priv *self, zmsg_t *msg ) {
+  zframe_t *msg_type_frame = zmsg_first( msg );
+
+  if ( !msg_is( ADD_SERVICE_REPLY, ( const char * ) zframe_data( msg_type_frame ), zframe_size( msg_type_frame ) ) ) {
+    return;
+  }
+  zframe_t *service_frame = zmsg_next( msg );
+
+  char service[ IDENTITY_MAX ];
+  memcpy( service, zframe_data( service_frame ), zframe_size( service_frame ) );
+  service[ zframe_size( service_frame ) ] = '\0';
+  reply_callback *handler = lookup_callback( requester_callbacks( self->requester ), service );
+
+  if ( ( !msg_is( REPLY, zframe_data( msg_type_frame ), zframe_size( msg_type_frame ) ) ) ) {
+    zframe_t *data_frame = zmsg_next( msg );
+    zframe_t *tx_id_frame = zmsg_next( msg );
+    uint32_t tx_id;
+    memcpy( &tx_id, ( const uint32_t * ) zframe_data( tx_id_frame ), zframe_size( tx_id_frame ) );
+
+    if ( handler ) {
+      handler->callback( zframe_data( data_frame ) );
+    }
+  }
+  else if ( ( !msg_is( REPLY_TIMEOUT, zframe_data( msg_type_frame ), zframe_size( msg_type_frame ) ) ) ) {
+    zframe_t *tx_id_frame = zmsg_next( msg );
+    uint32_t tx_id;
+    memcpy( &tx_id, ( const uint32_t * ) zframe_data( tx_id_frame ), zframe_size( tx_id_frame ) );
+    if ( !tx_id ) {
+      log_debug( "Late response to request" );
+      printf( "Late response to request\n" );
+    }
+    if ( handler ) {
+      handler->callback( zframe_data( service_frame ) );
+    } 
+  }
+}
+
+
 static int
 requester_poll( const emirates_priv *self ) {
   long timeout = POLL_TIMEOUT;
@@ -197,6 +237,8 @@ requester_poll( const emirates_priv *self ) {
     // expect reply frame + service frame
     zmsg_t *msg = one_or_more_msg( requester_socket( self->requester ) );
     if ( msg ) {
+      route_msg( self, msg );
+#ifdef TEST
       zframe_t *msg_type_frame = zmsg_first( msg );
       bool next_service_frame = false;
       if ( ( !msg_is( REPLY, zframe_data( msg_type_frame ), zframe_size( msg_type_frame ) ) ) ||
@@ -221,13 +263,16 @@ requester_poll( const emirates_priv *self ) {
           zframe_t *tx_id_frame = zmsg_next( msg );
           uint32_t tx_id;
           memcpy( &tx_id, ( const uint32_t * ) zframe_data( tx_id_frame ), zframe_size( tx_id_frame ) );
-          assert( tx_id );
+          if ( tx_id == 0 ) {
+            printf( "late response to request\n" );
+          }
           // handler should include the same tx_id
           if ( handler ) {
             handler->callback( zframe_data( service_frame ) );
           }
         }
       }
+#endif
     }
   }
 
@@ -237,11 +282,6 @@ requester_poll( const emirates_priv *self ) {
 
 int
 requester_invoke( const emirates_priv *priv ) {
-#ifdef TEST
-  char dummy;
-  ssize_t bytes_read = read( priv->requester->notify_in, &dummy, sizeof( dummy ) );
-  UNUSED( bytes_read );
-#endif
   notify_in_requester( priv );
   return requester_poll( priv );
 }
@@ -269,18 +309,24 @@ service_reply( emirates_iface *iface, const char *service, reply_handler callbac
 
 
 uint32_t
-send_request( emirates_iface *iface, const char *service, jedex_parcel *parcel ) {
-  UNUSED( parcel );
+send_request( emirates_iface *iface, const char *service, jedex_value *value ) {
   emirates_priv *priv = iface->priv;
   assert( priv );
-  requester_inc_timeout_id( priv->requester );
-  zmsg_t *msg = zmsg_new();
-  zmsg_addstr( msg, REQUEST );
-  zmsg_addmem( msg, &requester_timeout_id( priv->requester ), sizeof( requester_timeout_id( priv->requester ) ) );
-  zmsg_addstr( msg, service );
-  zmsg_send( &msg, requester_socket( priv->requester ) );
 
-  return requester_timeout_id( priv->requester );
+  char *json;
+  jedex_value_to_json( value, true, &json );
+  if ( json ) {
+    requester_inc_timeout_id( priv->requester );
+    zmsg_t *msg = zmsg_new();
+    zmsg_addstr( msg, REQUEST );
+    zmsg_addmem( msg, &requester_timeout_id( priv->requester ), sizeof( requester_timeout_id( priv->requester ) ) );
+    zmsg_addstr( msg, service );
+    zmsg_addmem( msg, json, strlen( json ) );
+    zmsg_send( &msg, requester_socket( priv->requester ) );
+    return requester_timeout_id( priv->requester );
+  }
+
+  return 0;
 }
 
 

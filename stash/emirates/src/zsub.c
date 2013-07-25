@@ -146,7 +146,7 @@ start_subscribing( subscriber_info *self ) {
   poller.socket = subscriber_pipe_socket( self );
   zloop_poller( sub_loop, &poller, subscriber_output, self );
 
-  zloop_set_verbose( sub_loop, true );
+  zloop_set_verbose( sub_loop, false );
   int rc = zloop_start( sub_loop );
   if ( rc == -1 ) {
     log_err( "Subscriber child thread stopped" );

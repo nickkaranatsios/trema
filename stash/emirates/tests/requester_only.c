@@ -21,10 +21,12 @@
 #include "checks.h"
 
 
+static emirates_iface *iface;
+
 static void
-menu_reply_callback( void *args ) {
-  printf( "request callback called\n" );
-  UNUSED( args );
+menu_handler( void *args ) {
+  char *data = args;
+  printf( "menu handler called %s\n", data );
 }
 
 
@@ -45,7 +47,13 @@ set_menu_record_value( jedex_value *val ) {
 
 static void
 my_timer( void *args ) {
-  jedex_parcel *parcel = args;
+  static int i = 0;
+
+  if ( !i ) {
+    jedex_value *val = args;
+    iface->send_request( iface, "menu", val );
+    i = 1;
+  }
   printf( "my timer called\n" );
 }
 
@@ -66,11 +74,11 @@ main( int argc, char **argv ) {
   set_menu_record_value( val );
 
   int flag = 0;
-  emirates_iface *iface = emirates_initialize_only( ENTITY_SET( flag, REQUESTER ) );
+  iface = emirates_initialize_only( ENTITY_SET( flag, REQUESTER ) );
   if ( iface != NULL ) {
-    iface->set_service_reply( iface, "menu", menu_reply_callback );
-    //iface->set_periodic_timer( iface, 5000,  my_timer, parcel );
-    iface->send_request( iface, "menu", parcel );
+    iface->set_service_reply( iface, "menu", menu_handler );
+    //iface->set_periodic_timer( iface, 5000,  my_timer, val );
+    iface->send_request( iface, "menu", val );
     emirates_loop( iface );
     emirates_finalize( &iface );
   }

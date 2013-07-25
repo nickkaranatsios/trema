@@ -1,6 +1,6 @@
 # Makefile for test programs
 
-OPTIMIZATION?=-O2
+OPTIMIZATION?=-O0
 
 CC=gcc
 STD= -std=gnu99 -D_REENTRANT -D_GNU_SOURCE

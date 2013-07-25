@@ -56,7 +56,9 @@ struct emirates_iface {
   // this call sets a callback handler to be called when a subscription received
   void ( *set_subscription ) ( emirates_iface *iface, const char *service, const char **schema_names, subscription_handler subscription_callback );
   void ( *publish ) ( emirates_iface *iface, const char *service, jedex_parcel *parcel );
-  uint32_t ( *send_request ) ( emirates_iface *iface, const char *service, jedex_parcel *parcel );
+  uint32_t ( *send_request ) ( emirates_iface *iface, const char *service, jedex_value *value );
+  void ( *send_reply_raw ) ( emirates_iface *iface, const char *service, const char *json );
+  void ( *send_reply ) ( emirates_iface *iface, const char *service, jedex_value *value );
   void ( *set_periodic_timer ) ( emirates_iface *iface, int msecs, timer_handler timer_callback, void *user_data );
 };
 
@@ -69,7 +71,9 @@ void publish( emirates_iface *iface, const char *service_name, jedex_parcel *par
 void service_request( emirates_iface *iface, const char *service, request_handler callback );
 void service_reply( emirates_iface *iface, const char *service, reply_handler callback );
 void subscription( emirates_iface *iface, const char *service, const char **schema_names, subscription_handler subscription_callback );
-uint32_t send_request( emirates_iface *iface, const char *service, jedex_parcel *parcel );
+uint32_t send_request( emirates_iface *iface, const char *service, jedex_value *value );
+void send_reply_raw( emirates_iface *iface, const char *service, const char *json );
+void send_reply( emirates_iface *iface, const char *service, jedex_value *value );
 void set_periodic_timer( emirates_iface *iface, int msecs, timer_handler timer_callback, void *user_data );
 
 

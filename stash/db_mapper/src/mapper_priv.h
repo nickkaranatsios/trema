@@ -16,8 +16,8 @@
  */
 
 
-#ifndef DB_MAPPER_PRIV_H
-#define DB_MAPPER_PRIV_H
+#ifndef MAPPER_PRIV_H
+#define MAPPER_PRIV_H
 
 
 #ifdef __cplusplus
@@ -29,6 +29,7 @@ extern "C" {
 
 
 #include <mysql.h>
+#include "db_mapper.h"
 
 
 #define A_CAST( st )  ( st * )
@@ -36,38 +37,42 @@ extern "C" {
 #define DATA_PTR( a_data ) ( A_DATA( a_data )->data )
 
 
-typedef void ( *free_fn_t )( void * );
-
-
-typedef struct db_wrapper {
-  free_fn_t free;
-  void *data;
-} db_wrapper;
-
-
-struct mysql {
-  MYSQL handler;
-  char connection;
-};
-
-
-struct mysql_res {
+typedef struct query_info {
   MYSQL_RES *res;
-};
+} query_info;
+
+
+typedef struct db_info {
+  char *name;
+  char *host;
+  char *user;
+  char *passwd;
+  char *socket;
+  query_info **queries;
+  MYSQL *db_handle;
+} db_info;
 
 
 typedef struct mapper {
-  db_wrapper *conn_handler;
-  db_wrapper *result;
+  db_info **dbs;
+  uint32_t dbs_nr;
+  uint32_t dbs_alloc;
 } mapper;
 
 
+
+int prefixcmp( const char *str, const char *prefix );
+int suffixcmp( const char *str, const char *suffix );
+
+typedef int ( *config_fn_t ) ( mapper *mapper, const char *key, const char *value );
+int read_config( mapper *mapper, config_fn_t fn, const char *filename );
+
 void db_init( mapper *mapper );
-int db_connect( mapper *mapper, const mapper_args *args );
+int db_connect( mapper *mapper );
 
 
 CLOSE_EXTERN
-#endif // DB_MAPPER_PRIV_H
+#endif // MAPPER_PRIV_H
 
 
 /*

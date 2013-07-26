@@ -1,73 +1,55 @@
-# Makefile for test programs
+# Makefile for db_mapper program
+TREMA = ../../../network_controller/trema
+CC = gcc
+CC = gcc
+AR = ar
+RANLIB = ranlib
+APILIB = -lczmq -lsodium -lzmq -lmysqlclient -lm -pthread
+APIPATH = -L. -L/usr/local/lib -L/usr/lib/mysql -L/usr/lib
 
-OPTIMIZATION?=-O0
+CFLAGS += -I../include
+CFLAGS += -I../.. 
+CFLAGS += -I../../jedex/include 
+CFLAGS += -I../../emirates/include 
+CFLAGS += $(shell $(TREMA)/trema-config --cflags) 
+CFLAGS += -I/usr/include/mysql
+CFLAGS += -I/usr/local/include
+CFLAGS += -std=gnu99 -D_GNU_SOURCE -g -fno-strict-aliasing -Werror -Wall -Wextra -Wformat=2 -Wcast-qual -Wcast-align -Wwrite-strings -Wconversion -Wfloat-equal -Wpointer-arith -O0
 
-CC=gcc
-STD= -std=gnu99 -D_REENTRANT -D_GNU_SOURCE
-WARN= -Wall -Wextra -Wformat=2 -Wcast-qual -Wcast-align -Wwrite-strings -Wconversion -Wfloat-equal -Wpointer-arith -fno-strict-aliasing
-OPT= $(OPTIMIZATION)
+LDFLAGS += $(shell $(TREMA)/trema-config --libs)
 
-
-FINAL_CFLAGS= $(STD) $(WARN) $(OPT) $(DEBUG) $(CFLAGS)
-FINAL_CFLAGS += -I. -I../src -I../include -I../czmq/include -I../..
-FINAL_CFLAGS += -I../../jedex/include
-FINAL_CFLAGS += -I ../../emirates/include
-FINAL_CFLAGS += -I ../../emirates/src
-FINAL_CFLAGS += -I../../../network_controller/trema/objects/openflow -I../../../network_controller/trema/src/lib -I/usr/local/include -I/usr/include/mysql
-FINAL_LDFLAGS= $(LDFLAGS) -L/usr/lib/mysql -g -rdynamic -ggdb $(ARCH)
-FINAL_LIBS= -ltrema -lsqlite3 -lczmq -lsodium -ljedex -ljansson -lzmq -lmysqlclient -lm -pthread $(ARCH)
-DEBUG= -g -ggdb
-
-DB_MAPPER_LD=$(QUIET_LINK)$(CC) $(FINAL_LDFLAGS)
-
-CCCOLOR="\033[34m"
-LINKCOLOR="\033[34;1m"
-SRCCOLOR="\033[33m"
-LIBCOLOR="\033[37;1m"
-MAKECOLOR="\033[32;1m"
-ENDCOLOR="\033[0m"
-
-ifndef V
-QUIET_CC = @printf '    %b %b\n' $(CCCOLOR)$(CC)$(ENDCOLOR) $(SRCCOLOR)$<$(ENDCOLOR) 1>&2;
-QUIET_LINK = @printf '    %b %b\n' $(LINKCOLOR)link$(ENDCOLOR) $(LIBCOLOR)$@$(ENDCOLOR) 1>&2;
-endif
-
-DB_MAPPER=db_mapper
-DB_MAPPER_OBJS += db_mapper.o
-DB_MAPPER_OBJS += parse_options.o
-DB_MAPPER_OBJS += wrapper.o
-
-RM = rm -f
-
-all: $(DB_MAPPER)
-
-.PHONY: all
-
-OBJECTS += $(DB_MAPPER_OBJS)
-
-dep_files := $(foreach f,$(OBJECTS),$(dir $f).depend/$(notdir $f).d)
-dep_dirs := $(addsuffix .depend,$(sort $(dir $(OBJECTS))))
+TARGET_DB_MAPPER = db_mapper
+SRCS_DB_MAPPER += ../../../network_controller/trema/src/lib/wrapper.c
+SRCS_DB_MAPPER += ../../../network_controller/trema/src/lib/trema_wrapper.c
+SRCS_DB_MAPPER += db_mapper.c
+SRCS_DB_MAPPER += wrapper.c
+SRCS_DB_MAPPER += parse_options.c
+SRCS_DB_MAPPER += strbuf.c
+SRCS_DB_MAPPER += config.c
 
 
-$(dep_dirs):
-	@mkdir -p $@
+TARGETS = $(TARGET_DB_MAPPER)
+SRCS = $(SRCS_DB_MAPPER)
+OBJS_DB_MAPPER = $(SRCS_DB_MAPPER:.c=.o)
 
-missing_dep_dirs := $(filter-out $(wildcard $(dep_dirs)),$(dep_dirs))
-dep_file = $(dir $@).depend/$(notdir $@).d
-dep_args = -MF $(dep_file) -MQ $@ -MMD -MP
+DEPENDS = .depends
 
-$(DB_MAPPER): $(DB_MAPPER_OBJS)
-	$(DB_MAPPER_LD) -o $@ $^ $(FINAL_LIBS)
+.PHONY: all depend clean
+
+.SUFFIXES: .c .o
+
+all: depend $(TARGETS)
+
+$(TARGET_DB_MAPPER): $(OBJS_DB_MAPPER)
+	$(CC) $(OBJS_DB_MAPPER) $(LDFLAGS) $(APILIB) $(APIPATH) -o $@
+
+.c.o:
+	$(CC) $(CFLAGS) -c $<
+
+depend:
+	$(CC) -MM $(CFLAGS) $(SRCS) > $(DEPENDS)
 
 clean:
-	rm -rf $(DB_MAPPER) *.o *.gcda *.gcov
+	@rm -rf $(DEPENDS) $(OBJS) $(TARGETS) *~
 
-.PHONY: clean
-
-distclean: clean
-	-(rm -f $(DB_MAPPER))
-
-.PHONY: distclean
-
-$(OBJECTS): %.o: %.c $(dep_dirs) $(missing_dep_files)
-	$(QUIET_CC)$(CC) -o $*.o -c $(dep_args) $(FINAL_CFLAGS) $<
+-include $(DEPENDS)

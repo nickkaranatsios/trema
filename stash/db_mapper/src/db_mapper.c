@@ -20,6 +20,66 @@
 #include "mapper_priv.h"
 
 
+static db_info *
+make_db( mapper *mapper, const char *name, size_t len ) {
+  uint32_t i;
+
+  for ( i = 0; i < mapper->dbs_nr; i++ ) {
+    if ( !strncmp( mapper->dbs[ i ]->name, name, len ) ) {
+      return mapper->dbs[ i ];
+    }
+  }
+  ALLOC_GROW( mapper->dbs, mapper->dbs_nr + 1, mapper->dbs_alloc );
+  db_info *db = xcalloc( 1, sizeof( db_info ) );
+  mapper->dbs[ mapper->dbs_nr++ ] = db;
+  if ( len ) {
+    db->name = strndup( name, len );
+  }
+  else {
+    db->name = xstrdup( name );
+  }
+  
+  return db; 
+}
+
+
+static void
+assign_db_value( db_info *db, const char *subkey, const char *value ) {
+  if ( subkey ) {
+    if ( !prefixcmp( subkey, ".host" ) ) {
+      db->host = strdup( value );
+    }
+    else if ( !prefixcmp( subkey, ".user" ) ) {
+      db->user = strdup( value );
+    }
+    else if ( !prefixcmp( subkey, ".passwd" ) ) {
+      db->passwd = strdup( value );
+    }
+    else if ( !prefixcmp( subkey, ".socket" ) ) {
+      db->socket = strdup( value );
+    }
+  }
+}
+
+
+static int
+handle_config( mapper *mapper, const char *key, const char *value ) {
+  if ( !prefixcmp( key, "db_connection." ) ) {
+    const char *subkey;
+    const char *name;
+    name = key + 14;
+    subkey = strrchr( name, '.' );
+    db_info *db = make_db( mapper, name, ( size_t ) ( subkey - name ) );
+    if ( subkey ) {
+      assign_db_value( db, subkey, value );
+    }
+    printf( "subkey %s name %s %d\n", subkey, name, subkey - name );
+  }
+
+  return 0;
+}
+
+
 /*
  * Parse command line arguments.
  * Read schema using jedex_initialize
@@ -27,11 +87,17 @@
  */
 static void
 mapper_init( int argc, char **argv ) {
+  const char *config_fn = "db_mapper.conf";
+
+  mapper *mapper = xcalloc( 1, sizeof( mapper ) );
+  if ( read_config( mapper, handle_config, config_fn ) < 0 ) {
+    log_debug( "Failed to parse config file %s", config_fn );
+    printf( "Failed to parse config file %s\n", config_fn );
+  }
   mapper_args *args = xmalloc( sizeof( *args ) );
   parse_options( args, argc, argv );
-  mapper *mapper = xmalloc( sizeof( *mapper ) );
-  db_init( mapper );
-  db_connect( mapper, args );
+  //db_init( mapper );
+  db_connect( mapper );
 }
 
 

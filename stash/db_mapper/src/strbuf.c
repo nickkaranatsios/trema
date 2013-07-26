@@ -16,44 +16,33 @@
  */
 
 
-#ifndef DB_MAPPER_H
-#define DB_MAPPER_H
+#include "db_mapper.h"
 
 
-#ifdef __cplusplus
-extern "C" {
-#define CLOSE_EXTERN }
-#else
-#define CLOSE_EXTERN
-#endif
+int
+prefixcmp( const char *str, const char *prefix ) {
+  for ( ;; str++, prefix++ ) {
+    if ( !*prefix ) {
+      return 0;
+    }
+    else if ( *str != *prefix ) {
+      return ( uint8_t ) *prefix - ( uint8_t ) *str;
+    }
+  }
+}
 
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stddef.h>
-#include <string.h>
-#include <ctype.h>
-#include <assert.h>
-#include <getopt.h>
-#include <pthread.h>
-#include <poll.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#ifdef __linux__
-#include <sys/eventfd.h>
-#endif
-#include <limits.h>
+int
+suffixcmp( const char *str, const char *suffix ) {
+  size_t len = strlen( str ), suflen = strlen( suffix );
 
-#include "checks.h"
-#include "wrapper.h"
-#include "log_writer.h"
-#include "emirates.h"
-#include "parse_options.h"
-#include "array_util.h"
-
-
-CLOSE_EXTERN
-#endif // DB_MAPPER_H
+  if ( len < suflen) {
+    return -1;
+  }
+  else {
+    return strcmp( str + len - suflen, suffix );
+  }
+}
 
 
 /*

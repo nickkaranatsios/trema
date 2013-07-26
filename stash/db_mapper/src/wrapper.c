@@ -20,46 +20,40 @@
 #include "mapper_priv.h"
 
 
-static void
-free_mysql( struct mysql *m ) {
-  if ( m->connection == true ) {
-    mysql_close( &m->handler );
-  }
-  free( m );
-}
-
-
-void
-db_init( mapper *mapper ) {
-  db_wrapper *wrapper = xmalloc( sizeof( *wrapper ) );
-  mapper->conn_handler = wrapper;
-
-  
-  struct mysql *mysql;
-  mysql = xmalloc( sizeof( *mysql ) );
-  wrapper->data = ( void * ) mysql;
-  wrapper->free = ( void * ) free_mysql;
-  mysql_init( &mysql->handler );
-  mysql->connection = false;
-}
-
-
 int
-db_connect( mapper *mapper, const mapper_args *args ) {
-  struct mysql *my = DATA_PTR( mapper->conn_handler ); 
-  MYSQL *m = &my->handler;
-
-  if ( mysql_real_connect( m, args->db_host, args->db_user, args->db_passwd, args->db_name, 0, args->db_socket, 0 ) == NULL ) {
-    log_err( "Mysql error(%d): %s", mysql_errno( m ), mysql_error( m ) );
+db_connect( db_info *db ) {
+  db->db_handle = mysql_init( NULL );
+  if ( mysql_real_connect( db->db_handle, 
+                             db->host,
+                             db->user,
+                             db->passwd,
+                             db->name,
+                             0,
+                             db->socket, 0 ) == NULL ) {
+    log_err( "Mysql error(%d): %s", mysql_errno( db->db_handle ), mysql_error( db->db_handle ) );
     return EINVAL;
   }
-  log_info( "Connected to database" );
-  my->connection = true;
-  m->reconnect = 0;
+  log_info( "Connected to database %s", db->name );
+  db->db_handle->reconnect = 0;
 
   return 0;
 }
 
+
+int
+connect_and_create_db( mapper *mapper ) {
+  uint32_t i;
+
+  for ( i = 0; i < mapper->dbs_nr; i++ ) {
+    db_info *db = mapper->dbs[ i ];
+    if ( !db_connect( mapper ) ) {
+      query( db->db_handle, "create database %s", db->name );
+    }
+  }
+}
+
+
+  
 
 
 /*

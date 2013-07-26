@@ -428,12 +428,26 @@ get_simple_map_double( jedex_value *val ) {
 }
 
 
+static void
+set_ipc( jedex_value *val ) {
+  jedex_value branch;
+  size_t branch_count;
+
+  jedex_value_get_size( val, &branch_count );
+
+  size_t index;
+  jedex_value_get_by_name( val, "service_delete_request", &branch, &index );
+  assert( index );
+  UNUSED( branch_count );
+}
+
 
 int
 main( int argc, char **argv ) {
   UNUSED( argc );
   UNUSED( argv );
   const char *test_schemas[] =  { 
+    "ipc",
     "db_record",
     "simple_map_double",
     "simple_array",
@@ -450,6 +464,19 @@ main( int argc, char **argv ) {
   for ( iter = test_schemas; *iter; iter++ ) {
     const char *test_schema = *iter;
     
+    if ( !strcmp( test_schema, "ipc" ) ) {
+      jedex_schema *schema = jedex_initialize( "schema/ipc" );
+      assert( schema );
+
+      const char *sub_schemas[] = { NULL };
+      jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
+      assert( parcel );
+
+      jedex_value *val = jedex_parcel_value( parcel, "" );
+      assert( val );
+
+      set_ipc( val );
+    }
     if ( !strcmp( test_schema, "db_record" ) ) {
       jedex_schema *schema = jedex_initialize( "schema/db_record" );
       assert( schema );

@@ -68,7 +68,7 @@ typedef int ( *config_fn_t ) ( mapper *mapper, const char *key, const char *valu
 int read_config( mapper *mapper, config_fn_t fn, const char *filename );
 
 void db_init( mapper *mapper );
-int db_connect( mapper *mapper );
+int connect_and_create_db( mapper *mapper );
 
 
 CLOSE_EXTERN

@@ -20,7 +20,7 @@
 #include "mapper_priv.h"
 
 
-int
+static int
 db_connect( db_info *db ) {
   db->db_handle = mysql_init( NULL );
   if ( mysql_real_connect( db->db_handle, 
@@ -31,6 +31,7 @@ db_connect( db_info *db ) {
                              0,
                              db->socket, 0 ) == NULL ) {
     log_err( "Mysql error(%d): %s", mysql_errno( db->db_handle ), mysql_error( db->db_handle ) );
+    printf( "Mysql error(%d): %s\n", mysql_errno( db->db_handle ), mysql_error( db->db_handle ) );
     return EINVAL;
   }
   log_info( "Connected to database %s", db->name );
@@ -46,10 +47,12 @@ connect_and_create_db( mapper *mapper ) {
 
   for ( i = 0; i < mapper->dbs_nr; i++ ) {
     db_info *db = mapper->dbs[ i ];
-    if ( !db_connect( mapper ) ) {
-      query( db->db_handle, "create database %s", db->name );
+    if ( !db_connect( db ) ) {
+      //query( db->db_handle, "create database %s", db->name );
     }
   }
+
+  return 0;
 }
 
 

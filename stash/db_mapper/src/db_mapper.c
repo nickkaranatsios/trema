@@ -30,7 +30,8 @@ make_db( mapper *mapper, const char *name, size_t len ) {
     }
   }
   ALLOC_GROW( mapper->dbs, mapper->dbs_nr + 1, mapper->dbs_alloc );
-  db_info *db = xcalloc( 1, sizeof( db_info ) );
+  size_t nitems = 1;
+  db_info *db = xcalloc( nitems, sizeof( db_info ) );
   mapper->dbs[ mapper->dbs_nr++ ] = db;
   if ( len ) {
     db->name = strndup( name, len );
@@ -73,7 +74,7 @@ handle_config( mapper *mapper, const char *key, const char *value ) {
     if ( subkey ) {
       assign_db_value( db, subkey, value );
     }
-    printf( "subkey %s name %s %d\n", subkey, name, subkey - name );
+    printf( "subkey %s name %s %ld\n", subkey, name, subkey - name );
   }
 
   return 0;
@@ -89,7 +90,8 @@ static void
 mapper_init( int argc, char **argv ) {
   const char *config_fn = "db_mapper.conf";
 
-  mapper *mapper = xcalloc( 1, sizeof( mapper ) );
+  size_t nitems = 1;
+  mapper *mapper = xcalloc( nitems, sizeof( mapper ) );
   if ( read_config( mapper, handle_config, config_fn ) < 0 ) {
     log_debug( "Failed to parse config file %s", config_fn );
     printf( "Failed to parse config file %s\n", config_fn );
@@ -97,7 +99,7 @@ mapper_init( int argc, char **argv ) {
   mapper_args *args = xmalloc( sizeof( *args ) );
   parse_options( args, argc, argv );
   //db_init( mapper );
-  db_connect( mapper );
+  connect_and_create_db( mapper );
 }
 
 

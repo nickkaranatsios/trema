@@ -222,7 +222,21 @@ jedex_schema_record_field_get_index( jedex_schema *record, const char *field_nam
 }
 
 
-  
+bool
+jedex_schema_record_field_is_primary( jedex_schema *record, const char *field_name ) {
+  union {
+    st_data_t data;
+    struct jedex_record_field *field;
+  } val;
+ 
+  if ( st_lookup( jedex_schema_to_record( record )->fields_byname, ( st_data_t ) field_name, &val.data ) ) {
+    return val.field->is_primary_key;
+  }
+  log_err( "No field named %s in record", field_name );
+
+  return false;
+}
+
 
 const char *
 jedex_schema_record_field_name( jedex_schema *record, int index ) {
@@ -576,7 +590,8 @@ save_named_schemas( const char *name, jedex_schema *schema, st_table *st ) {
 static int
 jedex_schema_record_field_append( jedex_schema *record_schema, 
                                   const char *field_name, 
-                                  jedex_schema *field_schema ) {
+                                  jedex_schema *field_schema,
+                                  bool is_primary_key ) {
   check_param( EINVAL, is_jedex_schema( record_schema ), "record schema" );
   check_param( EINVAL, is_jedex_record( record_schema ), "record_schema" );
   check_param( EINVAL, field_name, "field_name" );
@@ -602,6 +617,7 @@ jedex_schema_record_field_append( jedex_schema *record_schema,
   new_field->index = record->fields->num_entries;
   new_field->name = strdup( field_name );
   new_field->type = field_schema;
+  new_field->is_primary_key = is_primary_key;
   st_insert( record->fields, ( st_data_t ) record->fields->num_entries, ( st_data_t ) new_field );
   st_insert( record->fields_byname, ( st_data_t ) new_field->name, ( st_data_t ) new_field );
 
@@ -752,6 +768,7 @@ jedex_schema_from_json_t( json_t *json, jedex_schema **schema, st_table *named_s
         json_t *json_field = json_array_get( json_fields, i );
         json_t *json_field_name;
         json_t *json_field_type;
+        json_t *json_field_primary_key;
         int field_rval;
         
         if ( !json_is_object( json_field ) ) {
@@ -771,6 +788,14 @@ jedex_schema_from_json_t( json_t *json, jedex_schema **schema, st_table *named_s
           return EINVAL;
         }
 
+        bool is_primary_key = false;
+        json_field_primary_key = json_object_get( json_field, "primary_key" );
+        if ( json_field_primary_key ) {
+          if ( json_is_true( json_field_primary_key ) ) {
+            is_primary_key = true;
+          }
+        }
+
         jedex_schema *json_field_type_schema = NULL;
         field_rval = jedex_schema_from_json_t( json_field_type,
                                                &json_field_type_schema,
@@ -781,7 +806,8 @@ jedex_schema_from_json_t( json_t *json, jedex_schema **schema, st_table *named_s
 
         field_rval = jedex_schema_record_field_append( *schema,
                                                        json_string_value( json_field_name ),
-                                                       json_field_type_schema );
+                                                       json_field_type_schema,
+                                                       is_primary_key );
         if ( field_rval != 0 ) {
           return field_rval;
         }

@@ -41,7 +41,9 @@ extern "C" {
 
 
 typedef struct emirates_iface emirates_iface;
-typedef void ( *request_handler ) ( void *user_data );
+typedef void ( *request_handler ) ( jedex_value *val,
+                                    const char *json,
+                                    void *user_data );
 typedef void ( *reply_handler ) ( const uint32_t tx_id, jedex_value *val, const char *json );
 typedef void ( *subscription_handler ) ( void *user_data );
 typedef void ( *timer_handler ) ( void *user_data );
@@ -51,10 +53,17 @@ struct emirates_iface {
   void *priv;
   void *( *get_publisher ) ( emirates_iface *iface );
   void *( *get_requester ) ( emirates_iface *iface );
-  void ( *set_service_request ) ( emirates_iface *iface, const char *service, request_handler request_callback );
+  void ( *set_service_request ) ( emirates_iface *iface, 
+                                  const char *service,
+                                  jedex_schema *schema,
+                                  void *user_data,
+                                  request_handler request_callback );
   void ( *set_service_reply ) ( emirates_iface *iface, const char *service, reply_handler reply_callback );
   // this call sets a callback handler to be called when a subscription received
-  void ( *set_subscription ) ( emirates_iface *iface, const char *service, const char **schema_names, subscription_handler subscription_callback );
+  void ( *set_subscription ) ( emirates_iface *iface,
+                               const char *service,
+                               const char **schema_names,
+                               subscription_handler subscription_callback );
   void ( *publish ) ( emirates_iface *iface, const char *service, jedex_parcel *parcel );
   uint32_t ( *send_request ) ( emirates_iface *iface, const char *service, jedex_value *value );
   void ( *send_reply_raw ) ( emirates_iface *iface, const char *service, const char *json );
@@ -68,9 +77,16 @@ emirates_iface *emirates_initialize_only( const int flag );
 int emirates_loop( emirates_iface *iface );
 void emirates_finalize( emirates_iface **iface );
 void publish( emirates_iface *iface, const char *service_name, jedex_parcel *parcel );
-void service_request( emirates_iface *iface, const char *service, request_handler callback );
+void service_request( emirates_iface *iface,
+                      const char *service,
+                      jedex_schema *schema,
+                      void *user_data,
+                      request_handler callback );
 void service_reply( emirates_iface *iface, const char *service, reply_handler callback );
-void subscription( emirates_iface *iface, const char *service, const char **schema_names, subscription_handler subscription_callback );
+void subscription( emirates_iface *iface,
+                   const char *service,
+                   const char **schema_names,
+                   subscription_handler subscription_callback );
 uint32_t send_request( emirates_iface *iface, const char *service, jedex_value *value );
 void send_reply_raw( emirates_iface *iface, const char *service, const char *json );
 void send_reply( emirates_iface *iface, const char *service, jedex_value *value );

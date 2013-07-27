@@ -23,13 +23,14 @@
 static int
 db_connect( db_info *db ) {
   db->db_handle = mysql_init( NULL );
-  if ( mysql_real_connect( db->db_handle, 
-                             db->host,
-                             db->user,
-                             db->passwd,
-                             db->name,
-                             0,
-                             db->socket, 0 ) == NULL ) {
+  if ( mysql_real_connect( db->db_handle,
+                           db->host,
+                           db->user,
+                           db->passwd,
+                           NULL,
+                           0,
+                           db->socket,
+                           0 ) == NULL ) {
     log_err( "Mysql error(%d): %s", mysql_errno( db->db_handle ), mysql_error( db->db_handle ) );
     printf( "Mysql error(%d): %s\n", mysql_errno( db->db_handle ), mysql_error( db->db_handle ) );
     return EINVAL;
@@ -41,18 +42,59 @@ db_connect( db_info *db ) {
 }
 
 
+uint32_t
+query( MYSQL *db_handle, const char *format, ...) {
+  size_t size = 256;
+  char stackbuffer[ size ];
+  char *stmt_str = stackbuffer;
+  va_list argptr;
+
+  va_start( argptr, format );
+  int required = vsnprintf( stmt_str, size, format, argptr );
+  va_end( argptr );
+
+  if ( required < 0 ) {
+    printf( "Failed to format query\n" );
+    return EINVAL;
+  }
+  size_t needed_size = ( size_t ) required;
+  if ( needed_size >= size) {
+    size = needed_size + 1;
+    stmt_str = ( char * ) xmalloc( size );
+    va_start( argptr, format );
+    vsnprintf( stmt_str, size, format, argptr );
+    va_end( argptr );
+    needed_size = size;
+  }
+
+  if ( mysql_real_query( db_handle, stmt_str, needed_size ) ) {
+    log_err( "Failed to execute the queury %s %s", stmt_str, mysql_error( db_handle ) );
+    printf( "Failed to execute the queury %s %u:%s\n", stmt_str, mysql_errno( db_handle ), mysql_error( db_handle ) );
+  }
+  if ( stmt_str != stackbuffer ) {
+    xfree( stmt_str );
+  }
+
+  return mysql_errno( db_handle );
+}
+
+
 int
 connect_and_create_db( mapper *mapper ) {
   uint32_t i;
+  uint32_t db_error = EINVAL;
 
   for ( i = 0; i < mapper->dbs_nr; i++ ) {
     db_info *db = mapper->dbs[ i ];
     if ( !db_connect( db ) ) {
-      //query( db->db_handle, "create database %s", db->name );
+      db_error = query( db->db_handle, "drop database if exists %s", db->name );
+      if ( !db_error ) {
+        db_error = query( db->db_handle, "create database %s character set 'utf8'", db->name );
+      }
     }
   }
 
-  return 0;
+  return db_error == EINVAL ? -1 : 0;
 }
 
 

@@ -22,18 +22,16 @@
 static char const * const mapper_usage[] = {
   "  -l --logging_level=level                   set the logging level",
   "  -d --daemonize                             run as a daemon",
-  "  -m --db_host=db_host                       set db host to connect to",
-  "  -u --db_user=db_user                       set db user to login in",
-  "  -p --db_passwd=db_passwd                   set db password to login in",
-  "  -b --db_name=db                            set db name to connect to",
+  "  -c --config_fn=config_fn                   set config fn to read",
+  "  -s --schema_fn=schema_fn                   set schema fn to read",
   "  -h --help                                  display usage and exit",
   NULL
 };
 
 
 static void
-print_usage( const mapper_args *args, int exit_code ) {
-  fprintf( stderr, "Usage: %s [options] \n", args->progname );
+print_usage( const char *progname, int exit_code ) {
+  fprintf( stderr, "Usage: %s [options] \n", progname );
 
   int i = 0;
   while ( mapper_usage[ i ] ) {
@@ -45,70 +43,60 @@ print_usage( const mapper_args *args, int exit_code ) {
 
 
 static void
-set_default_opts( mapper_args *args, const struct option long_options[] ) {
-  args->progname = "db_mapper";
-  args->db_host = "localhost";
-  args->db_user = "";
-  args->db_passwd = "";
-  args->db_name = "test";
-  args->db_socket = "/var/run/mysqld/mysqld.sock";
-  args->options = long_options;
+handle_option( int c, char *optarg, void *user_data ) {
+  mapper_args *args = user_data;
+
+  switch( c ) {
+    case 'l':
+      if ( optarg ) {
+        args->log_level = optarg;
+      }
+    break;
+    case 'd':
+      args->run_as_daemon = true;
+    break;
+    case 'c':
+      if ( optarg ) {
+        args->config_fn = optarg;
+      }
+    break;
+    case 's':
+      if ( optarg ) {
+        args->schema_fn = optarg;
+      }
+    break;
+    default:
+      log_err( "Unrecognized option skip" );
+    break;
+  }
 }
 
 
 void
-parse_options( mapper_args *args, int argc, char **argv ) {
-  static struct option long_options[] = {
+parse_options( int argc, char **argv, void *user_data ) {
+  const struct option long_options[] = {
     { "logging_level", required_argument, 0, 'l' },
     { "daemonize", no_argument, 0, 'd' },
-    { "db_host", required_argument, 0, 'm' },
-    { "db_user", required_argument, 0, 'u' },
-    { "db_passwd", required_argument, 0, 'p' },
-    { "db_name", required_argument, 0, 'b' },
+    { "config_fn", required_argument, 0, 'c' },
+    { "schema_fn", required_argument, 0, 's' },
     { "help", no_argument, 0, 'h' },
     { 0, 0, 0, 0 },
   };
-  static const char *short_options = "l:dm:u:p:b:h";
-  set_default_opts( args, long_options );
+  const char *short_options = "l:dc:s:h";
 
-  int c, index = 0;
+  int c;
+  int index = 0;
   optind = 0;
   while ( 1 ) {
-    c = getopt_long( argc, argv, short_options, args->options, &index );
+    c = getopt_long( argc, argv, short_options, long_options, &index );
     if ( c == -1 ) {
       break;
     }
-    switch ( c ) {
-      case 'h':
-        print_usage( args, 0 );
-      break;
-      case 'l':
-        if ( optarg ) {
-          args->log_level = optarg;
-        }
-      break;
-      case 'd':
-        args->run_as_daemon = true;
-      case 'm':
-        if ( optarg ) {
-          args->db_host = optarg;
-        }
-      break;
-      case 'u':
-        if ( optarg ) {
-          args->db_user = optarg;
-        }
-      break;
-      case 'p':
-        if ( optarg ) {
-          args->db_passwd = optarg;
-        }
-      break;
-      case 'b':
-        if ( optarg ) {
-          args->db_name = optarg;
-        }
-      break;
+    if ( c == 'h' ) {
+      print_usage( argv[ 0 ], 0 );
+    }
+    else {
+      handle_option( c, optarg, user_data );
     }
   }
 }

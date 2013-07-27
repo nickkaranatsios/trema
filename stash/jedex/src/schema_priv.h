@@ -35,6 +35,7 @@ extern "C" {
 
 struct jedex_record_field {
   int index;
+  bool is_primary_key;
   char *name;
   jedex_schema *type;
 };  

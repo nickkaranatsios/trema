@@ -4,8 +4,8 @@ CC = gcc
 CC = gcc
 AR = ar
 RANLIB = ranlib
-APILIB = -lczmq -lsodium -lzmq -lmysqlclient -lm -pthread
-APIPATH = -L. -L/usr/local/lib -L/usr/lib/mysql -L/usr/lib
+APILIB = -lczmq -lsodium -lzmq -ljansson -lmysqlclient -lm -lpthread
+APIPATH = -L/usr/local/lib -L/usr/lib/mysql -L/usr/lib
 
 CFLAGS += -I../include
 CFLAGS += -I../.. 
@@ -16,6 +16,9 @@ CFLAGS += -I/usr/include/mysql
 CFLAGS += -I/usr/local/include
 CFLAGS += -std=gnu99 -D_GNU_SOURCE -g -fno-strict-aliasing -Werror -Wall -Wextra -Wformat=2 -Wcast-qual -Wcast-align -Wwrite-strings -Wconversion -Wfloat-equal -Wpointer-arith -O0
 
+LDFLAGS += -lemirates
+LDFLAGS += -ljedex
+LDFLAGS += $(APILIB)
 LDFLAGS += $(shell $(TREMA)/trema-config --libs)
 
 TARGET_DB_MAPPER = db_mapper
@@ -41,7 +44,7 @@ DEPENDS = .depends
 all: depend $(TARGETS)
 
 $(TARGET_DB_MAPPER): $(OBJS_DB_MAPPER)
-	$(CC) $(OBJS_DB_MAPPER) $(LDFLAGS) $(APILIB) $(APIPATH) -o $@
+	$(CC) $(OBJS_DB_MAPPER) $(APIPATH) $(LDFLAGS) -o $@
 
 .c.o:
 	$(CC) $(CFLAGS) -c $<

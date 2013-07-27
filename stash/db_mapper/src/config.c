@@ -195,7 +195,7 @@ static char
 
 
 static int
-get_value( mapper *mapper, config_fn_t fn, char *name, int len ) {
+get_value( config_fn fn, void *user_data, char *name, int len ) {
   int c;
   char *value;
 
@@ -226,12 +226,12 @@ get_value( mapper *mapper, config_fn_t fn, char *name, int len ) {
       return -1;
     }
   }
-  return fn( mapper, name, value );
+  return fn( name, value, user_data );
 }
 
 
 static int 
-parse_file( mapper *mapper, config_fn_t fn ) {
+parse_file( config_fn fn, void *user_data ) {
   static char var[ MAXNAME ];
   int c, comment = 0, baselen = 0;
 
@@ -264,7 +264,7 @@ parse_file( mapper *mapper, config_fn_t fn ) {
       break;
     }
     var[ baselen ] = ( char ) tolower( c );
-    if ( get_value( mapper, fn, var, baselen + 1 ) < 0 ) {
+    if ( get_value( fn, user_data, var, baselen + 1 ) < 0 ) {
       break;
     }
   }
@@ -275,7 +275,7 @@ parse_file( mapper *mapper, config_fn_t fn ) {
 
 
 int
-read_config( mapper *mapper, config_fn_t fn, const char *filename ) {
+read_config( config_fn fn, void *user_data, const char *filename ) {
   FILE *fp = fopen( filename, "r" );
   int ret = -1;
 
@@ -284,7 +284,7 @@ read_config( mapper *mapper, config_fn_t fn, const char *filename ) {
     config_file_name = filename;
     config_linenr = 1;
     config_file_eof = 0;
-    ret = parse_file( mapper, fn );
+    ret = parse_file( fn, user_data );
     fclose( fp );
     config_file_name = NULL;
   }

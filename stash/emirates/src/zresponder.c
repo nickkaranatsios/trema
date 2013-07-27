@@ -180,11 +180,17 @@ request_callback_add( responder_info *self, request_callback *cb ) {
 
 
 static void
-add_request_callback( const char *service , request_handler user_callback, responder_info *self ) {
+add_request_callback( const char *service, 
+                      jedex_schema *schema,
+                      request_handler user_callback, 
+                      void *user_data,
+                      responder_info *self ) {
   request_callback *cb = ( request_callback * ) zmalloc( sizeof( request_callback ) );
   cb->key.service = service;
+  cb->schema = schema;
   cb->responder_id = responder_own_id( self );
   cb->callback = user_callback;
+  cb->user_data = user_data;
   if ( request_callback_add( self, cb ) ) {
     free( cb );
   }
@@ -205,7 +211,10 @@ route_msg( const emirates_priv *self, zmsg_t *msg, zframe_t *msg_type_frame ) {
     request_callback *handler = lookup_callback( responder_callbacks( self->responder ), service );
     if ( handler ) {
       zframe_t *data_frame = zmsg_next( msg );
-      handler->callback( zframe_data( data_frame ) );
+
+      const char *json = ( const char * ) zframe_data( data_frame );
+      jedex_value *val = json_to_jedex_value( handler->schema, json ); 
+      handler->callback( val, json, handler->user_data );
     }
   }
 }
@@ -276,11 +285,15 @@ send_reply_raw( emirates_iface *iface, const char *service, const char *json ) {
 
 
 void
-service_request( emirates_iface *iface, const char *service, request_handler callback ) {
+service_request( emirates_iface *iface, 
+                 const char *service,
+                 jedex_schema *schema,
+                 void *user_data,
+                 request_handler callback ) {
   emirates_priv *priv = iface->priv;
   assert( priv );
 
-  add_request_callback( service, callback, priv->responder );
+  add_request_callback( service, schema, callback, user_data, priv->responder );
   zmsg_t *msg = zmsg_new();
   zmsg_addstr( msg, ADD_SERVICE_REQUEST );
   zmsg_addstr( msg, service );

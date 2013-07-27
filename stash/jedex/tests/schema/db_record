@@ -12,7 +12,7 @@
     "name": "fruits",
     "fields": [
       { "name": "header", "type": "db_header" },
-      { "name": "name", "type": "string" },
+      { "name": "name", "type": "string", "primary_key": true },
       { "name": "price", "type": "float" }
     ]
   }

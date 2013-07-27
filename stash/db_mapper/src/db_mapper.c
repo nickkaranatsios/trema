@@ -20,6 +20,30 @@
 #include "mapper_priv.h"
 
 
+static void
+topic_subscription_callback( void *data ) {
+  assert( data );
+}
+
+
+static void
+request_save_topic_callback( jedex_value *val, const char *json, void *user_data ) {
+  UNUSED( json );
+  assert( user_data );
+  assert( val );
+
+  jedex_value field;
+  size_t index;
+  jedex_value_get_by_name( val, "topic", &field, &index );
+  const char *topic = NULL;
+  size_t size = 0;
+  jedex_value_get_string( &field, &topic, &size );
+  mapper *mapper = user_data;
+  const char *schemas[] = { NULL };
+  mapper->emirates->set_subscription( mapper->emirates, topic, schemas, topic_subscription_callback );
+}
+
+
 static db_info *
 make_db( mapper *mapper, const char *name, size_t len ) {
   uint32_t i;
@@ -64,17 +88,20 @@ assign_db_value( db_info *db, const char *subkey, const char *value ) {
 
 
 static int
-handle_config( mapper *mapper, const char *key, const char *value ) {
+handle_config( const char *key, const char *value, void *user_data ) {
+  assert( user_data );
+
   if ( !prefixcmp( key, "db_connection." ) ) {
     const char *subkey;
     const char *name;
     name = key + 14;
     subkey = strrchr( name, '.' );
-    db_info *db = make_db( mapper, name, ( size_t ) ( subkey - name ) );
+    mapper *mptr = user_data;
+    db_info *db = make_db( mptr, name, ( size_t ) ( subkey - name ) );
     if ( subkey ) {
       assign_db_value( db, subkey, value );
     }
-    printf( "subkey %s name %s %ld\n", subkey, name, subkey - name );
+    printf( "subkey %s name %s %d\n", subkey, name, subkey - name );
   }
 
   return 0;
@@ -86,20 +113,47 @@ handle_config( mapper *mapper, const char *key, const char *value ) {
  * Read schema using jedex_initialize
  * Initialize and connect to db.
  */
-static void
-mapper_init( int argc, char **argv ) {
-  const char *config_fn = "db_mapper.conf";
-
+static mapper *
+mapper_init( mapper **mptr, int argc, char **argv ) {
   size_t nitems = 1;
-  mapper *mapper = xcalloc( nitems, sizeof( mapper ) );
-  if ( read_config( mapper, handle_config, config_fn ) < 0 ) {
-    log_debug( "Failed to parse config file %s", config_fn );
-    printf( "Failed to parse config file %s\n", config_fn );
+
+  mapper_args *args = xcalloc( nitems, sizeof( *args ) );
+  parse_options( argc, argv, args );
+
+  if ( args->config_fn == NULL || !strlen( args->config_fn ) ) {
+    args->config_fn = "db_mapper.conf";
   }
-  mapper_args *args = xmalloc( sizeof( *args ) );
-  parse_options( args, argc, argv );
+
+  *mptr = xcalloc( nitems, sizeof( mapper ) );
+  if ( read_config( handle_config, *mptr, args->config_fn ) < 0 ) {
+    log_debug( "Failed to parse config file %s", args->config_fn );
+    printf( "Failed to parse config file %s\n", args->config_fn );
+  }
   //db_init( mapper );
-  connect_and_create_db( mapper );
+  if ( connect_and_create_db( *mptr ) ) {
+    return NULL;
+  }
+
+  if ( args->schema_fn == NULL || strlen( args->schema_fn ) ) {
+    args->schema_fn = "save_all_records";
+  }
+  ( *mptr )->request_schema = jedex_initialize( args->schema_fn );
+  check_ptr_return( ( *mptr )->request_schema, "Failed to initialize jedex schema" );
+
+
+  int flag = 0;
+  ( *mptr )->emirates = emirates_initialize_only( ENTITY_SET( flag, RESPONDER | SUBSCRIBER ) );
+  check_ptr_return( ( *mptr )->emirates, "Failed to initialize emirates " );
+
+  ( *mptr )->emirates->set_service_request( ( *mptr )->emirates,
+                                         "save_topic",
+                                         ( *mptr )->request_schema,
+                                         *mptr,
+                                         request_save_topic_callback );
+  sleep( 1 );
+  set_ready( ( *mptr )->emirates );
+
+  return *mptr;
 }
 
 
@@ -108,8 +162,11 @@ main( int argc, char **argv ) {
   UNUSED( argc );
   UNUSED( argv );
 
-  mapper_init( argc, argv );
-  // after initialization call emirates main loop
+  mapper *mptr = NULL;
+  mptr = mapper_init( &mptr, argc, argv );
+
+  assert( mptr );
+
   return 0;
 }
 

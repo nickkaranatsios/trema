@@ -2,6 +2,6 @@
   "type": "record",
   "name": "save_all_data",
   "fields": [
-    { "name": "data_topic", "type": "string" }
+    { "name": "topic", "type": "string" }
   ]
 }

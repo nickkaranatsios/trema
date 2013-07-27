@@ -31,17 +31,13 @@ extern "C" {
 typedef struct mapper_args {
   const char *progname;
   const char *log_level;
-  const char *db_host;
-  const char *db_user;
-  const char *db_passwd;
-  const char *db_name;
-  const char *db_socket;
+  const char *config_fn;
+  const char *schema_fn;
   bool run_as_daemon;
-  const struct option *options;
 } mapper_args;
 
 
-void parse_options( mapper_args *options, int argc, char **argv );
+void parse_options( int argc, char **argv, void *user_data );
 
 
 CLOSE_EXTERN

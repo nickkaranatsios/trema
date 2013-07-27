@@ -50,6 +50,7 @@ jedex_schema *jedex_schema_record( const char *name, const char *space );
 jedex_schema *jedex_schema_record_field_get( jedex_schema *schema, const char *field_name );
 const char *jedex_schema_record_field_name( jedex_schema *schema, int index );
 int jedex_schema_record_field_get_index( jedex_schema *schema, const char *field_name );
+bool jedex_schema_record_field_is_primary( jedex_schema *schema, const char *field_name );
 jedex_schema *jedex_schema_record_field_get_by_index( jedex_schema *schema, int index );
 size_t jedex_schema_record_size( jedex_schema *schema );
 

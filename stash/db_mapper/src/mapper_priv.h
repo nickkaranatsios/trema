@@ -28,13 +28,16 @@ extern "C" {
 #endif
 
 
-#include <mysql.h>
 #include "db_mapper.h"
 
 
-#define A_CAST( st )  ( st * )
-#define A_DATA( obj ) ( A_CAST( db_wrapper )( obj ) )
-#define DATA_PTR( a_data ) ( A_DATA( a_data )->data )
+#define check_ptr_return( ptr, msg ) \
+  do { \
+    if ( ( ptr ) ==  NULL ) { \
+      log_err( msg ); \
+      return NULL; \
+    } \
+  } while ( 0 )
 
 
 typedef struct query_info {
@@ -55,6 +58,8 @@ typedef struct db_info {
 
 typedef struct mapper {
   db_info **dbs;
+  emirates_iface *emirates;
+  jedex_schema *request_schema;
   uint32_t dbs_nr;
   uint32_t dbs_alloc;
 } mapper;
@@ -64,8 +69,8 @@ typedef struct mapper {
 int prefixcmp( const char *str, const char *prefix );
 int suffixcmp( const char *str, const char *suffix );
 
-typedef int ( *config_fn_t ) ( mapper *mapper, const char *key, const char *value );
-int read_config( mapper *mapper, config_fn_t fn, const char *filename );
+typedef int ( *config_fn ) ( const char *key, const char *value, void *user_data );
+int read_config( config_fn fn, void *user_data, const char *filename );
 
 void db_init( mapper *mapper );
 int connect_and_create_db( mapper *mapper );

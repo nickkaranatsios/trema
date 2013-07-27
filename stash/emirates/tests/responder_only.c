@@ -21,14 +21,16 @@
 #include "checks.h"
 
 
-static emirates_iface *iface;
 
 
 static void
-request_menu_callback( void *args ) {
-  char *data = args;
-  printf( "request_menu_callback called data %s\n", data );
-  iface->send_reply_raw( iface, "menu", data );  
+request_menu_callback( jedex_value *val, const char *json, void *user_data ) {
+  UNUSED( val );
+  assert( user_data );
+  emirates_iface *iface = user_data;
+
+  printf( "request_menu_callback called data %s\n", json );
+  iface->send_reply_raw( iface, "menu", json );  
 }
 
 
@@ -70,9 +72,9 @@ main( int argc, char **argv ) {
   set_menu_record_value( val );
 
   int flag = 0;
-  iface = emirates_initialize_only( ENTITY_SET( flag, RESPONDER ) );
+  emirates_iface *iface = emirates_initialize_only( ENTITY_SET( flag, RESPONDER ) );
   if ( iface != NULL ) {
-    iface->set_service_request( iface, "menu", request_menu_callback );
+    iface->set_service_request( iface, "menu", schema, iface, request_menu_callback );
     zclock_sleep( 2 * 1000 );
     set_ready( iface );
 

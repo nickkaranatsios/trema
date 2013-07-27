@@ -43,6 +43,9 @@ extern "C" {
 #include <sys/eventfd.h>
 #endif
 #include <limits.h>
+#include <mysql.h>
+#include <mysqld_error.h>
+#include <errmsg.h>
 
 #include "checks.h"
 #include "wrapper.h"

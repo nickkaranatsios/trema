@@ -38,7 +38,9 @@ typedef struct callback_key {
 
 typedef struct request_callback {
   callback_key key;
+  jedex_schema *schema;
   const char *responder_id;
+  void *user_data;
   request_handler callback;
 } request_callback;
 

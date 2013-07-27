@@ -1,6 +1,8 @@
 CC = gcc
 CC = gcc
 AR = ar
+INSTALL = install -p
+INSTALL_DIR = /usr/local/lib
 RANLIB = ranlib
 APILIB = -lczmq -lsodium -lzmq -lm -pthread
 APIPATH = -L. -L/usr/local/lib -L/usr/lib
@@ -9,7 +11,7 @@ CFLAGS = -I../include -I../czmq/include -I../.. -I../../jedex/include -I../usr/l
 CFLAGS += -std=gnu99 -D_GNU_SOURCE -g -fno-strict-aliasing -Werror -Wall -Wextra -Wformat=2 -Wcast-qual -Wcast-align -Wwrite-strings -Wconversion -Wfloat-equal -Wpointer-arith -O0
 
 TARGET_LIB = libemirates.a
-SRCS_LIBS = emirates_main.c zcommon.c zpub.c zsub.c zrequester.c zresponder.c
+SRCS_LIB = emirates_main.c zcommon.c zpub.c zsub.c zrequester.c zresponder.c
 
 TARGET_RR = zrequester_responder
 SRCS_RR = zrequester_responder.c
@@ -49,5 +51,8 @@ depend:
 
 clean:
 	@rm -rf $(DEPENDS) $(OBJS) $(TARGETS) *~
+
+install:
+	$(INSTALL) $(TARGET_LIB) $(INSTALL_DIR)
 
 -include $(DEPENDS)

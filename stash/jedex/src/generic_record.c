@@ -73,6 +73,18 @@ jedex_generic_record_get_size( const jedex_value_iface *viface,
 }
 
 
+static bool
+jedex_generic_record_is_primary( const jedex_value_iface *viface,
+                                     void *vself,
+                                     const char *name ) {
+  const jedex_generic_record_value_iface *iface = container_of( viface, jedex_generic_record_value_iface, parent );
+  UNUSED( vself );
+
+  jedex_schema *schema = iface->schema;
+  return jedex_schema_record_field_is_primary( schema, name );
+}
+
+
 static int
 jedex_generic_record_get_by_index( const jedex_value_iface *viface,
                                    void *vself,
@@ -188,6 +200,7 @@ generic_record_class( void ) {
     record->parent.get_size = jedex_generic_record_get_size;
     record->parent.get_by_index = jedex_generic_record_get_by_index;
     record->parent.get_by_name = jedex_generic_record_get_by_name;
+    record->parent.is_primary = jedex_generic_record_is_primary;
     record->instance_size = jedex_generic_record_instance_size;
     record->init = jedex_generic_record_init;
     record->done = jedex_generic_record_done;

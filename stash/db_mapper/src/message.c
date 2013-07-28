@@ -20,19 +20,27 @@
 #include "mapper_priv.h"
 
 
+static void
+topic_subscription_callback( void *data ) {
+  assert( data );
+}
 
 
-int
-main( int argc, char **argv ) {
-  UNUSED( argc );
-  UNUSED( argv );
+void
+request_save_topic_callback( jedex_value *val, const char *json, void *user_data ) {
+  UNUSED( json );
+  assert( user_data );
+  assert( val );
 
-  mapper *mptr = NULL;
-  mptr = mapper_init( &mptr, argc, argv );
-
-  assert( mptr );
-
-  return 0;
+  jedex_value field;
+  size_t index;
+  jedex_value_get_by_name( val, "topic", &field, &index );
+  const char *topic = NULL;
+  size_t size = 0;
+  jedex_value_get_string( &field, &topic, &size );
+  mapper *mapper = user_data;
+  const char *schemas[] = { NULL };
+  mapper->emirates->set_subscription( mapper->emirates, topic, schemas, topic_subscription_callback );
 }
 
 

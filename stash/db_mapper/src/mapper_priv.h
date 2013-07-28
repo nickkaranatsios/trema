@@ -72,8 +72,13 @@ int suffixcmp( const char *str, const char *suffix );
 typedef int ( *config_fn ) ( const char *key, const char *value, void *user_data );
 int read_config( config_fn fn, void *user_data, const char *filename );
 
-void db_init( mapper *mapper );
-int connect_and_create_db( mapper *mapper );
+// message.c
+void request_save_topic_callback( jedex_value *val, const char *json, void *user_data );
+
+// init.c
+mapper *mapper_init( mapper **mptr, int argc, char **argv );
+void db_init( mapper *mptr );
+int connect_and_create_db( mapper *mptr );
 
 
 CLOSE_EXTERN

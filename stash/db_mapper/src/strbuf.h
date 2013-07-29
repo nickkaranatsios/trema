@@ -16,25 +16,41 @@
  */
 
 
-#include "db_mapper.h"
-#include "mapper_priv.h"
+#ifndef STRBUF_PRIV_H
+#define STRBUF_PRIV_H
 
 
+#ifdef __cplusplus
+extern "C" {
+#define CLOSE_EXTERN }
+#else
+#define CLOSE_EXTERN
+#endif
 
 
-int
-main( int argc, char **argv ) {
-  UNUSED( argc );
-  UNUSED( argv );
+typedef struct strbuf {
+  size_t alloc;
+  size_t len;
+  char *buf;
+} strbuf;
 
-  mapper *self = NULL;
-  self = mapper_initialize( &self, argc, argv );
-  emirates_loop( self->emirates );
 
-  assert( self );
+char dummy[ 1 ];
 
-  return 0;
-}
+#define STRBUF_INIT { 0, 0, dummy }
+
+
+int prefixcmp( const char *str, const char *prefix );
+int suffixcmp( const char *str, const char *suffix );
+void strbuf_addstr( strbuf *sb, const char *s );
+void strbuf_addf( strbuf *sb, const char *fmt, ... );
+void strbuf_init( strbuf *sb, size_t hint );
+void strbuf_release( strbuf *sb );
+void strbuf_rntrim( strbuf *sb, size_t len );
+
+
+CLOSE_EXTERN
+#endif // MAPPER_PRIV_H
 
 
 /*

@@ -121,7 +121,7 @@ mapper_initialize( mapper **mptr, int argc, char **argv ) {
   if ( args->request_schema_fn == NULL || !strlen( args->request_schema_fn ) ) {
     args->request_schema_fn = "save_topic";
   }
-  ( *mptr )->request_schema = jedex_initialize( args->schema_request_fn );
+  ( *mptr )->request_schema = jedex_initialize( args->request_schema_fn );
   check_ptr_return( ( *mptr )->request_schema, "Failed to initialize request schema" );
 
 

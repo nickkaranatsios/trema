@@ -81,7 +81,7 @@ struct jedex_obj {
                              || is_jedex_double( obj ) \
                              || is_jedex_boolean( obj ) \
                              || is_jedex_null( obj ) )
-#define is_jedex_record( obj )   ( obj && jedex_typeof( obj ) == JEDEX_RECORD )
+#define is_jedex_record( obj ) ( obj && jedex_typeof( obj ) == JEDEX_RECORD )
 #define is_jedex_named_type( obj ) ( is_jedex_record( obj ) )
 #define is_jedex_map( obj ) ( obj && jedex_typeof( obj ) == JEDEX_MAP )
 #define is_jedex_array( obj ) ( obj && jedex_typeof( obj ) == JEDEX_ARRAY )

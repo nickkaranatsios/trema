@@ -53,6 +53,7 @@ extern "C" {
 #include "emirates.h"
 #include "parse_options.h"
 #include "array_util.h"
+#include "strbuf.h"
 
 
 CLOSE_EXTERN

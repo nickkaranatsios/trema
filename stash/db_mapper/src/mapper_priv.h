@@ -76,20 +76,6 @@ typedef struct mapper {
 } mapper;
 
 
-#define db_info_ptr( self, name ) \
-  for ( uint32_t i = 0; i < self->dbs_nr; i++ ) { \
-    if ( !strcmp( self->dbs[ i ]->name, name ) ) { \
-      return self->dbs[ i ]; \
-    } \
-  } \
-  return NULL;
-
-
-#define db_handle( self, name )  ( db_info_ptr( self, name ) )->db_handle;
-
-
-int prefixcmp( const char *str, const char *prefix );
-int suffixcmp( const char *str, const char *suffix );
 
 typedef int ( *config_fn ) ( const char *key, const char *value, void *user_data );
 int read_config( config_fn fn, void *user_data, const char *filename );

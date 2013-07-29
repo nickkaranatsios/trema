@@ -22,8 +22,9 @@
 static char const * const mapper_usage[] = {
   "  -l --logging_level=level                   set the logging level",
   "  -d --daemonize                             run as a daemon",
-  "  -c --config_fn=config_fn                   set config fn to read",
-  "  -s --schema_fn=schema_fn                   set schema fn to read",
+  "  -c --config=config_fn                      set config fn to read",
+  "  -s --schema=schema_fn                      set schema fn to read",
+  "  -r --request_schema=schema_fn              st request schema fn to read",
   "  -h --help                                  display usage and exit",
   NULL
 };
@@ -65,6 +66,11 @@ handle_option( int c, char *optarg, void *user_data ) {
         args->schema_fn = optarg;
       }
     break;
+    case 'r':
+      if ( optarg ) {
+        args->request_schema_fn = optarg;
+      }
+    break;
     default:
       log_err( "Unrecognized option skip" );
     break;
@@ -77,12 +83,13 @@ parse_options( int argc, char **argv, void *user_data ) {
   const struct option long_options[] = {
     { "logging_level", required_argument, 0, 'l' },
     { "daemonize", no_argument, 0, 'd' },
-    { "config_fn", required_argument, 0, 'c' },
-    { "schema_fn", required_argument, 0, 's' },
+    { "config", required_argument, 0, 'c' },
+    { "schema", required_argument, 0, 's' },
+    { "request_schema", required_argument, 0, 'r' },
     { "help", no_argument, 0, 'h' },
     { 0, 0, 0, 0 },
   };
-  const char *short_options = "l:dc:s:h";
+  const char *short_options = "l:dc:s:r:h";
 
   int c;
   int index = 0;

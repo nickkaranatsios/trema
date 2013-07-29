@@ -45,13 +45,23 @@ typedef struct query_info {
 } query_info;
 
 
+typedef struct table_info {
+  const char *name;
+  uint32_t queries_nr;
+  uint32_t queries_alloc;
+  query_info **queries;
+} table_info;
+
+
 typedef struct db_info {
   char *name;
   char *host;
   char *user;
   char *passwd;
   char *socket;
-  query_info **queries;
+  table_info **tables;
+  uint32_t tables_nr;
+  uint32_t tables_alloc;
   MYSQL *db_handle;
 } db_info;
 
@@ -59,11 +69,23 @@ typedef struct db_info {
 typedef struct mapper {
   db_info **dbs;
   emirates_iface *emirates;
+  jedex_schema *schema;
   jedex_schema *request_schema;
   uint32_t dbs_nr;
   uint32_t dbs_alloc;
 } mapper;
 
+
+#define db_info_ptr( self, name ) \
+  for ( uint32_t i = 0; i < self->dbs_nr; i++ ) { \
+    if ( !strcmp( self->dbs[ i ]->name, name ) ) { \
+      return self->dbs[ i ]; \
+    } \
+  } \
+  return NULL;
+
+
+#define db_handle( self, name )  ( db_info_ptr( self, name ) )->db_handle;
 
 
 int prefixcmp( const char *str, const char *prefix );
@@ -76,7 +98,7 @@ int read_config( config_fn fn, void *user_data, const char *filename );
 void request_save_topic_callback( jedex_value *val, const char *json, void *user_data );
 
 // init.c
-mapper *mapper_init( mapper **mptr, int argc, char **argv );
+mapper *mapper_initialize( mapper **mptr, int argc, char **argv );
 void db_init( mapper *mptr );
 int connect_and_create_db( mapper *mptr );
 

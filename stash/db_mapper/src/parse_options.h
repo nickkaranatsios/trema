@@ -33,6 +33,7 @@ typedef struct mapper_args {
   const char *log_level;
   const char *config_fn;
   const char *schema_fn;
+  const char *request_schema_fn:
   bool run_as_daemon;
 } mapper_args;
 

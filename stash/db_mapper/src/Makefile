@@ -29,6 +29,8 @@ SRCS_DB_MAPPER += wrapper.c
 SRCS_DB_MAPPER += parse_options.c
 SRCS_DB_MAPPER += strbuf.c
 SRCS_DB_MAPPER += config.c
+SRCS_DB_MAPPER += init.c
+SRCS_DB_MAPPER += message.c
 
 
 TARGETS = $(TARGET_DB_MAPPER)

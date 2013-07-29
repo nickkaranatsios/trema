@@ -1,0 +1,9 @@
+{
+  "type": "record",
+  "name": "save_all_data",
+  "fields": [
+    { "name": "db_name", "type": "string" },
+    { "name": "topic", "type": "string" },
+    { "name": "tables", "type": { "type": "array", "items": "string" } }
+  ]
+}

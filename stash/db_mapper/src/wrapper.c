@@ -43,6 +43,11 @@ db_connect( db_info *db ) {
 
 
 uint32_t
+store_result( MYSQL *db_handle ) {
+}
+
+
+uint32_t
 query( MYSQL *db_handle, const char *format, ...) {
   size_t size = 256;
   char stackbuffer[ size ];
@@ -74,18 +79,23 @@ query( MYSQL *db_handle, const char *format, ...) {
   if ( stmt_str != stackbuffer ) {
     xfree( stmt_str );
   }
+  if ( mysql_field_count( db_handle ) == 0 ) {
+    return mysql_affected_rows( db_handle );
+  }
+     
+  return store_result( db_handle );
 
   return mysql_errno( db_handle );
 }
 
 
 int
-connect_and_create_db( mapper *mapper ) {
+connect_and_create_db( mapper *self ) {
   uint32_t i;
   uint32_t db_error = EINVAL;
 
-  for ( i = 0; i < mapper->dbs_nr; i++ ) {
-    db_info *db = mapper->dbs[ i ];
+  for ( i = 0; i < self->dbs_nr; i++ ) {
+    db_info *db = self->dbs[ i ];
     if ( !db_connect( db ) ) {
       db_error = query( db->db_handle, "drop database if exists %s", db->name );
       if ( !db_error ) {

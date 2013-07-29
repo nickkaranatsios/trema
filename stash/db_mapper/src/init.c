@@ -92,7 +92,7 @@ handle_config( const char *key, const char *value, void *user_data ) {
  * Finally initialize emirates
  */
 mapper *
-mapper_init( mapper **mptr, int argc, char **argv ) {
+mapper_initialize( mapper **mptr, int argc, char **argv ) {
   size_t nitems = 1;
 
   mapper_args *args = xcalloc( nitems, sizeof( *args ) );
@@ -112,16 +112,23 @@ mapper_init( mapper **mptr, int argc, char **argv ) {
     return NULL;
   }
 
-  if ( args->schema_fn == NULL || strlen( args->schema_fn ) ) {
-    args->schema_fn = "save_all_records";
+  if ( args->schema_fn == NULL || !strlen( args->schema_fn ) ) {
+    args->schema_fn = "test_schema";
   }
-  ( *mptr )->request_schema = jedex_initialize( args->schema_fn );
-  check_ptr_return( ( *mptr )->request_schema, "Failed to initialize jedex schema" );
+  ( *mptr )->schema = jedex_initialize( args->schema_fn );
+  check_ptr_return( ( *mptr )->schema, "Failed to initialize main schema" );
+
+  if ( args->request_schema_fn == NULL || !strlen( args->request_schema_fn ) ) {
+    args->request_schema_fn = "save_topic";
+  }
+  ( *mptr )->request_schema = jedex_initialize( args->schema_request_fn );
+  check_ptr_return( ( *mptr )->request_schema, "Failed to initialize request schema" );
 
 
+  
   int flag = 0;
   ( *mptr )->emirates = emirates_initialize_only( ENTITY_SET( flag, RESPONDER | SUBSCRIBER ) );
-  check_ptr_return( ( *mptr )->emirates, "Failed to initialize emirates " );
+  check_ptr_return( ( *mptr )->emirates, "Failed to initialize emirates" );
 
   ( *mptr )->emirates->set_service_request( ( *mptr )->emirates,
                                             "save_topic",

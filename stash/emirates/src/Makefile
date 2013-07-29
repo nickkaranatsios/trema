@@ -8,8 +8,7 @@ APILIB = -lczmq -lsodium -lzmq -lm -pthread
 APIPATH = -L. -L/usr/local/lib -L/usr/lib
 
 CFLAGS = -I../include -I../czmq/include -I../.. -I../../jedex/include -I../usr/local/include
-CFLAGS += -std=gnu99 -D_GNU_SOURCE -g -fno-strict-aliasing -Wall -Wextra -Wformat=2 -Wcast-qual -Wcast-align -Wwrite-strings -Wconversion -Wfloat-equal -Wpointer-arith -O0
-#CFLAGS += -std=gnu99 -D_GNU_SOURCE -g -fno-strict-aliasing -Werror -Wall -Wextra -Wformat=2 -Wcast-qual -Wcast-align -Wwrite-strings -Wconversion -Wfloat-equal -Wpointer-arith -O0
+CFLAGS += -std=gnu99 -D_GNU_SOURCE -g -fno-strict-aliasing -Werror -Wall -Wextra -Wformat=2 -Wcast-qual -Wcast-align -Wwrite-strings -Wconversion -Wfloat-equal -Wpointer-arith -O0
 
 TARGET_LIB = libemirates.a
 SRCS_LIB = emirates_main.c zcommon.c zpub.c zsub.c zrequester.c zresponder.c

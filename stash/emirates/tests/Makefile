@@ -1,14 +1,14 @@
 # Makefile for test programs
-TREMA = ../../../../trema
+TREMA = ../../../network_controller/trema
 
 CC = gcc
 
 APILIB = -lczmq -lsodium -lzmq -ljansson -lm -lpthread
 APIPATH = -L. -L/usr/local/lib -L/usr/lib
 
-CFLAGS += -I ../include
-CFLAGS += -I ../..
-CFLAGS += -I ../czmq/include
+CFLAGS += -I../include
+CFLAGS += -I../..
+CFLAGS += -I../czmq/include
 CFLAGS += -I../../jedex/include
 CFLAGS += $(shell $(TREMA)/trema-config --cflags)
 CFLAGS += -I../usr/local/include
@@ -31,10 +31,14 @@ SRCS_RESPONDER_ONLY = responder_only.c
 TARGET_REQUESTER_ONLY = requester_only
 SRCS_REQUESTER_ONLY = requester_only.c
 
+TARGET_DB_REQUESTER_PUBLISHER = db_requester_publisher
+SRCS_DB_REQUESTER_PUBLISHER = db_requester_publisher.c
+
 TARGETS = $(TARGET_SUBSCRIBER_ONLY)
 TARGETS += $(TARGET_PUBLISHER_ONLY)
 TARGETS += $(TARGET_RESPONDER_ONLY)
 TARGETS += $(TARGET_REQUESTER_ONLY)
+TARGETS += $(TARGET_DB_REQUESTER_PUBLISHER)
 
 
 SRCS = $(SRCS_SUBSCRIBER_ONLY)
@@ -49,6 +53,9 @@ OBJS_RESPONDER_ONLY = $(SRCS_RESPONDER_ONLY:.c=.o)
 
 SRCS = $(SRCS_REQUESTER_ONLY)
 OBJS_REQUESTER_ONLY = $(SRCS_REQUESTER_ONLY:.c=.o)
+
+SRCS = $(SRCS_DB_REQUESTER_PUBLISHER)
+OBJS_DB_REQUESTER_PUBLISHER = $(SRCS_DB_REQUESTER_PUBLISHER:.c=.o)
 
 DEPENDS = .depends
 
@@ -69,6 +76,9 @@ $(TARGET_RESPONDER_ONLY): $(OBJS_RESPONDER_ONLY)
 
 $(TARGET_REQUESTER_ONLY): $(OBJS_REQUESTER_ONLY)
 	$(CC) $(OBJS_REQUESTER_ONLY) $(APIPATH) $(LDFLAGS) -o $@
+
+$(TARGET_DB_REQUESTER_PUBLISHER): $(OBJS_DB_REQUESTER_PUBLISHER)
+	$(CC) $(OBJS_DB_REQUESTER_PUBLISHER) $(APIPATH) $(LDFLAGS) -o $@
 
 .c.o:
 	$(CC) $(CFLAGS) -c $<

@@ -27,10 +27,11 @@ main( int argc, char **argv ) {
   UNUSED( argc );
   UNUSED( argv );
 
-  mapper *mptr = NULL;
-  mptr = mapper_init( &mptr, argc, argv );
+  mapper *self = NULL;
+  self = mapper_init( &self, argc, argv );
+  emirates_loop( self->emirates );
 
-  assert( mptr );
+  assert( self );
 
   return 0;
 }

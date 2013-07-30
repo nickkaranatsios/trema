@@ -76,17 +76,28 @@ typedef struct mapper {
 } mapper;
 
 
+typedef struct ref_data {
+  strbuf *command;
+  jedex_value *val;
+  json_t *json_val;
+} ref_data;
+
 
 typedef int ( *config_fn ) ( const char *key, const char *value, void *user_data );
 int read_config( config_fn fn, void *user_data, const char *filename );
 
 // message.c
 void request_save_topic_callback( jedex_value *val, const char *json, void *user_data );
+void request_find_record_callback( jedex_value *val, const char *json, void *user_data );
+typedef void ( *primary_key_fn ) ( const char *pk_name, const char *type_str, void *user_data ); 
 
 // init.c
 mapper *mapper_initialize( mapper **mptr, int argc, char **argv );
 void db_init( mapper *mptr );
 int connect_and_create_db( mapper *mptr );
+
+// wrapper.c
+uint32_t query( db_info *db, const char *format, ...);
 
 
 CLOSE_EXTERN

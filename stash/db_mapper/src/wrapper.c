@@ -42,51 +42,76 @@ db_connect( db_info *db ) {
 }
 
 
-uint32_t
-store_result( MYSQL *db_handle ) {
-}
+static uint32_t
+_query( MYSQL *db_handle, const char *stmt_str, size_t stmt_size ) {
 
-
-uint32_t
-query( MYSQL *db_handle, const char *format, ...) {
-  size_t size = 256;
-  char stackbuffer[ size ];
-  char *stmt_str = stackbuffer;
-  va_list argptr;
-
-  va_start( argptr, format );
-  int required = vsnprintf( stmt_str, size, format, argptr );
-  va_end( argptr );
-
-  if ( required < 0 ) {
-    printf( "Failed to format query\n" );
-    return EINVAL;
-  }
-  size_t needed_size = ( size_t ) required;
-  if ( needed_size >= size) {
-    size = needed_size + 1;
-    stmt_str = ( char * ) xmalloc( size );
-    va_start( argptr, format );
-    vsnprintf( stmt_str, size, format, argptr );
-    va_end( argptr );
-    needed_size = size;
-  }
-
-  if ( mysql_real_query( db_handle, stmt_str, needed_size ) ) {
-    log_err( "Failed to execute the queury %s %s", stmt_str, mysql_error( db_handle ) );
+  if ( mysql_real_query( db_handle, stmt_str, stmt_size ) ) {
+    log_err( "Failed to execute the query %s %s", stmt_str, mysql_error( db_handle ) );
     printf( "Failed to execute the queury %s %u:%s\n", stmt_str, mysql_errno( db_handle ), mysql_error( db_handle ) );
   }
-  if ( stmt_str != stackbuffer ) {
-    xfree( stmt_str );
-  }
+#ifdef TEST
   if ( mysql_field_count( db_handle ) == 0 ) {
     return mysql_affected_rows( db_handle );
   }
      
   return store_result( db_handle );
+#endif
 
   return mysql_errno( db_handle );
 }
+
+
+static size_t
+format_cmd( char **target, const char *format, va_list argptr ) {
+  size_t size = 256;
+  char *stmt_str = ( char * ) xmalloc( size );
+  
+  int required = vsnprintf( stmt_str, size, format, argptr );
+
+  if ( required < 0 ) {
+    printf( "Failed to format query\n" );
+    return 0;
+  }
+  size_t needed_size = ( size_t ) required;
+  if ( needed_size >= size) {
+    size = needed_size + 1;
+    stmt_str = ( char * ) xmalloc( size );
+    vsnprintf( stmt_str, size, format, argptr );
+    needed_size = size;
+  }
+  *target = stmt_str;
+
+  return needed_size;
+}
+
+
+uint32_t
+query( db_info *db, const char *format, ... ) {
+  char *stmt_str = NULL;
+  va_list argptr;
+
+  va_start( argptr, format );
+  size_t needed_size = format_cmd( &stmt_str, format, argptr );
+  va_end( argptr );
+
+  uint32_t ret;
+  if ( needed_size && stmt_str ) {
+    ret = _query( db->db_handle, stmt_str, needed_size );
+    xfree( stmt_str );
+  }
+
+  return ret;
+}
+
+
+#ifdef LATER
+uint32_t
+query_store_result( db_info *db, const char *format, ... ) {
+  uint32_t ret = _query( db->db_handle, format );
+
+  return store_result( db->db_handle );
+}
+#endif
 
 
 int
@@ -97,9 +122,9 @@ connect_and_create_db( mapper *self ) {
   for ( i = 0; i < self->dbs_nr; i++ ) {
     db_info *db = self->dbs[ i ];
     if ( !db_connect( db ) ) {
-      db_error = query( db->db_handle, "drop database if exists %s", db->name );
+      db_error = query( db, "drop database if exists %s", db->name );
       if ( !db_error ) {
-        db_error = query( db->db_handle, "create database %s character set 'utf8'", db->name );
+        db_error = query( db, "create database %s character set 'utf8'", db->name );
       }
     }
   }

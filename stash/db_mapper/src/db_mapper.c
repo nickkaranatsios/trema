@@ -20,15 +20,71 @@
 #include "mapper_priv.h"
 
 
+static void
+set_save_topic( jedex_value *val ) {
+  jedex_value field;
+  size_t index;
+
+  jedex_value_get_by_name( val, "dbname", &field, &index );
+  jedex_value_set_string( &field, "groceries" );
+  jedex_value_get_by_name( val, "topic", &field, &index );
+  jedex_value_set_string( &field, "save_groceries" );
+  jedex_value_get_by_name( val, "tables", &field, &index );
+  jedex_value element;
+  jedex_value_append( &field, &element, NULL );
+  jedex_value_set_string( &element, "fruits" );
+}
+
+
+static void
+set_find_fruits( jedex_value *val ) {
+  jedex_value branch;
+  size_t index;
+  
+  jedex_value_get_by_name( val, "fruits", &branch, &index );
+
+  jedex_value field;
+  jedex_value_get_by_name( &branch, "name", &field, &index );
+  jedex_value_set_string( &field, "mango" );
+}
+
+void
+set_topic( mapper *self ) {
+  jedex_value_iface *val_iface;
+
+  val_iface = jedex_generic_class_from_schema( self->request_schema );
+  jedex_value *val = jedex_value_from_iface( val_iface );
+  set_save_topic( val );
+  char *json;
+  jedex_value_to_json( val, true, &json );
+  if ( json ) {
+    request_save_topic_callback( val, json, self );
+  }
+}
+
+
+void
+set_find_record( mapper *self ) {
+  jedex_value_iface *val_iface;
+
+  val_iface = jedex_generic_class_from_schema( self->schema );
+  jedex_value *val = jedex_value_from_iface( val_iface );
+  assert( val );
+  set_find_fruits( val );
+  char *json;
+  jedex_value_to_json( val, true, &json );
+  if ( json ) {
+    request_find_record_callback( val, json, self );
+  }
+}
 
 
 int
 main( int argc, char **argv ) {
-  UNUSED( argc );
-  UNUSED( argv );
-
   mapper *self = NULL;
   self = mapper_initialize( &self, argc, argv );
+  set_topic( self );
+  set_find_record( self );
   emirates_loop( self->emirates );
 
   assert( self );

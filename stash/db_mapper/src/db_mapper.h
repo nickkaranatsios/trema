@@ -50,6 +50,8 @@ extern "C" {
 #include "checks.h"
 #include "wrapper.h"
 #include "log_writer.h"
+#include "jedex_iface.h"
+#include "generic.h"
 #include "emirates.h"
 #include "parse_options.h"
 #include "array_util.h"

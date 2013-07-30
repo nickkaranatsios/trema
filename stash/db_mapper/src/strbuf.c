@@ -64,15 +64,16 @@ strbuf_vaddf( strbuf *sb, const char *fmt, va_list ap ) {
     log_err( "vsnprintf error %d", len );
     return;
   }
-  if ( len > strbuf_avail( sb ) ) {
-    strbuf_grow( sb, len );
+  size_t slen = ( size_t ) len;
+  if ( slen > strbuf_avail( sb ) ) {
+    strbuf_grow( sb, slen );
     len = vsnprintf( sb->buf + sb->len, sb->alloc - sb->len, fmt, ap );
-    if ( len > strbuf_avail( sb ) ) {
+    if ( slen > strbuf_avail( sb ) ) {
       log_err( "vsnprintf error %d", len );
       return;
     }
   }
-  strbuf_setlen( sb, sb->len + len );
+  strbuf_setlen( sb, sb->len + slen );
 }
 
 
@@ -114,7 +115,7 @@ void
 strbuf_rntrim( strbuf *sb, size_t len ) {
   if ( sb->len - len > 0 ) {
     sb->len -= len;
-    sb[ sb->len ] = '\0';
+    sb->buf[ sb->len ] = '\0';
   }
 }
 

@@ -65,7 +65,10 @@ struct emirates_iface {
                                const char **schema_names,
                                subscription_handler subscription_callback );
   void ( *publish ) ( emirates_iface *iface, const char *service, jedex_parcel *parcel );
-  uint32_t ( *send_request ) ( emirates_iface *iface, const char *service, jedex_value *value );
+  uint32_t ( *send_request ) ( emirates_iface *iface,
+                               const char *service,
+                               jedex_value *value,
+                               jedex_schema *reply_schema );
   void ( *send_reply_raw ) ( emirates_iface *iface, const char *service, const char *json );
   void ( *send_reply ) ( emirates_iface *iface, const char *service, jedex_value *value );
   void ( *set_periodic_timer ) ( emirates_iface *iface, int msecs, timer_handler timer_callback, void *user_data );
@@ -87,7 +90,7 @@ void subscription( emirates_iface *iface,
                    const char *service,
                    const char **schema_names,
                    subscription_handler subscription_callback );
-uint32_t send_request( emirates_iface *iface, const char *service, jedex_value *value );
+uint32_t send_request( emirates_iface *iface, const char *service, jedex_value *value, jedex_schema *reply_schema );
 void send_reply_raw( emirates_iface *iface, const char *service, const char *json );
 void send_reply( emirates_iface *iface, const char *service, jedex_value *value );
 void set_periodic_timer( emirates_iface *iface, int msecs, timer_handler timer_callback, void *user_data );

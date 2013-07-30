@@ -307,17 +307,19 @@ service_reply( emirates_iface *iface, const char *service, reply_handler callbac
 
 
 uint32_t
-send_request( emirates_iface *iface, const char *service, jedex_value *value ) {
+send_request( emirates_iface *iface,
+              const char *service,
+              jedex_value *value,
+              jedex_schema *reply_schema ) {
   emirates_priv *priv = iface->priv;
   assert( priv );
 
   char *json;
   jedex_value_to_json( value, true, &json );
   if ( json ) {
-    jedex_schema *schema = jedex_value_get_schema( value );
-    if ( schema ) {
+    if ( reply_schema ) {
       requester_inc_timeout_id( priv->requester );
-      schema_per_request_add( requester_schemas( priv->requester ), schema, requester_timeout_id( priv->requester ) );
+      schema_per_request_add( requester_schemas( priv->requester ), reply_schema, requester_timeout_id( priv->requester ) );
       zmsg_t *msg = zmsg_new();
       zmsg_addstr( msg, REQUEST );
       zmsg_addmem( msg, &requester_timeout_id( priv->requester ), sizeof( requester_timeout_id( priv->requester ) ) );

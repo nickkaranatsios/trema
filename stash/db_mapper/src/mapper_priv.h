@@ -40,6 +40,8 @@ extern "C" {
   } while ( 0 )
 
 
+#define MAX_QUERIES_PER_TABLE 10
+
 typedef struct query_info {
   MYSQL_RES *res;
 } query_info;
@@ -47,9 +49,13 @@ typedef struct query_info {
 
 typedef struct table_info {
   const char *name;
-  uint32_t queries_nr;
-  uint32_t queries_alloc;
-  query_info **queries;
+  
+  /*
+   * the first query used for storing intermediate results.
+   * should start from 1.
+  */
+  uint32_t cur_query_id;
+  query_info queries[ MAX_QUERIES_PER_TABLE ];
 } table_info;
 
 

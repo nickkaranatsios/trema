@@ -147,7 +147,8 @@ main( int argc, char **argv ) {
   if ( iface != NULL ) {
     iface->set_service_reply( iface, "menu", menu_handler );
     //iface->set_periodic_timer( iface, 5000,  my_timer, val );
-    iface->send_request( iface, "menu", val );
+    // assume request/reply use the same schema
+    iface->send_request( iface, "menu", val, schema );
     emirates_loop( iface );
     emirates_finalize( &iface );
   }

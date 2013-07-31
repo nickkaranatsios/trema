@@ -110,8 +110,8 @@ get_table_schema( jedex_schema *schema, const char *tbl_name ) {
     return schema;
   }
   else {
-    log_err( "db_mapper can handle either a union or record schema" );
-    printf( "db_mapper can handle either a union or record schema\n" );
+    log_err( "db_mapper can handle either a union or a record schema" );
+    printf( "db_mapper can handle either a union or a record schema\n" );
     return NULL;
   }
 
@@ -344,52 +344,40 @@ db_info_dbname( mapper *self, const char *tbl_name ) {
 
 static void
 unpack_find_object( mapper *self, json_t *root, jedex_value *val ) {
-  strbuf command = STRBUF_INIT;
+  strbuf sb = STRBUF_INIT;
 
   void *iter = json_object_iter( root );
   const char *tbl_name = json_object_iter_key( iter );
   const char *db_name = db_info_dbname( self, tbl_name );
-  strbuf_addf( &command, "select json from %s.%s where ", db_name, tbl_name );
+  strbuf_addf( &sb, "select * from %s.%s where ", db_name, tbl_name );
 
   ref_data ref;
-  ref.command = &command;
+  ref.command = &sb;
   ref.val = val;
 
   db_info *db = db_info_get( self, db_name );
   table_info *tinfo = table_info_get( db, tbl_name );
 
   foreach_primary_key( tinfo, where_clause, &ref );
-  strbuf_rtrimn( &command, strlen( "and " ) );
+  strbuf_rtrimn( &sb, strlen( "and " ) );
 
   query_info *qinfo = query_info_get( tinfo );
   if ( qinfo ) {
-    if ( !query( db, qinfo, command.buf ) ) {
+    if ( !query( db, qinfo, sb.buf ) ) {
+      strbuf_reset( &sb );
+      // store a record row of all fields delimited by ":"
+      my_ulonglong num_rows = query_num_rows( qinfo );
+      for ( my_ulonglong i = 0; i < num_rows; i++ ) {
+        if ( !query_fetch_result( qinfo, &sb ) ) {
+          const char *json = strbuf_rsplit( &sb, '|' );
+          const char *keys = sb.buf[ sb.len - strlen( json ) - 1 ] = '\0';
+        }
+      }
+      query_free_result( qinfo );
+        //self->emirates->send_reply_raw( self->emirates, "find_record_reply", json ); 
     }
   }
-#ifdef LATER
-  row = mysql_fetch_row();
-  strbuf merge_key_values = STRBUF_INIT;
-  for ( i = 0; i < tinfo->keys_nr; i++ ) {
-    key_info *kinfo = tinfo->keys[ i ];
-    if ( !strcmp( kinfo->name, qinfo->res->fields[ i ].name ) ) {
-      strbuf_addf( &merge_key_values, "%s:",  row[ i ] );
-    }
-  }
-  // last field should be that data.
-  strbuf_rtrimn( &merge_key_values, 1 );
-  // send the reply
-  self->emirates->send_reply_raw()
-  strbuf_release( &result );
-  
-  
-  query_info *qinfo = query_info_get( tinfo );
-  if ( qinfo != NULL ) {
-    if ( !query( db, qinfo, &command.buf ) ) {
-      foreach_result( qinfo, fn, self );
-    }
-  }
-#endif
-  strbuf_release( &command );
+  strbuf_release( &sb );
 }
 
 

@@ -77,7 +77,7 @@ strbuf_vaddf( strbuf *sb, const char *fmt, va_list ap ) {
 }
 
 
-static void
+void
 strbuf_add( strbuf *sb, const void *data, size_t len ) {
   strbuf_grow( sb, len );
   memcpy( sb->buf + sb->len, data, len );
@@ -135,6 +135,20 @@ strbuf_addf( strbuf *sb, const char *fmt, ... ) {
 }
 
 
+char *
+strbuf_rsplit( strbuf *sb, int delim ) {
+  char *p = sb->buf;
+  char *end;
+
+  end = strrchr( p, delim );
+  if ( end ) {
+    end = end + 1;
+  }
+
+  return end;
+}
+
+
 void
 strbuf_init( strbuf *sb, size_t hint ) {
   sb->alloc = sb->len = 0;
@@ -143,6 +157,26 @@ strbuf_init( strbuf *sb, size_t hint ) {
     strbuf_grow( sb, hint );
   }
 }   
+
+
+void
+strbuf_reset( strbuf *sb ) {
+  strbuf_setlen( sb, 0 );
+}
+
+char *
+strbuf_detach( strbuf *sb, size_t *sz ) {
+  char *res;
+
+  strbuf_grow( sb, 0 );
+  res = sb->buf;
+  if ( sz ) {
+    *sz = sb->len;
+  }
+  strbuf_init( sb, 0 );
+
+  return res;
+}
 
 
 void

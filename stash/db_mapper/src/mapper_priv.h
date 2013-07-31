@@ -116,10 +116,14 @@ typedef void ( *primary_key_fn ) ( key_info *kinfo, void *user_data );
 // init.c
 mapper *mapper_initialize( mapper **mptr, int argc, char **argv );
 void db_init( mapper *mptr );
-int connect_and_create_db( mapper *mptr );
+int db_connect( mapper *mptr );
+int db_create( mapper *mptr, bool hint );
 
 // wrapper.c
 int query( db_info *db, query_info *qinfo, const char *format, ...);
+my_ulonglong query_num_rows( query_info *qinfo );
+void query_free_result( query_info *qinfo );
+int query_fetch_result( query_info *qinfo, strbuf *rbuf );
 
 
 CLOSE_EXTERN

@@ -108,7 +108,11 @@ mapper_initialize( mapper **mptr, int argc, char **argv ) {
     printf( "Failed to parse config file %s\n", args->config_fn );
   }
   //db_init( mapper );
-  if ( connect_and_create_db( *mptr ) ) {
+  if ( db_connect( *mptr ) ) {
+    return NULL;
+  }
+  bool hint = false;
+  if ( db_create( *mptr, hint ) ) {
     return NULL;
   }
 

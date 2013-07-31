@@ -42,9 +42,13 @@ char dummy[ 1 ];
 
 int prefixcmp( const char *str, const char *prefix );
 int suffixcmp( const char *str, const char *suffix );
+void strbuf_add( strbuf *sb, const void *s, size_t len );
 void strbuf_addstr( strbuf *sb, const char *s );
 void strbuf_addf( strbuf *sb, const char *fmt, ... );
 void strbuf_init( strbuf *sb, size_t hint );
+void strbuf_reset( strbuf *sb );
+char *strbuf_rsplit( strbuf *sb, int delim );
+char *strbuf_detach( strbuf *sb, size_t *sz );
 void strbuf_release( strbuf *sb );
 void strbuf_rtrimn( strbuf *sb, size_t len );
 

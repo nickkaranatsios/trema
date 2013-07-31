@@ -21,7 +21,7 @@
 
 
 static int
-db_connect( db_info *db ) {
+_db_connect( db_info *db ) {
   db->db_handle = mysql_init( NULL );
   if ( mysql_real_connect( db->db_handle,
                            db->host,
@@ -116,48 +116,64 @@ query( db_info *db, query_info *qinfo, const char *format, ... ) {
 }
 
 
+my_ulonglong
+query_num_rows( query_info *qinfo ) {
+  return mysql_num_rows( qinfo->res );
+}
+
+
+void
+query_free_result( query_info *qinfo ) {
+  qinfo->used = 0;
+  mysql_free_result( qinfo->res );
+}
+
+
 int
-query_fetch_result( query_info *qinfo, void *user_data ) {
-  my_ulonglong num_rows = mysql_num_rows( qinfo->res );
-  strbuf key = STRBUF_INIT;
-  UNUSED( key );
-  for ( my_ulonglong i = 0; i < num_rows; i++ ) {
-    MYSQL_ROW row = mysql_fetch_row( qinfo->res );
-    if ( row != NULL ) {
-      uint32_t nr_fields = mysql_num_fields( qinfo->res );
-      for ( uint32_t j = 0; j < nr_fields; j++ ) {
-        if ( strcmp( qinfo->res->fields[ j ].name, "json" ) ) {
-        }
-      }
+query_fetch_result( query_info *qinfo, strbuf *rbuf ) {
+  MYSQL_ROW row = mysql_fetch_row( qinfo->res );
+
+  if ( row != NULL ) {
+    uint32_t num_fields = mysql_num_fields( qinfo->res );
+    for ( uint32_t j = 0; j < num_fields; j++ ) {
+      strbuf_addf( rbuf, "%s|", row[ j ] );
+    }
+    size_t sz = 1;
+    strbuf_rtrimn( rbuf, sz );
+  }
+
+  return row != NULL ? 0 : -1;
+}
+
+
+int
+db_connect( mapper *self ) {
+  int db_err = EINVAL;
+
+  for ( uint32_t i = 0; i < self->dbs_nr; i++ ) {
+    db_info *db = self->dbs[ i ];
+    if ( ( db_err = _db_connect( db ) ) ) {
+      return db_err;
     }
   }
 
-  return 0;
+  return db_err;
 }
-
-
-#ifdef LATER
-uint32_t
-query_store_result( db_info *db, const char *format, ... ) {
-  uint32_t ret = _query( db->db_handle, format );
-
-  return store_result( db->db_handle );
-}
-#endif
 
 
 int
-connect_and_create_db( mapper *self ) {
+db_create( mapper *self, bool hint ) {
   uint32_t i;
   int db_error = EINVAL;
 
+  if ( hint == false ) {
+    return 0; 
+  }
   for ( i = 0; i < self->dbs_nr; i++ ) {
     db_info *db = self->dbs[ i ];
-    if ( !db_connect( db ) ) {
-      db_error = query( db, NULL, "drop database if exists %s", db->name );
-      if ( !db_error ) {
-        db_error = query( db, NULL, "create database %s character set 'utf8'", db->name );
-      }
+    db_error = query( db, NULL, "drop database if exists %s", db->name );
+    if ( !db_error ) {
+      db_error = query( db, NULL, "create database %s character set 'utf8' collate utf8_bin", db->name );
     }
   }
 

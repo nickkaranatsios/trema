@@ -377,6 +377,8 @@ unpack_find_object( mapper *self, json_t *root, jedex_value *val ) {
   }
   // last field should be that data.
   strbuf_rtrimn( &merge_key_values, 1 );
+  // send the reply
+  self->emirates->send_reply_raw()
   strbuf_release( &result );
   
   

@@ -44,8 +44,19 @@ extern "C" {
 
 typedef struct query_info {
   MYSQL_RES *res;
+  uint32_t used;
 } query_info;
 
+
+typedef struct key_info {
+  // only primitive type keys supported
+  jedex_type schema_type;
+  // the name of the primary key
+  const char *name;
+  // the converted sql type string used from the jedex type.
+  const char *sql_type_str;
+} key_info;
+  
 
 typedef struct table_info {
   const char *name;
@@ -54,8 +65,12 @@ typedef struct table_info {
    * the first query used for storing intermediate results.
    * should start from 1.
   */
-  uint32_t cur_query_id;
   query_info queries[ MAX_QUERIES_PER_TABLE ];
+  // information about each primary key
+  char *merge_key;
+  size_t keys_nr;
+  size_t keys_alloc;
+  key_info **keys;
 } table_info;
 
 
@@ -86,6 +101,7 @@ typedef struct ref_data {
   strbuf *command;
   jedex_value *val;
   json_t *json_val;
+  table_info *tbl_info;
 } ref_data;
 
 
@@ -95,7 +111,7 @@ int read_config( config_fn fn, void *user_data, const char *filename );
 // message.c
 void request_save_topic_callback( jedex_value *val, const char *json, void *user_data );
 void request_find_record_callback( jedex_value *val, const char *json, void *user_data );
-typedef void ( *primary_key_fn ) ( const char *pk_name, const char *type_str, void *user_data ); 
+typedef void ( *primary_key_fn ) ( key_info *kinfo, void *user_data ); 
 
 // init.c
 mapper *mapper_initialize( mapper **mptr, int argc, char **argv );
@@ -103,7 +119,7 @@ void db_init( mapper *mptr );
 int connect_and_create_db( mapper *mptr );
 
 // wrapper.c
-uint32_t query( db_info *db, const char *format, ...);
+int query( db_info *db, query_info *qinfo, const char *format, ...);
 
 
 CLOSE_EXTERN

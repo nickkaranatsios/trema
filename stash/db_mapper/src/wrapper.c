@@ -42,22 +42,19 @@ db_connect( db_info *db ) {
 }
 
 
-static uint32_t
+/*
+ * returns zero if the query was successful.Nonzero if an error occurred.
+ */
+static int
 _query( MYSQL *db_handle, const char *stmt_str, size_t stmt_size ) {
+  int ret;
 
-  if ( mysql_real_query( db_handle, stmt_str, stmt_size ) ) {
+  if ( ( ret = mysql_real_query( db_handle, stmt_str, stmt_size ) ) ) {
     log_err( "Failed to execute the query %s %s", stmt_str, mysql_error( db_handle ) );
     printf( "Failed to execute the queury %s %u:%s\n", stmt_str, mysql_errno( db_handle ), mysql_error( db_handle ) );
   }
-#ifdef TEST
-  if ( mysql_field_count( db_handle ) == 0 ) {
-    return mysql_affected_rows( db_handle );
-  }
-     
-  return store_result( db_handle );
-#endif
 
-  return mysql_errno( db_handle );
+  return ret;
 }
 
 
@@ -85,8 +82,17 @@ format_cmd( char **target, const char *format, va_list argptr ) {
 }
 
 
-uint32_t
-query( db_info *db, const char *format, ... ) {
+static int
+query_store_result( MYSQL *db_handle, query_info *qinfo ) {
+  qinfo->res = mysql_store_result( db_handle );
+  qinfo->used = 1;
+
+  return qinfo->res ? 0 : -1;
+}
+  
+
+int
+query( db_info *db, query_info *qinfo, const char *format, ... ) {
   char *stmt_str = NULL;
   va_list argptr;
 
@@ -94,13 +100,39 @@ query( db_info *db, const char *format, ... ) {
   size_t needed_size = format_cmd( &stmt_str, format, argptr );
   va_end( argptr );
 
-  uint32_t ret;
+  int ret;
   if ( needed_size && stmt_str ) {
     ret = _query( db->db_handle, stmt_str, needed_size );
     xfree( stmt_str );
+    // query had no error
+    if ( !ret ) {
+      if ( mysql_field_count( db->db_handle) ) {
+        ret = query_store_result ( db->db_handle, qinfo );
+      }
+    }
   }
 
   return ret;
+}
+
+
+int
+query_fetch_result( query_info *qinfo, void *user_data ) {
+  my_ulonglong num_rows = mysql_num_rows( qinfo->res );
+  strbuf key = STRBUF_INIT;
+  UNUSED( key );
+  for ( my_ulonglong i = 0; i < num_rows; i++ ) {
+    MYSQL_ROW row = mysql_fetch_row( qinfo->res );
+    if ( row != NULL ) {
+      uint32_t nr_fields = mysql_num_fields( qinfo->res );
+      for ( uint32_t j = 0; j < nr_fields; j++ ) {
+        if ( strcmp( qinfo->res->fields[ j ].name, "json" ) ) {
+        }
+      }
+    }
+  }
+
+  return 0;
 }
 
 
@@ -117,23 +149,20 @@ query_store_result( db_info *db, const char *format, ... ) {
 int
 connect_and_create_db( mapper *self ) {
   uint32_t i;
-  uint32_t db_error = EINVAL;
+  int db_error = EINVAL;
 
   for ( i = 0; i < self->dbs_nr; i++ ) {
     db_info *db = self->dbs[ i ];
     if ( !db_connect( db ) ) {
-      db_error = query( db, "drop database if exists %s", db->name );
+      db_error = query( db, NULL, "drop database if exists %s", db->name );
       if ( !db_error ) {
-        db_error = query( db, "create database %s character set 'utf8'", db->name );
+        db_error = query( db, NULL, "create database %s character set 'utf8'", db->name );
       }
     }
   }
 
   return db_error == EINVAL ? -1 : 0;
 }
-
-
-  
 
 
 /*

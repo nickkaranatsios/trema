@@ -112,7 +112,7 @@ suffixcmp( const char *str, const char *suffix ) {
 
 
 void
-strbuf_rntrim( strbuf *sb, size_t len ) {
+strbuf_rtrimn( strbuf *sb, size_t len ) {
   if ( sb->len - len > 0 ) {
     sb->len -= len;
     sb->buf[ sb->len ] = '\0';

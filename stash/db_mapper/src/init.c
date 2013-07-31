@@ -77,7 +77,7 @@ handle_config( const char *key, const char *value, void *user_data ) {
     if ( subkey ) {
       assign_db_value( db, subkey, value );
     }
-    printf( "subkey %s name %s %ld\n", subkey, name, subkey - name );
+    printf( "subkey %s name %s %d\n", subkey, name, subkey - name );
   }
 
   return 0;

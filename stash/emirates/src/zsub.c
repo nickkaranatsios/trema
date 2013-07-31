@@ -76,7 +76,7 @@ subscriber_data_handler( zmq_pollitem_t *poller, void *arg ) {
       while ( *( item->schemas + i ) ) {
         jedex_value *ret_val = json_to_jedex_value( *( item->schemas + i ), json_data );
         if ( ret_val != NULL ) {
-           item->callback( service_frame );
+           item->callback( ret_val, json_data );
            break;
         }
         i++;

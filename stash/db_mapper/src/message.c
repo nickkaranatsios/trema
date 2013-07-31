@@ -21,18 +21,47 @@
 
 
 static void
-topic_subscription_callback( void *data ) {
-  assert( data );
+topic_subscription_callback( jedex_value *val, const char *json ) {
+  UNUSED( val );
+  UNUSED( json );
 }
 
 
 static db_info *
-db_info_ptr( mapper *self, const char *name ) {
+db_info_get( mapper *self, const char *name ) {
   uint32_t i;
 
   for ( i = 0; i < self->dbs_nr; i++ ) {
     if ( !strcmp( self->dbs[ i ]->name, name ) ) {
       return self->dbs[ i ];
+    }
+  }
+
+  return NULL;
+}
+
+
+static table_info *
+table_info_get( db_info *db, const char *name ) {
+  uint32_t i;
+
+  for ( i = 0; i < db->tables_nr; i++ ) {
+    if ( !strcmp( db->tables[ i ]->name, name ) ) {
+      return db->tables[ i ];
+    }
+  }
+
+  return NULL;
+}
+
+
+static query_info *
+query_info_get( table_info *table ) {
+  uint32_t i;
+
+  for ( i = 0; i < MAX_QUERIES_PER_TABLE; i++ ) {
+    if ( !table->queries[ i ].used ) {
+      return &table->queries[ i ];
     }
   }
 
@@ -112,50 +141,49 @@ fld_type_str_to_sql( jedex_schema *fld_schema ) {
   }
 }
 
-static void
-foreach_primary_key( jedex_schema *tbl_schema, primary_key_fn fn, void *user_data ) {
-  size_t rec_size = jedex_schema_record_size( tbl_schema );
 
-  for ( int i = 0; i < ( int ) rec_size; i++ ) {
-    const char *fld_name = jedex_schema_record_field_name( tbl_schema, i );
-    if ( jedex_schema_record_field_is_primary( tbl_schema, fld_name ) ) {
-      const char *type_str = fld_type_str_to_sql( jedex_schema_record_field_get_by_index( tbl_schema, i ) );
-      fn( fld_name, type_str, user_data );
-    }
+void
+create_table_clause( key_info *kinfo, void *user_data ) {
+  ref_data *ref = user_data;
+  strbuf *command = ref->command;
+
+  const char *pk_name = kinfo->name;
+  const char *sql_type_str = kinfo->sql_type_str;
+  
+  strbuf_addf( command, "%s %s not null, PRIMARY KEY(%s),", 
+               pk_name,
+               sql_type_str,
+               pk_name );
+}
+
+
+static void
+foreach_primary_key( table_info *tinfo, primary_key_fn fn, void *user_data ) {
+  for ( size_t i = 0; i < tinfo->keys_nr; i++ ) {
+    fn( tinfo->keys[ i ], user_data );
   }
 }
 
 
-void
-create_table_clause( const char *pk_name, const char *type_str, void *user_data ) {
-  ref_data *ref = user_data;
-  strbuf *command = ref->command;
-
-  strbuf_addf( command, "%s %s not null, PRIMARY KEY(%s),", 
-               pk_name,
-               type_str,
-               pk_name );
-}
-
 static void
-create_table_if_not_exists( mapper *self, const char *db_name, const char *tbl_name ) {
-  assert( db_name );
-  assert( tbl_name );
+create_table_if_not_exists( db_info *db, table_info *tinfo ) {
+  const char *db_name = db->name;
+  const char *tbl_name = tinfo->name;
 
-  jedex_schema *tbl_schema = get_table_schema( self->schema, tbl_name );
-  
   strbuf command = STRBUF_INIT;
   strbuf_addf( &command, "CREATE TABLE IF NOT EXISTS %s.%s (", db_name, tbl_name );
 
   ref_data ref;
   ref.command = &command;
 
-  foreach_primary_key( tbl_schema, create_table_clause, &ref ); 
+  foreach_primary_key( tinfo, create_table_clause, &ref ); 
 
-  strbuf_rntrim( &command, 1 );
+  strbuf_rtrimn( &command, 1 );
   strbuf_addstr( &command, ",json text ) ENGINE=InnoDB DEFAULT CHARSET=utf8" );
-  db_info *db = db_info_ptr( self, db_name );
-  query( db, command.buf );
+  query_info *qinfo = query_info_get( tinfo );
+  if ( qinfo ) {
+    query( db, qinfo, command.buf );
+  }
   strbuf_release( &command );
 }
 
@@ -171,6 +199,32 @@ get_string_field( jedex_value *val, const char *name, const char **field_name ) 
 
 
 static void
+tinfo_keys_set( table_info *tinfo, jedex_schema *tbl_schema ) {
+  size_t rec_size = jedex_schema_record_size( tbl_schema );
+
+  strbuf merge_key = STRBUF_INIT;
+  for ( int i = 0; i < ( int ) rec_size; i++ ) {
+    const char *fld_name = jedex_schema_record_field_name( tbl_schema, i );
+    if ( jedex_schema_record_field_is_primary( tbl_schema, fld_name ) ) {
+      jedex_schema *fld_schema = jedex_schema_record_field_get_by_index( tbl_schema, i );
+
+      ALLOC_GROW( tinfo->keys, tinfo->keys_nr + 1, tinfo->keys_alloc );
+      key_info *kinfo = ( key_info * ) xmalloc( sizeof( key_info ) );
+      
+      kinfo->name = fld_name;
+      strbuf_addf( &merge_key, "%s:", fld_name );
+      kinfo->schema_type = jedex_typeof( fld_schema );
+      kinfo->sql_type_str = fld_type_str_to_sql( fld_schema );
+      tinfo->keys[ tinfo->keys_nr++ ] = kinfo;
+    }
+  }
+  strbuf_rtrimn( &merge_key, 1 );
+  tinfo->merge_key = xstrdup( merge_key.buf );
+  strbuf_release( &merge_key );
+}
+
+
+static void
 set_table_name( mapper *self, jedex_value *val, const char *db_name ) {
   jedex_value field;
   size_t index;
@@ -178,24 +232,30 @@ set_table_name( mapper *self, jedex_value *val, const char *db_name ) {
 
 
   jedex_value element;
-  db_info *db = db_info_ptr( self, db_name );
+  db_info *db = db_info_get( self, db_name );
 
   size_t array_size;
   jedex_value_get_size( &field, &array_size );
+
   for ( size_t i = 0; i < array_size; i++ ) {
     jedex_value_get_by_index( &field, i, &element, NULL );
 
+    // get the table name from the save_topic message
     const char *tbl_name;
     size_t size;
     jedex_value_get_string( &element, &tbl_name, &size );
 
+    
+    // get the table schema
+    jedex_schema *tbl_schema = get_table_schema( self->schema, tbl_name );
     ALLOC_GROW( db->tables, db->tables_nr + 1, db->tables_alloc );
     size_t nitems = 1;
     table_info *tinfo = ( table_info * ) xcalloc( nitems, sizeof( table_info ) );
     tinfo->name = tbl_name;
+    tinfo_keys_set( tinfo, tbl_schema );
     db->tables[ db->tables_nr++ ] = tinfo;
 
-    create_table_if_not_exists( self, db_name, tbl_name );
+    create_table_if_not_exists( db, tinfo );
   }
 }
 
@@ -225,11 +285,13 @@ request_save_topic_callback( jedex_value *val, const char *json, void *user_data
 
 
 static void
-where_clause( const char *pk_name, const char *type_str, void *user_data ) {
+where_clause( key_info *kinfo, void *user_data ) {
   ref_data *ref = user_data;
   strbuf *command = ref->command;
   jedex_value *val = ref->val;
   
+  const char *pk_name = kinfo->name;
+  const char *type_str = kinfo->sql_type_str;
   jedex_value field;
   size_t index;
   int rc = jedex_value_get_by_name( val, pk_name, &field, &index );
@@ -267,7 +329,7 @@ where_clause( const char *pk_name, const char *type_str, void *user_data ) {
 
 
 static const char *
-dbinfo_db_name( mapper *self, const char *tbl_name ) {
+db_info_dbname( mapper *self, const char *tbl_name ) {
   for ( uint32_t i = 0; i < self->dbs_nr; i++ ) {
     for ( uint32_t j = 0; j < self->dbs[ i ]->tables_nr; j++ ) {
       if ( !strcmp( self->dbs[ i ]->tables[ j ]->name, tbl_name ) ) {
@@ -286,16 +348,45 @@ unpack_find_object( mapper *self, json_t *root, jedex_value *val ) {
 
   void *iter = json_object_iter( root );
   const char *tbl_name = json_object_iter_key( iter );
-  const char *db_name = dbinfo_db_name( self, tbl_name );
+  const char *db_name = db_info_dbname( self, tbl_name );
   strbuf_addf( &command, "select json from %s.%s where ", db_name, tbl_name );
-  jedex_schema *tbl_schema = jedex_value_get_schema( val );
 
   ref_data ref;
   ref.command = &command;
   ref.val = val;
-  foreach_primary_key( tbl_schema, where_clause, &ref );
-  strbuf_rntrim( &command, strlen( "and " ) );
 
+  db_info *db = db_info_get( self, db_name );
+  table_info *tinfo = table_info_get( db, tbl_name );
+
+  foreach_primary_key( tinfo, where_clause, &ref );
+  strbuf_rtrimn( &command, strlen( "and " ) );
+
+  query_info *qinfo = query_info_get( tinfo );
+  if ( qinfo ) {
+    if ( !query( db, qinfo, command.buf ) ) {
+    }
+  }
+#ifdef LATER
+  row = mysql_fetch_row();
+  strbuf merge_key_values = STRBUF_INIT;
+  for ( i = 0; i < tinfo->keys_nr; i++ ) {
+    key_info *kinfo = tinfo->keys[ i ];
+    if ( !strcmp( kinfo->name, qinfo->res->fields[ i ].name ) ) {
+      strbuf_addf( &merge_key_values, "%s:",  row[ i ] );
+    }
+  }
+  // last field should be that data.
+  strbuf_rtrimn( &merge_key_values, 1 );
+  strbuf_release( &result );
+  
+  
+  query_info *qinfo = query_info_get( tinfo );
+  if ( qinfo != NULL ) {
+    if ( !query( db, qinfo, &command.buf ) ) {
+      foreach_result( qinfo, fn, self );
+    }
+  }
+#endif
   strbuf_release( &command );
 }
 

@@ -22,9 +22,10 @@
 
 
 static void
-menu_subscription_callback( void *user_data ) {
-  UNUSED( user_data );
-  printf( "%s\n", __func__ );
+menu_subscription_callback( jedex_value *val, const char *json ) {
+  if ( json ) {
+    printf( "%s\n", json );
+  }
 }
 
 

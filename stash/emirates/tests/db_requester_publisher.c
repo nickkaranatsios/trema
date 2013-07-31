@@ -148,7 +148,7 @@ main( int argc, char **argv ) {
   if ( iface != NULL ) {
     iface->set_service_reply( iface, "save_topic", save_topic_handler );
     //iface->set_periodic_timer( iface, 5000,  my_timer, val );
-    iface->send_request( iface, "save_topic", val );
+    iface->send_request( iface, "save_topic", val, schema );
     emirates_loop( iface );
     emirates_finalize( &iface );
   }

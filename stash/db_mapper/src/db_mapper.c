@@ -44,6 +44,7 @@ set_find_fruits( jedex_value *val ) {
   jedex_value_set_string( &field, "mango" );
 }
 
+#ifdef TEST
 static void
 set_find_all_fruits( jedex_value *val ) {
   jedex_value branch;
@@ -51,6 +52,7 @@ set_find_all_fruits( jedex_value *val ) {
   
   jedex_value_get_by_name( val, "fruits", &branch, &index );
 }
+#endif
 
 
 void

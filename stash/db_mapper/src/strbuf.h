@@ -46,7 +46,7 @@ void strbuf_addstr( strbuf *sb, const char *s );
 void strbuf_addf( strbuf *sb, const char *fmt, ... );
 void strbuf_init( strbuf *sb, size_t hint );
 void strbuf_release( strbuf *sb );
-void strbuf_rntrim( strbuf *sb, size_t len );
+void strbuf_rtrimn( strbuf *sb, size_t len );
 
 
 CLOSE_EXTERN

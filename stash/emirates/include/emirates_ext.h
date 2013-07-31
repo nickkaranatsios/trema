@@ -45,7 +45,7 @@ typedef void ( *request_handler ) ( jedex_value *val,
                                     const char *json,
                                     void *user_data );
 typedef void ( *reply_handler ) ( const uint32_t tx_id, jedex_value *val, const char *json );
-typedef void ( *subscription_handler ) ( void *user_data );
+typedef void ( *subscription_handler ) ( jedex_value *val, const char *json );
 typedef void ( *timer_handler ) ( void *user_data );
 
 

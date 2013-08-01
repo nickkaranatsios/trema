@@ -51,7 +51,7 @@ _query( MYSQL *db_handle, const char *stmt_str, size_t stmt_size ) {
 
   if ( ( ret = mysql_real_query( db_handle, stmt_str, stmt_size ) ) ) {
     log_err( "Failed to execute the query %s %s", stmt_str, mysql_error( db_handle ) );
-    printf( "Failed to execute the queury %s %u:%s\n", stmt_str, mysql_errno( db_handle ), mysql_error( db_handle ) );
+    printf( "Failed to execute the query %s %u:%s\n", stmt_str, mysql_errno( db_handle ), mysql_error( db_handle ) );
   }
 
   return ret;
@@ -59,7 +59,7 @@ _query( MYSQL *db_handle, const char *stmt_str, size_t stmt_size ) {
 
 
 static size_t
-format_cmd( char **target, const char *format, va_list argptr ) {
+format_cmd( const char *format, char **target, va_list argptr ) {
   size_t size = 256;
   char *stmt_str = ( char * ) xmalloc( size );
   
@@ -97,7 +97,7 @@ query( db_info *db, query_info *qinfo, const char *format, ... ) {
   va_list argptr;
 
   va_start( argptr, format );
-  size_t needed_size = format_cmd( &stmt_str, format, argptr );
+  size_t needed_size = format_cmd( format, &stmt_str, argptr );
   va_end( argptr );
 
   int ret;

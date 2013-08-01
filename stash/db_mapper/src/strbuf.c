@@ -77,6 +77,43 @@ strbuf_vaddf( strbuf *sb, const char *fmt, va_list ap ) {
 }
 
 
+static strbuf **
+strbuf_split_buf( const char *str, size_t slen, int delim, int max ) {
+  int alloc = 2, pos = 0;
+  const char *n, *p;
+  strbuf **ret;
+  strbuf *t;
+
+  ret = xcalloc( ( size_t ) alloc, sizeof( strbuf * ) );
+  p = n = str;
+  while ( n < str + slen ) {
+    int len;
+    if ( max <= 0 || pos + 1 < max ) {
+      n = memchr( n, delim, slen - ( size_t ) ( n - str ) );
+    }
+    else {
+      n = NULL;
+    }
+    if ( pos + 1 >= alloc ) {
+      alloc = alloc * 2;
+      ret = realloc( ret, sizeof( strbuf * ) * ( size_t ) alloc );
+    }
+    if ( !n ) {
+      n = str + slen - 1;
+    }
+    len = n - p + 1;
+    t = xmalloc( sizeof( strbuf ) );
+    size_t slen = ( size_t ) len;
+    strbuf_init( t, slen );
+    strbuf_add( t, p, slen );
+    ret[ pos ] = t;
+    ret[ ++pos ] = NULL;
+    p = ++n;
+  }
+
+  return ret;
+}
+
 void
 strbuf_add( strbuf *sb, const void *data, size_t len ) {
   strbuf_grow( sb, len );
@@ -135,6 +172,19 @@ strbuf_addf( strbuf *sb, const char *fmt, ... ) {
 }
 
 
+
+void
+strbuf_list_free( strbuf **sbs ) {
+  strbuf **s = sbs;
+
+  while ( *s ) {
+    strbuf_release( *s );
+    free( *s++ );
+  }
+  free( sbs );
+}
+
+
 char *
 strbuf_rsplit( strbuf *sb, int delim ) {
   char *p = sb->buf;
@@ -146,6 +196,12 @@ strbuf_rsplit( strbuf *sb, int delim ) {
   }
 
   return end;
+}
+
+
+strbuf **
+strbuf_split_str( const char *str, int delim, int max ) {
+  return strbuf_split_buf( str, strlen( str ), delim, max );
 }
 
 

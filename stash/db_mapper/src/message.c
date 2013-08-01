@@ -28,7 +28,7 @@ topic_subscription_callback( jedex_value *val, const char *json ) {
 
 
 static db_info *
-db_info_get( mapper *self, const char *name ) {
+db_info_get( const char *name, mapper *self ) {
   uint32_t i;
 
   for ( i = 0; i < self->dbs_nr; i++ ) {
@@ -42,7 +42,7 @@ db_info_get( mapper *self, const char *name ) {
 
 
 static table_info *
-table_info_get( db_info *db, const char *name ) {
+table_info_get( const char *name, db_info *db ) {
   uint32_t i;
 
   for ( i = 0; i < db->tables_nr; i++ ) {
@@ -69,40 +69,8 @@ query_info_get( table_info *table ) {
 }
 
 
-#ifdef TEST
-static jedex_value *
-get_jedex_value( jedex_schema *schema, const char *topic ) {
-  jedex_value *val = NULL;
-
-  if ( is_jedex_union( schema ) ) {
-    const char *sub_schemas[] = { NULL };
-    jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
-    assert( parcel );
-
-    val = jedex_parcel_value( parcel, "" );
-    assert( val );
-  }
-  else if ( is_jedex_record( schema ) ) {
-    const char *sub_schemas[] = { topic, NULL };
-    jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
-    assert( parcel );
-
-    val = jedex_parcel_value( parcel, topic );
-    assert( val );
-  }
-  else {
-    log_err( "db_mapper can handle either a union or record schema" );
-    printf( "db_mapper can handle either a union or record schema\n" );
-    return val;
-  }
-
-  return val;
-}
-#endif
-
-
 static jedex_schema *
-get_table_schema( jedex_schema *schema, const char *tbl_name ) {
+get_table_schema( const char *tbl_name, jedex_schema *schema ) {
   if ( is_jedex_union( schema ) ) {
     return jedex_schema_get_subschema( schema, tbl_name );
   }
@@ -124,7 +92,7 @@ fld_type_str_to_sql( jedex_schema *fld_schema ) {
   if ( is_jedex_string( fld_schema ) ) {
     return "varchar(255)";
   }
-  else if ( is_jedex_int32( fld_schema ) || is_jedex_int64( fld_schema ) ) {
+  else if ( is_jedex_int32( fld_schema ) ) {
     return "int";
   }
   else if ( is_jedex_int64( fld_schema ) ) {
@@ -134,7 +102,7 @@ fld_type_str_to_sql( jedex_schema *fld_schema ) {
     return "float";
   }
   else if ( is_jedex_double( fld_schema ) ) {
-    return "real";
+    return "double";
   }
   else {
     return "";
@@ -142,7 +110,7 @@ fld_type_str_to_sql( jedex_schema *fld_schema ) {
 }
 
 
-void
+static void
 create_table_clause( key_info *kinfo, void *user_data ) {
   ref_data *ref = user_data;
   strbuf *command = ref->command;
@@ -199,7 +167,7 @@ get_string_field( jedex_value *val, const char *name, const char **field_name ) 
 
 
 static void
-tinfo_keys_set( table_info *tinfo, jedex_schema *tbl_schema ) {
+tinfo_keys_set( jedex_schema *tbl_schema, table_info *tinfo ) {
   size_t rec_size = jedex_schema_record_size( tbl_schema );
 
   strbuf merge_key = STRBUF_INIT;
@@ -225,14 +193,14 @@ tinfo_keys_set( table_info *tinfo, jedex_schema *tbl_schema ) {
 
 
 static void
-set_table_name( mapper *self, jedex_value *val, const char *db_name ) {
+set_table_name( const char *db_name, jedex_value *val, mapper *self ) {
   jedex_value field;
   size_t index;
   jedex_value_get_by_name( val, "tables", &field, &index );
 
 
   jedex_value element;
-  db_info *db = db_info_get( self, db_name );
+  db_info *db = db_info_get( db_name, self );
 
   size_t array_size;
   jedex_value_get_size( &field, &array_size );
@@ -247,12 +215,12 @@ set_table_name( mapper *self, jedex_value *val, const char *db_name ) {
 
     
     // get the table schema
-    jedex_schema *tbl_schema = get_table_schema( self->schema, tbl_name );
+    jedex_schema *tbl_schema = get_table_schema( tbl_name, self->schema );
     ALLOC_GROW( db->tables, db->tables_nr + 1, db->tables_alloc );
     size_t nitems = 1;
     table_info *tinfo = ( table_info * ) xcalloc( nitems, sizeof( table_info ) );
     tinfo->name = tbl_name;
-    tinfo_keys_set( tinfo, tbl_schema );
+    tinfo_keys_set( tbl_schema, tinfo );
     db->tables[ db->tables_nr++ ] = tinfo;
 
     create_table_if_not_exists( db, tinfo );
@@ -273,7 +241,7 @@ request_save_topic_callback( jedex_value *val, const char *json, void *user_data
   const char *topic = NULL;
   get_string_field( val, "topic", &topic );
 
-  set_table_name( self, val, db_name );
+  set_table_name( db_name, val, self );
 
   
   const char *schemas[] = { NULL };
@@ -285,48 +253,112 @@ request_save_topic_callback( jedex_value *val, const char *json, void *user_data
 
 
 static void
-where_clause( key_info *kinfo, void *user_data ) {
-  ref_data *ref = user_data;
-  strbuf *command = ref->command;
-  jedex_value *val = ref->val;
-  
-  const char *pk_name = kinfo->name;
-  const char *type_str = kinfo->sql_type_str;
+kinfo_to_sql( key_info *kinfo, jedex_value *val, int stmt, strbuf *command ) {
   jedex_value field;
   size_t index;
+  const char *pk_name = kinfo->name;
   int rc = jedex_value_get_by_name( val, pk_name, &field, &index );
-  if ( !rc ) {
-    if ( !prefixcmp( type_str, "varchar" ) ) {
-      const char *cstr = NULL;
-      size_t size = 0;
-      jedex_value_get_string( &field, &cstr, &size );
+  if ( rc ) {
+    return;
+  }
+
+  jedex_type key_type = kinfo->schema_type;
+  if ( key_type == JEDEX_STRING ) {
+    const char *cstr = NULL;
+    size_t size = 0;
+    jedex_value_get_string( &field, &cstr, &size );
+    if ( stmt == WHERE_CLAUSE ) {
       strbuf_addf( command, "%s='%s' and ", pk_name, cstr );
     }
-    else if ( !strcmp( type_str, "int" ) ) {
-      int int_val;
-      jedex_value_get_int( &field, &int_val );
+    else if ( stmt == INSERT_CLAUSE ) {
+      strbuf_addf( command, "'%s',", cstr );
+    }
+    else if ( stmt == REDIS_CLAUSE ) {
+      strbuf_addf( command, "%s|%s|", pk_name, cstr );
+    }
+  }
+  else if ( key_type == JEDEX_INT32 ) {
+    int int_val;
+    jedex_value_get_int( &field, &int_val );
+    if ( stmt == WHERE_CLAUSE ) {
       strbuf_addf( command, "%s=" PRId32 "and ", pk_name, int_val );
     }
-    else if ( !strcmp( type_str, "bigint" ) ) {
-      int64_t long_val;
-      jedex_value_get_long( &field, &long_val );
+    else if ( stmt == INSERT_CLAUSE ) {
+      strbuf_addf( command, PRId32",", int_val );
+    }
+    else if ( stmt == REDIS_CLAUSE ) {
+      strbuf_addf( command, "%s|"PRId32"|", pk_name, int_val );
+    }
+  }
+  else if ( key_type == JEDEX_INT64 ) {
+    int64_t long_val;
+    jedex_value_get_long( &field, &long_val );
+    if ( stmt == WHERE_CLAUSE ) {
       strbuf_addf( command, "%s=" PRId64 "and ", pk_name, long_val );
     }
-    else if ( !strcmp( type_str, "float" ) ) {
-      float float_val;
-      jedex_value_get_float( &field, &float_val );
+    else if ( stmt == INSERT_CLAUSE ) {
+      strbuf_addf( command, PRId64",", long_val );
+    }
+    else if ( stmt == REDIS_CLAUSE ) {
+      strbuf_addf( command, "%s|"PRId64"|", pk_name, long_val );
+    }
+  }
+  else if ( key_type == JEDEX_FLOAT ) {
+    float float_val;
+    jedex_value_get_float( &field, &float_val );
+    if ( stmt == WHERE_CLAUSE ) {
       strbuf_addf( command, "%s=%.17f and ", pk_name, float_val );
     }
-    else if ( !strcmp( type_str, "real" ) ) {
-      double double_val;
-      jedex_value_get_double( &field, &double_val );
+    else if ( stmt == INSERT_CLAUSE ) {
+      strbuf_addf( command, "%.17f,", float_val );
+    }
+    else if ( stmt == REDIS_CLAUSE ) {
+      strbuf_addf( command, "%s|%.17f|", float_val );
+    }
+  }
+  else if ( key_type == JEDEX_DOUBLE ) {
+    double double_val;
+    jedex_value_get_double( &field, &double_val );
+    if ( stmt == WHERE_CLAUSE ) {
       strbuf_addf( command, "%s=%.17g and ", pk_name, double_val );
+    }
+    else if ( stmt == INSERT_CLAUSE ) {
+      strbuf_addf( command, "%.17g,", double_val );
+    }
+    else if ( stmt == REDIS_CLAUSE ) {
+      strbuf_addf( command, "%s|%.17g|", double_val );
     }
   }
 }
 
 
+static void
+kinfo_clause( key_info *kinfo, void *user_data, int clause ) {
+  ref_data *ref = user_data;
+  strbuf *command = ref->command;
+  jedex_value *val = ref->val;
+  
+  kinfo_to_sql( kinfo, val, clause, command );
+}
 
+  
+static void
+insert_clause( key_info *kinfo, void *user_data ) {
+  kinfo_clause( kinfo, user_data, INSERT_CLAUSE );
+}
+
+
+static void
+where_clause( key_info *kinfo, void *user_data ) {
+  kinfo_clause( kinfo, user_data, WHERE_CLAUSE );
+}
+
+
+static void
+redis_clause( key_info *kinfo, void *user_data ) {
+  kinfo_clause( kinfo, user_data, REDIS_CLAUSE );
+}
+  
 
 static const char *
 db_info_dbname( mapper *self, const char *tbl_name ) {
@@ -343,11 +375,9 @@ db_info_dbname( mapper *self, const char *tbl_name ) {
 
 
 static void
-unpack_find_object( mapper *self, json_t *root, jedex_value *val ) {
+unpack_find_object( mapper *self, jedex_value *val, const char *tbl_name ) {
   strbuf sb = STRBUF_INIT;
 
-  void *iter = json_object_iter( root );
-  const char *tbl_name = json_object_iter_key( iter );
   const char *db_name = db_info_dbname( self, tbl_name );
   strbuf_addf( &sb, "select * from %s.%s where ", db_name, tbl_name );
 
@@ -355,22 +385,24 @@ unpack_find_object( mapper *self, json_t *root, jedex_value *val ) {
   ref.command = &sb;
   ref.val = val;
 
-  db_info *db = db_info_get( self, db_name );
-  table_info *tinfo = table_info_get( db, tbl_name );
+  db_info *db = db_info_get( db_name, self );
+  table_info *tinfo = table_info_get( tbl_name, db );
 
   foreach_primary_key( tinfo, where_clause, &ref );
   strbuf_rtrimn( &sb, strlen( "and " ) );
 
   query_info *qinfo = query_info_get( tinfo );
-  if ( qinfo ) {
+  if ( qinfo != NULL ) {
     if ( !query( db, qinfo, sb.buf ) ) {
       strbuf_reset( &sb );
       // store a record row of all fields delimited by ":"
       my_ulonglong num_rows = query_num_rows( qinfo );
       for ( my_ulonglong i = 0; i < num_rows; i++ ) {
         if ( !query_fetch_result( qinfo, &sb ) ) {
-          const char *json = strbuf_rsplit( &sb, '|' );
-          const char *keys = sb.buf[ sb.len - strlen( json ) - 1 ] = '\0';
+          char *json = strbuf_rsplit( &sb, '|' );
+          *( json - 1 ) = '\0';
+          char *keys = sb.buf;
+          printf( "keys %s json %s\n", json, keys );
         }
       }
       query_free_result( qinfo );
@@ -382,30 +414,117 @@ unpack_find_object( mapper *self, json_t *root, jedex_value *val ) {
 
 
 void
+cache_set( redisContext *rcontext,
+           table_info *tinfo,
+           const char *json,
+           ref_data *ref,
+           strbuf *sb ) {
+  strbuf_reset( sb );
+  strbuf_addf( sb, "%s|", tinfo->name );
+  ref->command = sb;
+  foreach_primary_key( tinfo, redis_clause, ref );
+  size_t slen = 1;
+  strbuf_rtrimn( sb, slen );
+  size_t klen = sb->len; 
+  strbuf_addf( sb, " %s", json );
+  redisReply *reply = redisCommand( rcontext, "SET %b %b", sb->buf, klen, sb->buf + klen + 1, sb->len - klen - 1 ); 
+  if ( reply != NULL ) {
+    if ( reply->type != REDIS_REPLY_STATUS ) {
+      log_err( "Failed to update the redis cache set %s", reply->str );
+    }
+    freeReplyObject( reply );
+  }
+  else {
+    log_err( "Failed to update the redis cache %s", sb->buf );
+  }
+}
+
+
+/*
+ * We expect either an array of records or one record object to insert
+ */
+void
+unpack_insert_object( mapper *self, jedex_value *val, const char *json, const char *tbl_name ) {
+  strbuf sb = STRBUF_INIT;
+
+  const char *db_name = db_info_dbname( self, tbl_name );
+  strbuf_addf( &sb, "insert into %s.%s values(", db_name, tbl_name );
+  ref_data ref;
+  ref.command = &sb;
+  ref.val = val;
+
+  db_info *db = db_info_get( db_name, self );
+  table_info *tinfo = table_info_get( tbl_name, db );
+
+  foreach_primary_key( tinfo, insert_clause, &ref );
+  strbuf_addf( &sb, "'%s')", json );
+  query_info *qinfo = query_info_get( tinfo );
+  if ( qinfo != NULL ) {
+    if ( !query( db, qinfo, sb.buf ) ) {
+      // here we want to save the key/value to redis cache.
+      // and we have nothing to return to application.
+      cache_set( self->rcontext, tinfo, json, &ref, &sb );
+    }
+  }
+  strbuf_release( &sb );
+}
+
+
+void
 request_find_record_callback( jedex_value *val, const char *json, void *user_data ) {
+  UNUSED( json );
   assert( user_data );
   mapper *self = user_data;
 
-  json_t *root = jedex_decode_json( json );
-  if ( root ) {
-    if ( json_is_array( root ) ) {
-      size_t items;
-      items = json_array_size( root );
-      if ( items ) {
-        json_t *element = json_array_get( root, 0 );
-        if ( json_is_object( element ) ) {
-          void *iter = json_object_iter( element );
-          const char *branch = json_object_iter_key( iter );
-          jedex_value branch_val;
-          size_t index;
-          jedex_value_get_by_name( val, branch, &branch_val, &index );
-          unpack_find_object( self, element, &branch_val );
-        }
-      }
+  jedex_schema *root_schema = jedex_value_get_schema( val );
+  if ( is_jedex_union( root_schema ) ) {
+    size_t branch_count;
+    jedex_value_get_size( val, &branch_count ); 
+    // should only be one find record
+    assert( branch_count == 1 );
+
+    jedex_value branch_val;
+    size_t idx = 0;
+    jedex_value_get_branch( val, idx, &branch_val );
+
+    jedex_schema *bschema = jedex_value_get_schema( &branch_val );
+    const char *tbl_name = jedex_schema_type_name( bschema );
+    // now unpack the find
+    unpack_find_object( self, val, tbl_name );
+  }
+  else if ( is_jedex_record( root_schema ) ) {
+    const char *tbl_name = jedex_schema_type_name( root_schema );
+    unpack_find_object( self, val, tbl_name );
+  }
+}
+
+
+void
+request_insert_record_callback( jedex_value *val, const char *json, void *user_data ) {
+  assert( user_data );
+  mapper *self = user_data;
+
+  jedex_schema *root_schema = jedex_value_get_schema( val );
+  if ( is_jedex_union( root_schema ) ) {
+    size_t branch_size;
+    jedex_value_get_size( val, &branch_size ); 
+    strbuf **json_items = strbuf_split_str( json, ',', ( int ) branch_size );
+    // should only be one find record
+    for ( size_t i = 0; i < branch_size; i++ ) {
+      jedex_value branch_val;
+      size_t idx = 0;
+      jedex_value_get_branch( val, idx, &branch_val );
+
+      jedex_schema *bschema = jedex_value_get_schema( &branch_val );
+      const char *tbl_name = jedex_schema_type_name( bschema );
+      // now unpack the find
+      unpack_insert_object( self, val, json, tbl_name );
     }
-    if ( json_is_object( root ) ) {
-      unpack_find_object( self, root, val );
-    }
+    strbuf_list_free( json_items );
+  }
+  else if ( is_jedex_record( root_schema ) ) {
+    const char *tbl_name = jedex_schema_type_name( root_schema );
+    unpack_insert_object( self, val, json, tbl_name );
   }
 }
 

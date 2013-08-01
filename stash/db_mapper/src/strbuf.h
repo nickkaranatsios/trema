@@ -1,4 +1,5 @@
 /*
+
  * Copyright (C) 2013 NEC Corporation
  *
  * This program is free software; you can redistribute it and/or modify
@@ -48,6 +49,8 @@ void strbuf_addf( strbuf *sb, const char *fmt, ... );
 void strbuf_init( strbuf *sb, size_t hint );
 void strbuf_reset( strbuf *sb );
 char *strbuf_rsplit( strbuf *sb, int delim );
+strbuf **strbuf_split_str( const char *str, int delim, int max );
+void strbuf_list_free( strbuf **sbs );
 char *strbuf_detach( strbuf *sb, size_t *sz );
 void strbuf_release( strbuf *sb );
 void strbuf_rtrimn( strbuf *sb, size_t len );

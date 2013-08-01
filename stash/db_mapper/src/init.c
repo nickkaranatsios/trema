@@ -21,7 +21,7 @@
 
 
 static void
-assign_db_value( db_info *db, const char *subkey, const char *value ) {
+assign_db_value( const char *subkey, const char *value, db_info *db ) {
   if ( subkey ) {
     if ( !prefixcmp( subkey, ".host" ) ) {
       db->host = strdup( value );
@@ -40,18 +40,18 @@ assign_db_value( db_info *db, const char *subkey, const char *value ) {
 
 
 static db_info *
-make_db( mapper *mapper, const char *name, size_t len ) {
+make_db( const char *name, size_t len, mapper *self ) {
   uint32_t i;
 
-  for ( i = 0; i < mapper->dbs_nr; i++ ) {
-    if ( !strncmp( mapper->dbs[ i ]->name, name, len ) ) {
-      return mapper->dbs[ i ];
+  for ( i = 0; i < self->dbs_nr; i++ ) {
+    if ( !strncmp( self->dbs[ i ]->name, name, len ) ) {
+      return self->dbs[ i ];
     }
   }
-  ALLOC_GROW( mapper->dbs, mapper->dbs_nr + 1, mapper->dbs_alloc );
+  ALLOC_GROW( self->dbs, self->dbs_nr + 1, self->dbs_alloc );
   size_t nitems = 1;
   db_info *db = xcalloc( nitems, sizeof( db_info ) );
-  mapper->dbs[ mapper->dbs_nr++ ] = db;
+  self->dbs[ self->dbs_nr++ ] = db;
   if ( len ) {
     db->name = strndup( name, len );
   }
@@ -72,10 +72,10 @@ handle_config( const char *key, const char *value, void *user_data ) {
     const char *name;
     name = key + 14;
     subkey = strrchr( name, '.' );
-    mapper *mptr = user_data;
-    db_info *db = make_db( mptr, name, ( size_t ) ( subkey - name ) );
+    mapper *self = user_data;
+    db_info *db = make_db( name, ( size_t ) ( subkey - name ), self );
     if ( subkey ) {
-      assign_db_value( db, subkey, value );
+      assign_db_value( subkey, value, db );
     }
     printf( "subkey %s name %s %d\n", subkey, name, subkey - name );
   }
@@ -111,6 +111,8 @@ mapper_initialize( mapper **mptr, int argc, char **argv ) {
   if ( db_connect( *mptr ) ) {
     return NULL;
   }
+  
+  // do not create db if false
   bool hint = false;
   if ( db_create( *mptr, hint ) ) {
     return NULL;
@@ -129,6 +131,17 @@ mapper_initialize( mapper **mptr, int argc, char **argv ) {
   check_ptr_return( ( *mptr )->request_schema, "Failed to initialize request schema" );
 
 
+  // connect to redis cache start the redis server
+  struct timeval timeout = { 1, 0 }; // 1 second
+  ( *mptr )->rcontext = redisConnectWithTimeout( "127.0.0.1", 6379, timeout );
+  if ( ( *mptr )->rcontext == NULL || ( *mptr )->rcontext->err ) {
+    if ( ( *mptr )->rcontext ) {
+      log_err( "Connection to redis server failed error %s", ( *mptr )->rcontext->errstr ); 
+      redisFree( ( *mptr )->rcontext );
+    }
+    check_ptr_return( ( *mptr )->rcontext, "Connection to redis server failed" );
+  }
+  
   
   int flag = 0;
   ( *mptr )->emirates = emirates_initialize_only( ENTITY_SET( flag, RESPONDER | SUBSCRIBER ) );
@@ -144,6 +157,21 @@ mapper_initialize( mapper **mptr, int argc, char **argv ) {
 
   return *mptr;
 }
+
+
+void
+mapper_finalize( mapper **mptr ) {
+  emirates_finalize( &( *mptr )->emirates );
+  redisFree( ( *mptr )->rcontext );
+  jedex_finalize( &( *mptr )->request_schema );
+  jedex_finalize( &( *mptr )->schema );
+  for ( uint32_t i  = 0; i < ( *mptr )->dbs_nr; i++ ) {
+    db_info *db = ( *mptr )->dbs[ i ];
+    mysql_close( db->db_handle );
+    xfree( db->name );
+	}
+}
+
 
 
 /*

@@ -46,6 +46,7 @@ extern "C" {
 #include <mysql.h>
 #include <mysqld_error.h>
 #include <errmsg.h>
+#include <hiredis/hiredis.h>
 
 #include "checks.h"
 #include "wrapper.h"

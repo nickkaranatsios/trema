@@ -41,6 +41,9 @@ extern "C" {
 
 
 #define MAX_QUERIES_PER_TABLE 10
+#define INSERT_CLAUSE 1
+#define WHERE_CLAUSE 2
+#define REDIS_CLAUSE 3
 
 typedef struct query_info {
   MYSQL_RES *res;
@@ -92,6 +95,7 @@ typedef struct mapper {
   emirates_iface *emirates;
   jedex_schema *schema;
   jedex_schema *request_schema;
+  redisContext *rcontext;
   uint32_t dbs_nr;
   uint32_t dbs_alloc;
 } mapper;
@@ -100,8 +104,6 @@ typedef struct mapper {
 typedef struct ref_data {
   strbuf *command;
   jedex_value *val;
-  json_t *json_val;
-  table_info *tbl_info;
 } ref_data;
 
 
@@ -111,6 +113,7 @@ int read_config( config_fn fn, void *user_data, const char *filename );
 // message.c
 void request_save_topic_callback( jedex_value *val, const char *json, void *user_data );
 void request_find_record_callback( jedex_value *val, const char *json, void *user_data );
+void request_insert_record_callback( jedex_value *val, const char *json, void *user_data );
 typedef void ( *primary_key_fn ) ( key_info *kinfo, void *user_data ); 
 
 // init.c

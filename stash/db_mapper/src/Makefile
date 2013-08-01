@@ -4,7 +4,7 @@ CC = gcc
 CC = gcc
 AR = ar
 RANLIB = ranlib
-APILIB = -lczmq -lsodium -lzmq -ljansson -lmysqlclient -lm -lpthread
+APILIB = -lczmq -lsodium -lzmq -ljansson -lmysqlclient -lhiredis -lm -lpthread
 APIPATH = -L/usr/local/lib -L/usr/lib/mysql -L/usr/lib
 
 CFLAGS += -I../include

@@ -88,6 +88,19 @@ set_find_record( mapper *self ) {
   }
 }
 
+void
+set_fruits( jedex_value *val ) {
+  jedex_value field;
+  size_t index;
+
+  jedex_value_get_by_name( val, "name", &field, &index );
+  //assert( index == 0 );
+  jedex_value_set_string( &field, "jackfruit" );
+  jedex_value_get_by_name( val, "price", &field, &index );
+  //assert( index == 1 );
+  float price = 5.3467f;
+  jedex_value_set_float( &field, price );
+}
 
 void
 set_find_all_records( mapper *self ) {
@@ -105,6 +118,26 @@ set_find_all_records( mapper *self ) {
 }
 
 
+void
+insert_publish_data( mapper *self ) {
+  jedex_schema *fruits_schema = jedex_schema_get_subschema( self->schema, "fruits" );
+  assert( fruits_schema );
+
+  jedex_value_iface *val_iface;
+  val_iface = jedex_generic_class_from_schema( fruits_schema );
+  jedex_value *val = jedex_value_from_iface( val_iface );
+  assert( val );
+
+  set_fruits( val );
+  char *json;
+  jedex_value_to_json( val, true, &json );
+
+  if ( json ) {
+    request_insert_record_callback( val, json, self ); 
+  }
+}
+  
+
 int
 main( int argc, char **argv ) {
   mapper *self = NULL;
@@ -112,6 +145,7 @@ main( int argc, char **argv ) {
   set_topic( self );
   set_find_all_records( self );
   set_find_record( self );
+  insert_publish_data( self );
   emirates_loop( self->emirates );
 
   assert( self );

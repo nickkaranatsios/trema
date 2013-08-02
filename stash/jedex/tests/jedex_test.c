@@ -62,6 +62,17 @@ set_menu_record_value( jedex_value *val ) {
 
 
 static void
+set_menu_array( jedex_value *val ) {
+  jedex_value element;
+
+  jedex_value_append( val, &element, NULL );
+  set_menu_record_value( &element );
+  jedex_value_append( val, &element, NULL );
+  set_menu_record_value( &element );
+}
+
+
+static void
 get_menu_record_value( jedex_value *val ) {
   jedex_value field;
   size_t index;
@@ -83,6 +94,18 @@ get_menu_record_value( jedex_value *val ) {
   }
 }
   
+
+static void
+get_menu_array( jedex_value *val ) {
+  jedex_value element;
+  size_t array_size;
+  jedex_value_get_size( val, &array_size );
+  for ( size_t i = 0; i < array_size; i++ ) {
+    jedex_value_get_by_index( val, i, &element, NULL );
+    get_menu_record_value( &element );
+  }
+}
+
 
 static void
 set_menu_union_value( jedex_value *val ) {
@@ -428,26 +451,12 @@ get_simple_map_double( jedex_value *val ) {
 }
 
 
-static void
-set_ipc( jedex_value *val ) {
-  jedex_value branch;
-  size_t branch_count;
-
-  jedex_value_get_size( val, &branch_count );
-
-  size_t index;
-  jedex_value_get_by_name( val, "service_delete_request", &branch, &index );
-  assert( index );
-  UNUSED( branch_count );
-}
-
-
 int
 main( int argc, char **argv ) {
   UNUSED( argc );
   UNUSED( argv );
   const char *test_schemas[] =  { 
-    "ipc",
+    "simple_menu_array",
     "db_record",
     "simple_map_double",
     "simple_array",
@@ -464,18 +473,28 @@ main( int argc, char **argv ) {
   for ( iter = test_schemas; *iter; iter++ ) {
     const char *test_schema = *iter;
     
-    if ( !strcmp( test_schema, "ipc" ) ) {
-      jedex_schema *schema = jedex_initialize( "schema/ipc" );
-      assert( schema );
+    if ( !strcmp( test_schema, "simple_menu_array" ) ) {
+      jedex_schema *menu_schema = jedex_initialize( "schema/menu_record" );
+      assert( menu_schema );
 
-      const char *sub_schemas[] = { NULL };
-      jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
-      assert( parcel );
+      jedex_schema *array_schema = jedex_schema_array( menu_schema );
+      jedex_value_iface *array_class = jedex_generic_class_from_schema( array_schema );
 
-      jedex_value *val = jedex_parcel_value( parcel, "" );
-      assert( val );
+      jedex_value val;
+      jedex_generic_value_new( array_class, &val );
+      set_menu_array( &val );
 
-      set_ipc( val );
+      char *json;
+      jedex_value_to_json( &val, false, &json );
+      printf( "json: %s\n", json );
+     
+      jedex_value *ret_val = json_to_jedex_value( array_schema, json );
+      free( json );
+      assert( ret_val );
+
+      get_menu_array( ret_val );
+
+      jedex_finalize( &menu_schema );
     }
     if ( !strcmp( test_schema, "db_record" ) ) {
       jedex_schema *schema = jedex_initialize( "schema/db_record" );
@@ -495,6 +514,7 @@ main( int argc, char **argv ) {
       printf( "json: %s\n", json );
 
       jedex_value *ret_val = json_to_jedex_value( schema, json );
+      free( json );
       
       get_db_record( ret_val );
 
@@ -518,6 +538,7 @@ main( int argc, char **argv ) {
       printf( "json: %s\n", json );
 
       jedex_value *ret_val = json_to_jedex_value( schema, json );
+      free( json );
 
       get_simple_map_double( ret_val );
 
@@ -541,6 +562,7 @@ main( int argc, char **argv ) {
       printf( "json: %s\n", json );
 
       jedex_value *ret_val = json_to_jedex_value( schema, json );
+      free( json );
 
       get_simple_array( ret_val );
 
@@ -564,6 +586,7 @@ main( int argc, char **argv ) {
       printf( "json: %s\n", json );
 
       jedex_value *ret_val = json_to_jedex_value( schema, json );
+      free( json );
 
       get_ref_to_another( ret_val );
 
@@ -588,6 +611,7 @@ main( int argc, char **argv ) {
       printf( "json: %s\n", json );
 
       jedex_value *ret_val = json_to_jedex_value( schema, json );
+      free( json );
 
       get_union_vegetables( ret_val );
       get_union_meat( ret_val );
@@ -612,6 +636,7 @@ main( int argc, char **argv ) {
       printf( "json: %s\n", json );
 
       jedex_value *ret_val = json_to_jedex_value( schema, json );
+      free( json );
 
       get_menu_union_value( ret_val );
     }
@@ -633,6 +658,7 @@ main( int argc, char **argv ) {
       printf( "json: %s\n", json );
 
       jedex_value *ret_val = json_to_jedex_value( schema, json );
+      free( json );
 
       get_menu_record_value( ret_val );
 
@@ -658,6 +684,7 @@ main( int argc, char **argv ) {
       jedex_schema *sub_schema = jedex_schema_get_subschema( schema, sub_schemas[ 0 ] );
       jedex_value *ret_val = json_to_jedex_value( sub_schema, json );
       assert( ret_val );
+      free( json );
 
       get_fruits( ret_val );
 
@@ -697,6 +724,7 @@ main( int argc, char **argv ) {
       sub_schema = jedex_schema_get_subschema( schema, sub_schemas[ 1 ] );
       ret_val = json_to_jedex_value( sub_schema, json );
       assert( ret_val );
+      free( json );
 
       get_meat( ret_val );
 

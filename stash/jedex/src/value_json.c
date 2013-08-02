@@ -448,7 +448,7 @@ jedex_value_to_json( const jedex_value *value, bool one_line, char **json_str ) 
                           JSON_ENCODE_ANY |
                           JSON_INDENT( one_line? 0: 2 ) |
                           JSON_ENSURE_ASCII |
-                          JSON_PRESERVE_ORDER);
+                          JSON_PRESERVE_ORDER );
   json_decref( json );
 
   return 0;

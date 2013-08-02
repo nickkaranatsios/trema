@@ -326,6 +326,7 @@ send_request( emirates_iface *iface,
       zmsg_addstr( msg, service );
       zmsg_addmem( msg, json, strlen( json ) );
       zmsg_send( &msg, requester_socket( priv->requester ) );
+      free( json );
      return requester_timeout_id( priv->requester );
     }
   }

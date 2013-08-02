@@ -114,6 +114,8 @@ int read_config( config_fn fn, void *user_data, const char *filename );
 void request_save_topic_callback( jedex_value *val, const char *json, void *user_data );
 void request_find_record_callback( jedex_value *val, const char *json, void *user_data );
 void request_insert_record_callback( jedex_value *val, const char *json, void *user_data );
+void request_update_record_callback( jedex_value *val, const char *json, void *user_data );
+void request_delete_record_callback( jedex_value *val, const char *json, void *user_data );
 typedef void ( *primary_key_fn ) ( key_info *kinfo, void *user_data ); 
 
 // init.c
@@ -127,6 +129,28 @@ int query( db_info *db, query_info *qinfo, const char *format, ...);
 my_ulonglong query_num_rows( query_info *qinfo );
 void query_free_result( query_info *qinfo );
 int query_fetch_result( query_info *qinfo, strbuf *rbuf );
+
+// cache.c - redis access functions
+void cache_set( redisContext *rcontext,
+                table_info *tinfo,
+                const char *json,
+                ref_data *ref,
+                strbuf *sb );
+
+void cache_del( redisContext *rcontext,
+                table_info *tinfo,
+                ref_data *ref,
+                strbuf *sb );
+
+// db_utils.c - access to db_mapper's internal dataabse information object
+db_info *db_info_get( const char *name, mapper *self );
+table_info *table_info_get( const char *name, db_info *db );
+query_info *query_info_get( table_info *table );
+void insert_clause( key_info *kinfo, void *user_data ); 
+void where_clause( key_info *kinfo, void *user_data );
+void redis_clause( key_info *kinfo, void *user_data );
+void foreach_primary_key( table_info *tinfo, primary_key_fn fn, void *user_data );
+const char * fld_type_str_to_sql( jedex_schema *fld_schema );
 
 
 CLOSE_EXTERN

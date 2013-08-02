@@ -138,6 +138,7 @@ mapper_initialize( mapper **mptr, int argc, char **argv ) {
     if ( ( *mptr )->rcontext ) {
       log_err( "Connection to redis server failed error %s", ( *mptr )->rcontext->errstr ); 
       redisFree( ( *mptr )->rcontext );
+      ( *mptr )->rcontext = NULL;
     }
     check_ptr_return( ( *mptr )->rcontext, "Connection to redis server failed" );
   }

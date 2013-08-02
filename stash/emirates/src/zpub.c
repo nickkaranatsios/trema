@@ -31,6 +31,7 @@ publish_service( const char *service, publisher_info *self, jedex_parcel *parcel
       zmsg_addmem( msg, json, strlen( json ) );
       zmsg_send( &msg, publisher_socket( self ) );
       zmsg_destroy( &msg );
+      free( json );
     }
   }
 

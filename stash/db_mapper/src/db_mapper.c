@@ -89,18 +89,52 @@ set_find_record( mapper *self ) {
 }
 
 void
-set_fruits( jedex_value *val ) {
+set_fruits( jedex_value *val, const char *name, float price ) {
   jedex_value field;
   size_t index;
 
   jedex_value_get_by_name( val, "name", &field, &index );
   //assert( index == 0 );
-  jedex_value_set_string( &field, "jackfruit" );
+  jedex_value_set_string( &field, name );
   jedex_value_get_by_name( val, "price", &field, &index );
   //assert( index == 1 );
-  float price = 5.3467f;
   jedex_value_set_float( &field, price );
 }
+
+
+void
+set_many_fruits( jedex_value *val ) {
+  jedex_value element;
+  jedex_value_append( val, &element, NULL );
+  set_fruits( &element, "jackfruit", 5.38f );
+  jedex_value_append( val, &element, NULL );
+  set_fruits( &element, "pineapple", 2.66f );
+}
+
+
+void
+update_fruits( jedex_value *val ) {
+  jedex_value field;
+  size_t index;
+
+  jedex_value_get_by_name( val, "name", &field, &index );
+  jedex_value_set_string( &field, "jackfruit" );
+
+  jedex_value_get_by_name( val, "price", &field, &index );
+  float price = 7.8888f;
+  jedex_value_set_float( &field, price );
+}
+
+
+void
+delete_fruits( jedex_value *val ) {
+  jedex_value field;
+  size_t index;
+
+  jedex_value_get_by_name( val, "name", &field, &index );
+  jedex_value_set_string( &field, "pineapple" );
+}
+
 
 void
 set_find_all_records( mapper *self ) {
@@ -123,32 +157,94 @@ insert_publish_data( mapper *self ) {
   jedex_schema *fruits_schema = jedex_schema_get_subschema( self->schema, "fruits" );
   assert( fruits_schema );
 
-  jedex_value_iface *val_iface;
-  val_iface = jedex_generic_class_from_schema( fruits_schema );
+  jedex_schema *array_schema = jedex_schema_array( fruits_schema );
+
+  jedex_value_iface *array_class = jedex_generic_class_from_schema( array_schema );
+  assert( array_class );
+
+  jedex_value val;
+  jedex_generic_value_new( array_class, &val );
+  set_many_fruits( &val );
+
+  char *json;
+  jedex_value_to_json( &val, true, &json );
+  if ( json ) {
+    request_insert_record_callback( &val, json, self ); 
+  }
+
+#ifdef TEST
   jedex_value *val = jedex_value_from_iface( val_iface );
   assert( val );
 
-  set_fruits( val );
+  //set_fruits( val );
+  set_many_fruits( val );
   char *json;
   jedex_value_to_json( val, true, &json );
 
   if ( json ) {
     request_insert_record_callback( val, json, self ); 
   }
+#endif
 }
-  
+
+
+void
+set_update_record( mapper *self ) {
+  jedex_schema *fruits_schema = jedex_schema_get_subschema( self->schema, "fruits" );
+  assert( fruits_schema );
+
+  jedex_value_iface *val_iface;
+  val_iface = jedex_generic_class_from_schema( fruits_schema );
+  jedex_value *val = jedex_value_from_iface( val_iface );
+  assert( val );
+
+  update_fruits( val );
+  char *json;
+  jedex_value_to_json( val, true, &json );
+
+  if ( json ) {
+    request_update_record_callback( val, json, self );
+  }
+}
+
+
+void
+set_delete_record( mapper *self ) {
+  jedex_schema *fruits_schema = jedex_schema_get_subschema( self->schema, "fruits" );
+  assert( fruits_schema );
+
+  jedex_value_iface *val_iface;
+  val_iface = jedex_generic_class_from_schema( fruits_schema );
+  jedex_value *val = jedex_value_from_iface( val_iface );
+  assert( val );
+
+  delete_fruits( val );
+  char *json;
+  jedex_value_to_json( val, true, &json );
+
+  if ( json ) {
+    request_delete_record_callback( val, json, self );
+  }
+}
+
 
 int
 main( int argc, char **argv ) {
   mapper *self = NULL;
   self = mapper_initialize( &self, argc, argv );
-  set_topic( self );
-  set_find_all_records( self );
-  set_find_record( self );
-  insert_publish_data( self );
-  emirates_loop( self->emirates );
+  if ( self != NULL ) {
+    set_topic( self );
+    set_find_all_records( self );
+    set_find_record( self );
+    insert_publish_data( self );
+    set_update_record( self );
+    set_delete_record( self );
+    emirates_loop( self->emirates );
+  }
+  else {
+    log_err( "Initialization failed exiting ..." );
+  }
 
-  assert( self );
 
   return 0;
 }

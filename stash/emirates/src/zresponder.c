@@ -271,6 +271,7 @@ send_reply( emirates_iface *iface, const char *service, jedex_value *value ) {
   jedex_value_to_json( value, true, &json );
   if ( json ) {
     form_send_reply( priv, service, json );
+    free( json );
   }
 }
 

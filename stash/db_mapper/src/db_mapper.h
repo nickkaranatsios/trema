@@ -54,6 +54,7 @@ extern "C" {
 #include "jedex_iface.h"
 #include "generic.h"
 #include "emirates.h"
+#include "db_mapper_error.h"
 #include "parse_options.h"
 #include "array_util.h"
 #include "strbuf.h"

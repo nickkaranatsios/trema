@@ -24,7 +24,7 @@ static char const * const mapper_usage[] = {
   "  -d --daemonize                             run as a daemon",
   "  -c --config=config_fn                      set config fn to read",
   "  -s --schema=schema_fn                      set schema fn to read",
-  "  -r --request_schema=schema_fn              st request schema fn to read",
+  "  -r --request_reply_schema=schema_fn        set request reply schema fn to read",
   "  -h --help                                  display usage and exit",
   NULL
 };
@@ -68,7 +68,7 @@ handle_option( int c, char *optarg, void *user_data ) {
     break;
     case 'r':
       if ( optarg ) {
-        args->request_schema_fn = optarg;
+        args->request_reply_schema_fn = optarg;
       }
     break;
     default:
@@ -85,7 +85,7 @@ parse_options( int argc, char **argv, void *user_data ) {
     { "daemonize", no_argument, 0, 'd' },
     { "config", required_argument, 0, 'c' },
     { "schema", required_argument, 0, 's' },
-    { "request_schema", required_argument, 0, 'r' },
+    { "request_reply_schema", required_argument, 0, 'r' },
     { "help", no_argument, 0, 'h' },
     { 0, 0, 0, 0 },
   };

@@ -38,137 +38,31 @@ json_to_s( json_t *json ) {
 }
 
 
-
-static jedex_schema *
-get_table_schema( const char *tbl_name, jedex_schema *schema ) {
-  if ( is_jedex_union( schema ) ) {
-    return jedex_schema_get_subschema( schema, tbl_name );
-  }
-  else if ( is_jedex_record( schema ) ) {
-    return schema;
-  }
-  else {
-    log_err( "db_mapper can handle either a union or a record schema" );
-    printf( "db_mapper can handle either a union or a record schema\n" );
-    return NULL;
-  }
-
-  return NULL;
-}
-
-
-
-
-static void
-create_table_clause( key_info *kinfo, void *user_data ) {
-  ref_data *ref = user_data;
-  strbuf *command = ref->command;
-
-  const char *pk_name = kinfo->name;
-  const char *sql_type_str = kinfo->sql_type_str;
-  
-  strbuf_addf( command, "%s %s not null, PRIMARY KEY(%s),", 
-               pk_name,
-               sql_type_str,
-               pk_name );
-}
-
-
-static void
-create_table_if_not_exists( db_info *db, table_info *tinfo ) {
-  const char *db_name = db->name;
-  const char *tbl_name = tinfo->name;
-
-  strbuf command = STRBUF_INIT;
-  strbuf_addf( &command, "CREATE TABLE IF NOT EXISTS %s.%s (", db_name, tbl_name );
-
-  ref_data ref;
-  ref.command = &command;
-
-  foreach_primary_key( tinfo, create_table_clause, &ref ); 
-
-  strbuf_rtrimn( &command, 1 );
-  strbuf_addstr( &command, ",json text ) ENGINE=InnoDB DEFAULT CHARSET=utf8" );
-  query_info *qinfo = query_info_get( tinfo );
-  if ( qinfo ) {
-    query( db, qinfo, command.buf );
-  }
-  strbuf_release( &command );
-}
-
-
-static void
-get_string_field( jedex_value *val, const char *name, const char **field_name ) {
-  jedex_value field;
-  size_t index;
-  jedex_value_get_by_name( val, name, &field, &index );
-  size_t size = 0;
-  jedex_value_get_string( &field, field_name, &size );
-}
-
-
-static void
-tinfo_keys_set( jedex_schema *tbl_schema, table_info *tinfo ) {
-  size_t rec_size = jedex_schema_record_size( tbl_schema );
-
-  strbuf merge_key = STRBUF_INIT;
-  for ( int i = 0; i < ( int ) rec_size; i++ ) {
-    const char *fld_name = jedex_schema_record_field_name( tbl_schema, i );
-    if ( jedex_schema_record_field_is_primary( tbl_schema, fld_name ) ) {
-      jedex_schema *fld_schema = jedex_schema_record_field_get_by_index( tbl_schema, i );
-
-      ALLOC_GROW( tinfo->keys, tinfo->keys_nr + 1, tinfo->keys_alloc );
-      key_info *kinfo = ( key_info * ) xmalloc( sizeof( key_info ) );
-      
-      kinfo->name = fld_name;
-      strbuf_addf( &merge_key, "%s:", fld_name );
-      kinfo->schema_type = jedex_typeof( fld_schema );
-      kinfo->sql_type_str = fld_type_str_to_sql( fld_schema );
-      tinfo->keys[ tinfo->keys_nr++ ] = kinfo;
-    }
-  }
-  strbuf_rtrimn( &merge_key, 1 );
-  tinfo->merge_key = xstrdup( merge_key.buf );
-  strbuf_release( &merge_key );
-}
-
-
-static void
-set_table_name( const char *db_name, jedex_value *val, mapper *self ) {
-  jedex_value field;
-  size_t index;
-  jedex_value_get_by_name( val, "tables", &field, &index );
-
-
-  jedex_value element;
-  db_info *db = db_info_get( db_name, self );
-
-  size_t array_size;
-  jedex_value_get_size( &field, &array_size );
-
-  for ( size_t i = 0; i < array_size; i++ ) {
-    jedex_value_get_by_index( &field, i, &element, NULL );
-
-    // get the table name from the save_topic message
-    const char *tbl_name;
-    size_t size;
-    jedex_value_get_string( &element, &tbl_name, &size );
-
-    
-    // get the table schema
-    jedex_schema *tbl_schema = get_table_schema( tbl_name, self->schema );
-    ALLOC_GROW( db->tables, db->tables_nr + 1, db->tables_alloc );
-    size_t nitems = 1;
-    table_info *tinfo = ( table_info * ) xcalloc( nitems, sizeof( table_info ) );
-    tinfo->name = tbl_name;
-    tinfo_keys_set( tbl_schema, tinfo );
-    db->tables[ db->tables_nr++ ] = tinfo;
-
-    create_table_if_not_exists( db, tinfo );
-  }
-}
-
-
+/*
+ * Processing of the save_topic request message. It has the following schema:
+ * {
+ *   "type": "record",
+ *   "name": "save_all_data",
+ *   "fields": [
+ *     { "name": "dbname", "type": "string" },
+ *     { "name": "topic", "type": "string" },
+ *     { "name": "tables", "type": { "type": "array", "items": "string" } }
+ *   ]
+ * }
+ * The dbname is the database name that is already created using db_mapper's.
+ * configuration file upon initialization.
+ * For example an entry of database "groceries" found in the config. file is:
+ * [db_connection "groceries"]
+ *   host = localhost
+ *   user = test 
+ *   passwd = test
+ *   socket = /tmp/mysql.sock
+ * The topic is the subscription service name to set to enable db_mapper to
+ * receive published data of this service.
+ * The tables is an array of tables to create under the database. A table name
+ * is mapped to a record name. The preferred way where possible of table names
+ * is plural. For example flows not flow.
+ */
 void
 request_save_topic_callback( jedex_value *val, const char *json, void *user_data ) {
   UNUSED( json );
@@ -179,33 +73,16 @@ request_save_topic_callback( jedex_value *val, const char *json, void *user_data
   const char *db_name = NULL;
   get_string_field( val, "dbname", &db_name );
 
+  DB_MAPPER_ERROR err = set_table_name( db_name, val, self );
+  
   const char *topic = NULL;
   get_string_field( val, "topic", &topic );
-
-  set_table_name( db_name, val, self );
-
-  
   const char *schemas[] = { NULL };
   self->emirates->set_subscription( self->emirates, topic, schemas, topic_subscription_callback );
 
   // TODO send a proper reply back to caller
-  self->emirates->send_reply_raw( self->emirates, "save_topic", json );
-}
-
-
-  
-
-static const char *
-db_info_dbname( mapper *self, const char *tbl_name ) {
-  for ( uint32_t i = 0; i < self->dbs_nr; i++ ) {
-    for ( uint32_t j = 0; j < self->dbs[ i ]->tables_nr; j++ ) {
-      if ( !strcmp( self->dbs[ i ]->tables[ j ]->name, tbl_name ) ) {
-        return self->dbs[ i ]->name;
-      }
-    }
-  }
-
-  return NULL;
+  db_reply_set( self->reply_val, err );
+  self->emirates->send_reply( self->emirates, "save_topic", self->reply_val );
 }
 
 
@@ -328,29 +205,6 @@ unpack_delete_object( mapper *self, jedex_value *val, const char *tbl_name ) {
 }
 
 
-const char *
-table_name_get( jedex_value *val ) {
-  const char *tbl_name = NULL;
-
-  jedex_schema *root_schema = jedex_value_get_schema( val );
-  if ( is_jedex_union( root_schema ) ) {
-    size_t branch_count;
-    jedex_value_get_size( val, &branch_count ); 
-    // should only be one find record
-    assert( branch_count == 1 );
-
-    jedex_value branch_val;
-    size_t idx = 0;
-    jedex_value_get_branch( val, idx, &branch_val );
-    jedex_schema *bschema = jedex_value_get_schema( &branch_val );
-    tbl_name = jedex_schema_type_name( bschema );
-  }
-  else if ( is_jedex_record( root_schema ) ) {
-    tbl_name = jedex_schema_type_name( root_schema );
-  }
-
-  return tbl_name;
-}
 
 
 

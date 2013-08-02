@@ -95,6 +95,7 @@ mapper *
 mapper_initialize( mapper **mptr, int argc, char **argv ) {
   size_t nitems = 1;
 
+  mapper *self = *mptr;
   mapper_args *args = xcalloc( nitems, sizeof( *args ) );
   parse_options( argc, argv, args );
 
@@ -102,61 +103,69 @@ mapper_initialize( mapper **mptr, int argc, char **argv ) {
     args->config_fn = "db_mapper.conf";
   }
 
-  *mptr = xcalloc( nitems, sizeof( mapper ) );
-  if ( read_config( handle_config, *mptr, args->config_fn ) < 0 ) {
+  self = xcalloc( nitems, sizeof( mapper ) );
+  if ( read_config( handle_config, self, args->config_fn ) < 0 ) {
     log_debug( "Failed to parse config file %s", args->config_fn );
     printf( "Failed to parse config file %s\n", args->config_fn );
   }
   //db_init( mapper );
-  if ( db_connect( *mptr ) ) {
+  if ( db_connect( self ) ) {
     return NULL;
   }
   
   // do not create db if false
   bool hint = false;
-  if ( db_create( *mptr, hint ) ) {
+  if ( db_create( self, hint ) ) {
     return NULL;
   }
 
   if ( args->schema_fn == NULL || !strlen( args->schema_fn ) ) {
     args->schema_fn = "test_schema";
   }
-  ( *mptr )->schema = jedex_initialize( args->schema_fn );
-  check_ptr_return( ( *mptr )->schema, "Failed to initialize main schema" );
+  self->schema = jedex_initialize( args->schema_fn );
+  check_ptr_return( self->schema, NULL, "Failed to initialize main schema" );
 
-  if ( args->request_schema_fn == NULL || !strlen( args->request_schema_fn ) ) {
-    args->request_schema_fn = "save_topic";
+  if ( args->request_reply_schema_fn == NULL || !strlen( args->request_reply_schema_fn ) ) {
+    args->request_reply_schema_fn = "request_reply";
   }
-  ( *mptr )->request_schema = jedex_initialize( args->request_schema_fn );
-  check_ptr_return( ( *mptr )->request_schema, "Failed to initialize request schema" );
+  self->request_reply_schema = jedex_initialize( args->request_reply_schema_fn );
+  check_ptr_return( self->request_reply_schema, NULL, "Failed to initialize request/reply schema" );
+
+  jedex_schema *reply_schema = jedex_schema_get_subschema( self->request_reply_schema, "db_mapper_reply" );
+  check_ptr_return( reply_schema, NULL, "Failed to get db_mapper_reply schema" );
+
+  jedex_value_iface *val_iface = jedex_generic_class_from_schema( reply_schema );
+  self->reply_val = jedex_value_from_iface( val_iface );
 
 
   // connect to redis cache start the redis server
   struct timeval timeout = { 1, 0 }; // 1 second
-  ( *mptr )->rcontext = redisConnectWithTimeout( "127.0.0.1", 6379, timeout );
-  if ( ( *mptr )->rcontext == NULL || ( *mptr )->rcontext->err ) {
-    if ( ( *mptr )->rcontext ) {
-      log_err( "Connection to redis server failed error %s", ( *mptr )->rcontext->errstr ); 
-      redisFree( ( *mptr )->rcontext );
-      ( *mptr )->rcontext = NULL;
+  self->rcontext = redisConnectWithTimeout( "127.0.0.1", 6379, timeout );
+  if ( self->rcontext == NULL || self->rcontext->err ) {
+    if ( self->rcontext ) {
+      log_err( "Connection to redis server failed error %s", self->rcontext->errstr ); 
+      redisFree( self->rcontext );
+      self->rcontext = NULL;
     }
-    check_ptr_return( ( *mptr )->rcontext, "Connection to redis server failed" );
+    check_ptr_return( self->rcontext, NULL, "Connection to redis server failed" );
   }
   
   
   int flag = 0;
-  ( *mptr )->emirates = emirates_initialize_only( ENTITY_SET( flag, RESPONDER | SUBSCRIBER ) );
-  check_ptr_return( ( *mptr )->emirates, "Failed to initialize emirates" );
+  self->emirates = emirates_initialize_only( ENTITY_SET( flag, RESPONDER | SUBSCRIBER ) );
+  check_ptr_return( self->emirates, NULL, "Failed to initialize emirates" );
 
-  ( *mptr )->emirates->set_service_request( ( *mptr )->emirates,
+  jedex_schema *request_schema = jedex_schema_get_subschema( self->request_reply_schema, "save_all" );
+  check_ptr_return( request_schema, NULL, "Failed to get request save_all schema" );
+  ( self )->emirates->set_service_request( self->emirates,
                                             "save_topic",
-                                            ( *mptr )->request_schema,
-                                            *mptr,
+                                            request_schema,
+                                            self,
                                             request_save_topic_callback );
   sleep( 1 );
-  set_ready( ( *mptr )->emirates );
+  set_ready( self->emirates );
 
-  return *mptr;
+  return self;
 }
 
 
@@ -164,7 +173,7 @@ void
 mapper_finalize( mapper **mptr ) {
   emirates_finalize( &( *mptr )->emirates );
   redisFree( ( *mptr )->rcontext );
-  jedex_finalize( &( *mptr )->request_schema );
+  jedex_finalize( &( *mptr )->request_reply_schema );
   jedex_finalize( &( *mptr )->schema );
   for ( uint32_t i  = 0; i < ( *mptr )->dbs_nr; i++ ) {
     db_info *db = ( *mptr )->dbs[ i ];

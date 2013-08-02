@@ -59,7 +59,8 @@ void
 set_topic( mapper *self ) {
   jedex_value_iface *val_iface;
 
-  val_iface = jedex_generic_class_from_schema( self->request_schema );
+  jedex_schema *request_schema = jedex_schema_get_subschema( self->request_reply_schema, "save_all" );
+  val_iface = jedex_generic_class_from_schema( request_schema );
   jedex_value *val = jedex_value_from_iface( val_iface );
   set_save_topic( val );
   char *json;
@@ -228,6 +229,17 @@ set_delete_record( mapper *self ) {
 }
 
 
+/*
+ * Db_mapper when it receives a save_topic message would create the database
+ * and the given tables. Db_mapper expects to receive multiple save_topic
+ * messages.
+ * Db_mapper makes the following assumption that the record object key 
+ * found in any request message that it receives corresponds to a database table.
+ * It also expects that schema information is available for this every table
+ * db_mapper is capable of processing. Db_mapper's -s (--schema) option should
+ * be used to set this schema file to read. It most cases the schema file
+ * contains an array of records.
+ */
 int
 main( int argc, char **argv ) {
   mapper *self = NULL;

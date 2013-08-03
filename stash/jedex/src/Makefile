@@ -1,99 +1,71 @@
-# Jedex Makefile
+# Jedex library Makefile
 
-OPTIMIZATION?=-O0
-
-CC=gcc
-STD= -std=gnu99 -D_REENTRANT -D_GNU_SOURCE
-WARN= -Wall -Wextra -Wformat=2 -Wcast-qual -Wcast-align -Wwrite-strings -Wconversion -Wfloat-equal -Wpointer-arith -fno-strict-aliasing
-OPT= $(OPTIMIZATION)
-
-
-FINAL_CFLAGS= $(STD) $(WARN) $(OPT) $(DEBUG) $(CFLAGS)
-FINAL_CFLAGS+= -I../include -I../.. -I../usr/local/include
-FINAL_LDFLAGS= $(LDFLAGS) -g -rdynamic -ggdb $(ARCH)
-FINAL_LIBS= -lm -pthread $(ARCH)
-DEBUG= -g -ggdb
-
-JEDEX_LD=$(QUIET_LINK)$(CC) $(FINAL_LDFLAGS)
-
-PREFIX?=/usr/local
-INSTALL_LIB= $(PREFIX)/lib
-INSTALL= install -p
-
-CCCOLOR="\033[34m"
-LINKCOLOR="\033[34;1m"
-SRCCOLOR="\033[33m"
-LIBCOLOR="\033[37;1m"
-MAKECOLOR="\033[32;1m"
-ENDCOLOR="\033[0m"
-
-ifndef V
-QUIET_CC = @printf '    %b %b\n' $(CCCOLOR)$(CC)$(ENDCOLOR) $(SRCCOLOR)$<$(ENDCOLOR) 1>&2;
-QUIET_LINK = @printf '    %b %b\n' $(LINKCOLOR)link$(ENDCOLOR) $(LIBCOLOR)$@$(ENDCOLOR) 1>&2;
-QUIET_INSTALL = @printf '    %b %b\n' $(LINKCOLOR)install$(ENDCOLOR) $(LIBCOLOR)$@$(ENDCOLOR) 1>&2;
-endif
-
-LIB_OBJS += init.o
-LIB_OBJS += allocation.o
-LIB_OBJS += linked_list_safe.o
-LIB_OBJS += generic.o
-LIB_OBJS += generic_array.o
-LIB_OBJS += generic_boolean.o
-LIB_OBJS += generic_bytes.o
-LIB_OBJS += generic_double.o
-LIB_OBJS += generic_float.o
-LIB_OBJS += generic_int.o
-LIB_OBJS += generic_link.o
-LIB_OBJS += generic_long.o
-LIB_OBJS += generic_map.o
-LIB_OBJS += generic_null.o
-LIB_OBJS += generic_record.o
-LIB_OBJS += generic_string.o
-LIB_OBJS += generic_union.o
-LIB_OBJS += jedex_schema.o
-LIB_OBJS += memoize.o
-LIB_OBJS += raw_string.o
-LIB_OBJS += raw_array.o
-LIB_OBJS += raw_map.o
-LIB_OBJS += st.o
-LIB_OBJS += value_json.o
-LIB_OBJS += wrapped_buffer.o
-
-LIB_FILE=libjedex.a
-
-QUIET_AR= @echo '   ' ar $@;
-RM = rm -f
+CC = gcc
 AR = ar
+INSTALL = install -p
+INSTALL_DIR = /usr/local/lib
+RANLIB = ranlib
+APILIB = -lm -pthread
+APIPATH = -L. -L/usr/local/lib -L/usr/lib
 
-OBJECTS := $(LIB_OBJS)
+CFLAGS = -I../include -I../.. -I../usr/local/include
+CFLAGS += -std=gnu99 -D_GNU_SOURCE -g -fno-strict-aliasing -Wall -Wextra -Wformat=2 -Wcast-qual -Wcast-align -Wwrite-strings -Wconversion -Wfloat-equal -Wpointer-arith -O0
 
-dep_files := $(foreach f,$(OBJECTS),$(dir $f).depend/$(notdir $f).d)
-dep_dirs := $(addsuffix .depend,$(sort $(dir $(OBJECTS))))
+TARGET_LIB = libjedex.a
+SRCS_LIB = init.c
+SRCS_LIB += allocation.c
+SRCS_LIB += linked_list_safe.c
+SRCS_LIB += generic.c
+SRCS_LIB += generic_array.c
+SRCS_LIB += generic_boolean.c
+SRCS_LIB += generic_bytes.c
+SRCS_LIB += generic_double.c
+SRCS_LIB += generic_float.c
+SRCS_LIB += generic_int.c
+SRCS_LIB += generic_link.c
+SRCS_LIB += generic_long.c
+SRCS_LIB += generic_map.c
+SRCS_LIB += generic_null.c
+SRCS_LIB += generic_record.c
+SRCS_LIB += generic_string.c
+SRCS_LIB += generic_union.c
+SRCS_LIB += jedex_schema.c
+SRCS_LIB += memoize.c
+SRCS_LIB += raw_string.c
+SRCS_LIB += raw_array.c
+SRCS_LIB += raw_map.c
+SRCS_LIB += st.c
+SRCS_LIB += value_json.c
+SRCS_LIB += wrapped_buffer.c
 
+OBJS_LIB = $(SRCS_LIB:.c=.o)
+OBJS = $(OBJS_LIB)
 
-$(dep_dirs):
-	@mkdir -p $@
+TARGETS = $(TARGET_LIB)
+SRCS = $(SRCS_LIB)
 
-missing_dep_dirs := $(filter-out $(wildcard $(dep_dirs)),$(dep_dirs))
-dep_file = $(dir $@).depend/$(notdir $@).d
-dep_args = -MF $(dep_file) -MQ $@ -MMD -MP
+DEPENDS = .depends
 
-all: $(LIB_FILE)
-.PHONY : all
+.PHONY: all depend clean
 
-$(LIB_FILE): $(dep_dirs) $(LIB_OBJS)
-	$(QUIET_AR)$(RM) $@ && $(AR) rcs $@ $(LIB_OBJS)
+.SUFFIXES: .c .o
+
+all: depend $(TARGETS)
+
+$(TARGET_LIB): $(OBJS_LIB)
+	$(AR) -cq $@ $(OBJS_LIB)
+	$(RANLIB) $@
+
+.c.o:
+	$(CC) $(CFLAGS) -c $<
+
+depend:
+	$(CC) -MM $(CFLAGS) $(SRCS) > $(DEPENDS)
 
 clean:
-	rm -rf $(LIB_FILE) *.o *.gcda *.gcov
-
-distclean: clean
-	-(rm -f $(INSTALL_LIB)/$(LIB_FILE))
-
-.PHONY: distclean
-
-$(OBJECTS): %.o: %.c $(missing_dep_files)
-	$(QUIET_CC)$(CC) -o $*.o -c $(dep_args) $(FINAL_CFLAGS) $<
+	@rm -rf $(DEPENDS) $(OBJS) $(TARGETS) *~
 
 install:
-	$(QUIET_INSTALL)$(INSTALL) $(LIB_FILE) $(INSTALL_LIB)
+	$(INSTALL) $(TARGET_LIB) $(INSTALL_DIR)
+
+-include $(DEPENDS)

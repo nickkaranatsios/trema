@@ -1,67 +1,45 @@
-# Makefile for test programs
+# Makefile for jedex test programs
+CC = gcc
 
-OPTIMIZATION?=-O0
+APILIB = -ljansson -lm -lpthread
+APIPATH = -L. -L/usr/local/lib -L/usr/lib
 
-CC=gcc
-STD= -std=gnu99 -D_REENTRANT -D_GNU_SOURCE
-WARN= -Wall -Wextra -Wformat=2 -Wcast-qual -Wcast-align -Wwrite-strings -Wconversion -Wfloat-equal -Wpointer-arith -fno-strict-aliasing
-OPT= $(OPTIMIZATION)
+CFLAGS += -I ../include
+CFLAGS += -I ../src
+CFLAGS += -I ../..
+CFLAGS += -I../usr/local/include
+CFLAGS += -std=gnu99 -D_GNU_SOURCE -g -fno-strict-aliasing -Wall -Wextra -Wformat=2 -Wcast-qual -Wcast-align -Wwrite-strings -Wconversion -Wfloat-equal -Wpointer-arith -O0
 
+LDFLAGS += -ljedex
+LDFLAGS += $(APILIB)
 
-FINAL_CFLAGS= $(STD) $(WARN) $(OPT) $(DEBUG) $(CFLAGS)
-FINAL_CFLAGS+= -I. -I../src -I../include -I../czmq/include -I../.. -I../../jedex/include -I../usr/local/include
-FINAL_LDFLAGS= $(LDFLAGS) -g -rdynamic -ggdb $(ARCH)
-FINAL_LIBS= -ljansson -lm -pthread $(ARCH)
-DEBUG= -g -ggdb
+TARGET_JEDEX_TEST = jedex_test
+SRCS_JEDEX_TEST = jedex_test.c
 
-JEDEX_LD=$(QUIET_LINK)$(CC) $(FINAL_LDFLAGS)
+TARGETS = $(TARGET_JEDEX_TEST)
 
-CCCOLOR="\033[34m"
-LINKCOLOR="\033[34;1m"
-SRCCOLOR="\033[33m"
-LIBCOLOR="\033[37;1m"
-MAKECOLOR="\033[32;1m"
-ENDCOLOR="\033[0m"
+SRCS = $(SRCS_JEDEX_TEST)
+OBJS_JEDEX_TEST = $(SRCS_JEDEX_TEST:.c=.o)
+OBJS = $(OBJS_JEDEX_TEST)
 
-ifndef V
-QUIET_CC = @printf '    %b %b\n' $(CCCOLOR)$(CC)$(ENDCOLOR) $(SRCCOLOR)$<$(ENDCOLOR) 1>&2;
-QUIET_LINK = @printf '    %b %b\n' $(LINKCOLOR)link$(ENDCOLOR) $(LIBCOLOR)$@$(ENDCOLOR) 1>&2;
-endif
+DEPENDS = .depends
 
-JEDEX_TEST=jedex_test
-JEDEX_TEST_OBJS := jedex_test.o
+.PHONY: all depend clean
 
-RM = rm -f
+.SUFFIXES: .c .o
 
-all: $(JEDEX_TEST)
+all: depend $(TARGETS)
 
-.PHONY: all
+$(TARGET_JEDEX_TEST): $(OBJS_JEDEX_TEST)
+	$(CC) $(OBJS_JEDEX_TEST) $(APIPATH) $(LDFLAGS) -o $@
 
-OBJECTS += $(JEDEX_TEST_OBJS)
+.c.o:
+	$(CC) $(CFLAGS) -c $<
 
-dep_files := $(foreach f,$(OBJECTS),$(dir $f).depend/$(notdir $f).d)
-dep_dirs := $(addsuffix .depend,$(sort $(dir $(OBJECTS))))
-
-
-$(dep_dirs):
-	@mkdir -p $@
-
-missing_dep_dirs := $(filter-out $(wildcard $(dep_dirs)),$(dep_dirs))
-dep_file = $(dir $@).depend/$(notdir $@).d
-dep_args = -MF $(dep_file) -MQ $@ -MMD -MP
-
-$(JEDEX_TEST): $(JEDEX_TEST_OBJS)
-	$(JEDEX_LD) -o $@ $^ ../src/libjedex.a $(FINAL_LIBS)
+depend:
+	$(CC) -MM $(CFLAGS) $(SRCS) > $(DEPENDS)
 
 clean:
-	rm -rf $(JEDEX_TEST) *.o *.gcda *.gcov
+	@rm -rf $(DEPENDS) $(OBJS) $(TARGETS) *~
 
-.PHONY: clean
-
-distclean: clean
-	-(rm -f $(JEDEX_TEST))
-
-.PHONY: distclean
-
-$(OBJECTS): %.o: %.c $(dep_dirs) $(missing_dep_files)
-	$(QUIET_CC)$(CC) -o $*.o -c $(dep_args) $(FINAL_CFLAGS) $<
+-include $(DEPENDS)

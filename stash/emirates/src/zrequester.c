@@ -192,7 +192,7 @@ reply_callback_add( requester_info *self, reply_callback *cb ) {
   assert( requester_callbacks( self ) );
 
   int rc = 0;
-  reply_callback *item = lookup_callback( requester_callbacks( self ), cb->key.service );
+  reply_callback *item = lookup_callback( requester_callbacks( self ), cb->key.service, strlen( cb->key.service ) );
   if ( !item ) { 
     rc = zlist_append( requester_callbacks( self ), cb );
   }
@@ -228,7 +228,7 @@ route_msg( const emirates_priv *self, zmsg_t *msg ) {
   char service[ IDENTITY_MAX ];
   memcpy( service, zframe_data( service_frame ), zframe_size( service_frame ) );
   service[ zframe_size( service_frame ) ] = '\0';
-  reply_callback *handler = lookup_callback( requester_callbacks( self->requester ), service );
+  reply_callback *handler = lookup_callback( requester_callbacks( self->requester ), service, zframe_size( service_frame ) );
 
   zframe_t *data_frame = NULL;
   if ( ( !msg_is( REPLY, zframe_data( msg_type_frame ), zframe_size( msg_type_frame ) ) ) ) {
@@ -247,15 +247,19 @@ route_msg( const emirates_priv *self, zmsg_t *msg ) {
       printf( "Late response to request\n" );
     }
     else {
-      schema_per_request *request_schema = schema_per_request_lookup( requester_schemas( self->requester ), tx_id );
-      jedex_schema *schema = request_schema->schema;
-      if ( schema && data_frame ) {
-        json = ( const char * ) zframe_data( data_frame );
-        val = json_to_jedex_value( schema, json ); 
-        zlist_remove( requester_schemas( self->requester ), request_schema );
+      if ( requester_schemas( self->requester ) ) {
+        schema_per_request *request_schema = NULL;
+        request_schema = schema_per_request_lookup( requester_schemas( self->requester ), tx_id );
+        if ( request_schema != NULL ) {
+          jedex_schema *schema = request_schema->schema;
+          if ( schema && data_frame ) {
+            json = ( const char * ) zframe_data( data_frame );
+            val = json_to_jedex_value( schema, json ); 
+            zlist_remove( requester_schemas( self->requester ), request_schema );
+          }
+        }
       }
     }
-    
     handler->callback( tx_id, val, json );
   }
 }

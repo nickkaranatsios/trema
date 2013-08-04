@@ -138,7 +138,8 @@ route_add_service_reply( proxy *self,
 
   char client_id[ IDENTITY_MAX ];
 
-  memcpy( &client_id, ( char * ) zframe_data( client_id_frame ), zframe_size( client_id_frame ) );
+  size_t client_id_frame_size = zframe_size( client_id_frame );
+  memcpy( &client_id, ( char * ) zframe_data( client_id_frame ), client_id_frame_size );
   add_client_worker( &self->clients, strdup( client_id ) );
 
   size_t service_frame_size = zframe_size( service_frame  );
@@ -146,9 +147,21 @@ route_add_service_reply( proxy *self,
 
   service_route sroute;
   memcpy( &sroute.service, ( const char * ) zframe_data( service_frame ), service_frame_size );
-  sroute.service[ service_frame_size ] = '\0';
-  memcpy( &sroute.identity, client_id, zframe_size( client_id_frame ) );
-  sroute.identity[ zframe_size( client_id_frame ) ] = '\0';
+  int left = ( int ) ( SERVICE_MAX - service_frame_size - client_id_frame_size - 2 );
+  if ( left > 0 ) {
+    sroute.service[ service_frame_size ] =  '_';
+    strncpy( &sroute.service[ service_frame_size + 1 ], client_id, client_id_frame_size );
+    sroute.service[ service_frame_size + 1 + client_id_frame_size ] = '\0';
+  }
+  else {
+    sroute.service[ service_frame_size ] =  '_';
+    size_t bytes_to_copy = SERVICE_MAX - service_frame_size - 2;
+    strncpy( &sroute.service[ service_frame_size + 1 ], client_id, bytes_to_copy );
+    sroute.service[ service_frame_size + 1 + bytes_to_copy ] = '\0';
+  }
+
+  memcpy( &sroute.identity, client_id, client_id_frame_size );
+  sroute.identity[ client_id_frame_size ] = '\0';
 #ifndef LOAD_BALANCING
   bool replace = true;
   add_service_route( &self->replies, &sroute, replace );
@@ -163,6 +176,9 @@ route_add_service_reply( proxy *self,
 }
 
 
+/*
+ * Routes a request from a client to a worker.
+ */
 static void
 route_request( proxy *self,
                zframe_t *client_id_frame,
@@ -266,8 +282,19 @@ route_add_service_request( proxy *self,
   assert( service_frame_size < SERVICE_MAX );
 
   service_route sroute;
-  memcpy( sroute.service, ( const char * ) zframe_data( service_frame ), service_frame_size );
-  sroute.service[ service_frame_size ] = '\0';
+  memcpy( &sroute.service, ( const char * ) zframe_data( service_frame ), service_frame_size );
+  int left = ( int ) ( SERVICE_MAX - service_frame_size - worker_id_frame_size - 2 );
+  if ( left > 0 ) {
+    sroute.service[ service_frame_size ] =  '_';
+    strncpy( &sroute.service[ service_frame_size + 1 ], worker_id, worker_id_frame_size );
+    sroute.service[ service_frame_size + 1 + worker_id_frame_size ] = '\0';
+  }
+  else {
+    sroute.service[ service_frame_size ] =  '_';
+    size_t bytes_to_copy = SERVICE_MAX - service_frame_size - 2;
+    strncpy( &sroute.service[ service_frame_size + 1 ], worker_id, bytes_to_copy );
+    sroute.service[ service_frame_size + 1 + bytes_to_copy ] = '\0';
+  }
   memcpy( sroute.identity, worker_id, worker_id_frame_size );
   sroute.identity[ worker_id_frame_size ] = '\0';
 #ifndef LOAD_BALANCING
@@ -306,8 +333,7 @@ route_msg_back_to_worker( proxy *self,
 
 
 static void
-route_worker_reply( proxy *self,
-                    zmsg_t *msg ) {
+route_worker_msg( proxy *self, zmsg_t *msg ) {
   zframe_t *client_id_frame = zmsg_next( msg );
   size_t client_id_frame_size = zframe_size( client_id_frame );
   assert( client_id_frame_size < IDENTITY_MAX );
@@ -328,6 +354,13 @@ printf( "routing worker reply to client id %s\n", client_id );
     size_t service_frame_size = zframe_size( service_frame );
     assert( service_frame_size != 0 );
         
+    /*
+     * frame 1 - client id frame
+     * frame 2 - empty frame
+     * frame 3 - msg type frame ( REPLY/REPLY_TIMEOUT)
+     * frame 4 - service frame
+     * frame 5 - optional data frame
+     */
     zmsg_t *route_msg = zmsg_new(); 
     zmsg_addmem( route_msg, ( const char * ) zframe_data( client_id_frame ), client_id_frame_size );
     zmsg_addstr( route_msg, "" );
@@ -356,7 +389,7 @@ worker_recv( proxy *self, zmsg_t *msg ) {
     route_msg_back_to_worker( self, msg, worker_id_frame, msg_type_frame );
   }
   else if ( nr_frames >= 5 ) {
-    route_worker_reply( self, msg );   
+    route_worker_msg( self, msg );   
   }
 }
 

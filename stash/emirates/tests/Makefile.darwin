@@ -1,0 +1,87 @@
+# Makefile for test programs
+TREMA = ../../../../trema
+
+CC = gcc
+
+APILIB = -lczmq -lsodium -lzmq -ljansson -lm -lpthread
+APIPATH = -L. -L/usr/local/lib -L/usr/lib
+
+CFLAGS += -I ../include
+CFLAGS += -I ../..
+CFLAGS += -I ../czmq/include
+CFLAGS += -I../../jedex/include
+CFLAGS += $(shell $(TREMA)/trema-config --cflags)
+CFLAGS += -I../usr/local/include
+CFLAGS += -std=gnu99 -D_GNU_SOURCE -g -fno-strict-aliasing -Wall -Wextra -Wformat=2 -Wcast-qual -Wcast-align -Wwrite-strings -Wconversion -Wfloat-equal -Wpointer-arith -O0
+
+LDFLAGS += -lemirates
+LDFLAGS += -ljedex
+LDFLAGS += $(APILIB)
+LDFLAGS += $(shell $(TREMA)/trema-config --libs)
+
+TARGET_SUBSCRIBER_ONLY = subscriber_only
+SRCS_SUBSCRIBER_ONLY = subscriber_only.c
+
+TARGET_PUBLISHER_ONLY = publisher_only
+SRCS_PUBLISHER_ONLY = publisher_only.c
+
+TARGET_RESPONDER_ONLY = responder_only
+SRCS_RESPONDER_ONLY = responder_only.c
+
+TARGET_REQUESTER_ONLY = requester_only
+SRCS_REQUESTER_ONLY = requester_only.c
+
+TARGETS = $(TARGET_SUBSCRIBER_ONLY)
+TARGETS += $(TARGET_PUBLISHER_ONLY)
+TARGETS += $(TARGET_RESPONDER_ONLY)
+TARGETS += $(TARGET_REQUESTER_ONLY)
+
+
+SRCS = $(SRCS_SUBSCRIBER_ONLY)
+OBJS_SUBSCRIBER_ONLY = $(SRCS_SUBSCRIBER_ONLY:.c=.o)
+
+
+SRCS = $(SRCS_PUBLISHER_ONLY)
+OBJS_PUBLISHER_ONLY = $(SRCS_PUBLISHER_ONLY:.c=.o)
+
+SRCS = $(SRCS_RESPONDER_ONLY)
+OBJS_RESPONDER_ONLY = $(SRCS_RESPONDER_ONLY:.c=.o)
+
+SRCS = $(SRCS_REQUESTER_ONLY)
+OBJS_REQUESTER_ONLY = $(SRCS_REQUESTER_ONLY:.c=.o)
+
+OBJS = $(OBJS_SUBSCRIBER_ONLY) 
+OBJS += $(OBJS_PUBLISHER_ONLY) 
+OBJS += $(OBJS_RESPONDER_ONLY) 
+OBJS += $(OBJS_REQUESTER_ONLY) 
+
+DEPENDS = .depends
+
+.PHONY: all depend clean
+
+.SUFFIXES: .c .o
+
+all: depend $(TARGETS)
+
+$(TARGET_SUBSCRIBER_ONLY): $(OBJS_SUBSCRIBER_ONLY)
+	$(CC) $(OBJS_SUBSCRIBER_ONLY) $(APIPATH) $(LDFLAGS) -o $@
+
+$(TARGET_PUBLISHER_ONLY): $(OBJS_PUBLISHER_ONLY)
+	$(CC) $(OBJS_PUBLISHER_ONLY) $(APIPATH) $(LDFLAGS) -o $@
+
+$(TARGET_RESPONDER_ONLY): $(OBJS_RESPONDER_ONLY)
+	$(CC) $(OBJS_RESPONDER_ONLY) $(APIPATH) $(LDFLAGS) -o $@
+
+$(TARGET_REQUESTER_ONLY): $(OBJS_REQUESTER_ONLY)
+	$(CC) $(OBJS_REQUESTER_ONLY) $(APIPATH) $(LDFLAGS) -o $@
+
+.c.o:
+	$(CC) $(CFLAGS) -c $<
+
+depend:
+	$(CC) -MM $(CFLAGS) $(SRCS) > $(DEPENDS)
+
+clean:
+	@rm -rf $(DEPENDS) $(OBJS) $(TARGETS) *~
+
+-include $(DEPENDS)

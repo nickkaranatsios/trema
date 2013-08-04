@@ -28,18 +28,19 @@ extern "C" {
 #endif
 
 
-#include "linked_list_safe.h"
+#include "linked_list.h"
 #include "value.h"
 
 
 typedef struct jedex_parcel {
   const jedex_schema *schema;
-  list *values_list;
+  list_element *values_list;
 } jedex_parcel;
 
 
 jedex_parcel *jedex_parcel_create( jedex_schema *schema, const char *sub_schema_names[] );
 jedex_value *jedex_parcel_value( const jedex_parcel *parcel, const char *schema_name );
+void jedex_parcel_destroy( jedex_parcel **parcel );
 
 
 CLOSE_EXTERN

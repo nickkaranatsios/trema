@@ -42,7 +42,7 @@ kinfo_to_sql( key_info *kinfo, jedex_value *val, int clause, strbuf *command ) {
     const char *cstr = NULL;
     size_t size = 0;
     jedex_value_get_string( &field, &cstr, &size );
-    if ( clause == WHERE_CLAUSE ) {
+    if ( clause == WHERE_CLAUSE && size > 0 ) {
       strbuf_addf( command, "%s='%s' and ", pk_name, cstr );
     }
     else if ( clause == INSERT_CLAUSE ) {
@@ -55,7 +55,7 @@ kinfo_to_sql( key_info *kinfo, jedex_value *val, int clause, strbuf *command ) {
   else if ( key_type == JEDEX_INT32 ) {
     int int_val;
     jedex_value_get_int( &field, &int_val );
-    if ( clause == WHERE_CLAUSE ) {
+    if ( clause == WHERE_CLAUSE && int_val ) {
       strbuf_addf( command, "%s=" PRId32 "and ", pk_name, int_val );
     }
     else if ( clause == INSERT_CLAUSE ) {
@@ -68,7 +68,7 @@ kinfo_to_sql( key_info *kinfo, jedex_value *val, int clause, strbuf *command ) {
   else if ( key_type == JEDEX_INT64 ) {
     int64_t long_val;
     jedex_value_get_long( &field, &long_val );
-    if ( clause == WHERE_CLAUSE ) {
+    if ( clause == WHERE_CLAUSE && long_val ) {
       strbuf_addf( command, "%s=" PRId64 "and ", pk_name, long_val );
     }
     else if ( clause == INSERT_CLAUSE ) {
@@ -81,7 +81,7 @@ kinfo_to_sql( key_info *kinfo, jedex_value *val, int clause, strbuf *command ) {
   else if ( key_type == JEDEX_FLOAT ) {
     float float_val;
     jedex_value_get_float( &field, &float_val );
-    if ( clause == WHERE_CLAUSE ) {
+    if ( clause == WHERE_CLAUSE && float_val ) {
       strbuf_addf( command, "%s=%.17f and ", pk_name, float_val );
     }
     else if ( clause == INSERT_CLAUSE ) {
@@ -94,7 +94,7 @@ kinfo_to_sql( key_info *kinfo, jedex_value *val, int clause, strbuf *command ) {
   else if ( key_type == JEDEX_DOUBLE ) {
     double double_val;
     jedex_value_get_double( &field, &double_val );
-    if ( clause == WHERE_CLAUSE ) {
+    if ( clause == WHERE_CLAUSE  && double_val ) {
       strbuf_addf( command, "%s=%.17g and ", pk_name, double_val );
     }
     else if ( clause == INSERT_CLAUSE ) {
@@ -125,10 +125,7 @@ create_table_clause( key_info *kinfo, void *user_data ) {
   const char *pk_name = kinfo->name;
   const char *sql_type_str = kinfo->sql_type_str;
   
-  strbuf_addf( command, "%s %s not null, PRIMARY KEY(%s),", 
-               pk_name,
-               sql_type_str,
-               pk_name );
+  strbuf_addf( command, "%s %s not null,", pk_name, sql_type_str );
 }
 
 
@@ -150,13 +147,13 @@ tinfo_keys_set( jedex_schema *tbl_schema, table_info *tinfo ) {
       key_info *kinfo = ( key_info * ) xmalloc( sizeof( key_info ) );
       
       kinfo->name = fld_name;
-      strbuf_addf( &merge_key, "%s:", fld_name );
+      strbuf_addf( &merge_key, "%s,", fld_name );
       kinfo->schema_type = jedex_typeof( fld_schema );
       kinfo->sql_type_str = fld_type_str_to_sql( fld_schema );
       tinfo->keys[ tinfo->keys_nr++ ] = kinfo;
     }
   }
-  strbuf_rtrimn( &merge_key, 1 );
+  strbuf_rtrimn( &merge_key, strlen( "," ) );
   tinfo->merge_key = xstrdup( merge_key.buf );
   strbuf_release( &merge_key );
 }
@@ -179,8 +176,7 @@ create_table_if_not_exists( db_info *db, table_info *tinfo ) {
 
   foreach_primary_key( tinfo, create_table_clause, &ref ); 
 
-  strbuf_rtrimn( &command, 1 );
-  strbuf_addstr( &command, ",json text ) ENGINE=InnoDB DEFAULT CHARSET=utf8" );
+  strbuf_addf( &command, "json text, primary key(%s) )ENGINE=InnoDB DEFAULT CHARSET=utf8", tinfo->merge_key );
   query_info *qinfo = query_info_get( tinfo );
   if ( qinfo ) {
     query( db, qinfo, command.buf );
@@ -296,7 +292,7 @@ table_info_get( const char *name, db_info *db ) {
  * "tables" is an array of tables to be created corresponding to the given db.
  * Returns NO_ERROR(0) when no processing errors found.
  */
-DB_MAPPER_ERROR
+db_mapper_error
 set_table_name( const char *db_name, jedex_value *val, mapper *self ) {
   jedex_value field;
   size_t index;

@@ -27,7 +27,7 @@ subscription_callback_add( subscriber_info *self, subscriber_callback *cb ) {
   }
 
   int rc = 0;
-  subscriber_callback *item = lookup_callback( subscriber_callbacks( self ), cb->key.service );
+  subscriber_callback *item = lookup_callback( subscriber_callbacks( self ), cb->key.service, strlen( cb->key.service ) );
   if ( !item ) { 
     rc = zlist_append( subscriber_callbacks( self ), cb );
   }
@@ -68,7 +68,7 @@ subscriber_data_handler( zmq_pollitem_t *poller, void *arg ) {
   zframe_t *sub_frame = zmsg_first( msg );
   if ( sub_frame != NULL ) {
     // match subscription and send to application
-    subscriber_callback *item = lookup_callback( subscriber_callbacks( self ), ( const char * ) zframe_data( sub_frame ) );  
+    subscriber_callback *item = lookup_callback( subscriber_callbacks( self ), ( const char * ) zframe_data( sub_frame ), zframe_size( sub_frame ) );  
     if ( item != NULL ) {
       zframe_t *service_frame = zmsg_next( msg );
       const char *json_data = ( const char * ) zframe_data( service_frame );
@@ -76,7 +76,7 @@ subscriber_data_handler( zmq_pollitem_t *poller, void *arg ) {
       while ( *( item->schemas + i ) ) {
         jedex_value *ret_val = json_to_jedex_value( *( item->schemas + i ), json_data );
         if ( ret_val != NULL ) {
-           item->callback( ret_val, json_data );
+           item->callback( ret_val, json_data, item->user_data );
            break;
         }
         i++;
@@ -191,10 +191,12 @@ static void
 subscribe_to_service( const char *service,
                       subscriber_info *self,
                       const char **schema_names,
+                      void *user_data,
                       subscription_handler user_callback ) {
   subscriber_callback *cb = ( subscriber_callback * ) zmalloc( sizeof( subscriber_callback ) );
   cb->callback = user_callback;
   cb->key.service = service;
+  cb->user_data = user_data;
 
   if ( *schema_names ) {
     size_t nr_schema_names = 0;
@@ -237,10 +239,14 @@ subscriber_invoke( const emirates_priv *priv ) {
 
 
 void
-subscription( emirates_iface *iface, const char *service, const char **schema_names, subscription_handler callback ) {
+subscription( emirates_iface *iface,
+              const char *service,
+              const char **schema_names,
+              void *user_data,
+              subscription_handler callback ) {
   emirates_priv *priv = iface->priv;
   assert( priv );
-  subscribe_to_service( service, priv->subscriber, schema_names, callback );
+  subscribe_to_service( service, priv->subscriber, schema_names, user_data, callback );
 }
 
 

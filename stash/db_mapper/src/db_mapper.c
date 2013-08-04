@@ -20,6 +20,7 @@
 #include "mapper_priv.h"
 
 
+#ifdef TEST
 static void
 set_save_topic( jedex_value *val ) {
   jedex_value field;
@@ -44,7 +45,6 @@ set_find_fruits( jedex_value *val ) {
   jedex_value_set_string( &field, "mango" );
 }
 
-#ifdef TEST
 static void
 set_find_all_fruits( jedex_value *val ) {
   jedex_value branch;
@@ -52,7 +52,6 @@ set_find_all_fruits( jedex_value *val ) {
   
   jedex_value_get_by_name( val, "fruits", &branch, &index );
 }
-#endif
 
 
 void
@@ -88,6 +87,7 @@ set_find_record( mapper *self ) {
     request_find_record_callback( val, json, self );
   }
 }
+
 
 void
 set_fruits( jedex_value *val, const char *name, float price ) {
@@ -173,7 +173,7 @@ insert_publish_data( mapper *self ) {
     request_insert_record_callback( &val, json, self ); 
   }
 
-#ifdef TEST
+#ifdef MANY 
   jedex_value *val = jedex_value_from_iface( val_iface );
   assert( val );
 
@@ -227,6 +227,7 @@ set_delete_record( mapper *self ) {
     request_delete_record_callback( val, json, self );
   }
 }
+#endif
 
 
 /*
@@ -235,9 +236,9 @@ set_delete_record( mapper *self ) {
  * messages.
  * Db_mapper makes the following assumption that the record object key 
  * found in any request message that it receives corresponds to a database table.
- * It also expects that schema information is available for this every table
- * db_mapper is capable of processing. Db_mapper's -s (--schema) option should
- * be used to set this schema file to read. It most cases the schema file
+ * It also expects that schema information is available for this and every other
+ * table db_mapper is capable of processing. Db_mapper's -s (--schema) option
+ * should be used to set this schema file to read. In most cases the schema file
  * contains an array of records.
  */
 int
@@ -245,12 +246,12 @@ main( int argc, char **argv ) {
   mapper *self = NULL;
   self = mapper_initialize( &self, argc, argv );
   if ( self != NULL ) {
-    set_topic( self );
-    set_find_all_records( self );
-    set_find_record( self );
-    insert_publish_data( self );
-    set_update_record( self );
-    set_delete_record( self );
+    // set_topic( self );
+    // set_find_all_records( self );
+    // set_find_record( self );
+    // insert_publish_data( self );
+    // set_update_record( self );
+    // set_delete_record( self );
     emirates_loop( self->emirates );
   }
   else {

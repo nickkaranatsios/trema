@@ -55,6 +55,7 @@ typedef struct reply_callback {
 typedef struct subscriber_callback {
   callback_key key;
   void **schemas;
+  void *user_data;
   subscription_handler callback;
 } subscriber_callback;
 
@@ -66,7 +67,7 @@ typedef struct timer_callback {
 } timer_callback;
 
 
-void *lookup_callback( zlist_t *callbacks, const char *service );
+void *lookup_callback( zlist_t *callbacks, const char *service, size_t service_len );
 
 
 CLOSE_EXTERN

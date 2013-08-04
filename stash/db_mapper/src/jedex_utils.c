@@ -85,7 +85,7 @@ get_string_field( jedex_value *val, const char *name, const char **field_name ) 
  * Sets the error field of db_mapper_reply record.
  */
 void
-db_reply_set( jedex_value *val, DB_MAPPER_ERROR err ) {
+db_reply_set( jedex_value *val, db_mapper_error err ) {
   jedex_value field;
   size_t index;
   jedex_value_get_by_name( val, "error", &field, &index );

@@ -48,12 +48,12 @@ wait_for_reply( void *socket ) {
 
 
 void *
-lookup_callback( zlist_t *callbacks, const char *service ) {
+lookup_callback( zlist_t *callbacks, const char *service, size_t service_len ) {
   void *item = zlist_first( callbacks );
   callback_key *key = ( callback_key * ) item;
 
   while ( item != NULL ) {
-    if ( !strcmp( key->service, service ) ) {
+    if ( !strncmp( key->service, service, service_len ) ) {
       return item;
     }
     item = zlist_next( callbacks );

@@ -42,7 +42,7 @@ extern "C" {
 
 
 #include "log_writer.h"
-#include "linked_list_safe.h"
+#include "linked_list.h"
 #include "priv.h"
 #include "allocation.h"
 #include "basics.h"

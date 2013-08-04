@@ -22,7 +22,8 @@
 
 
 static void
-menu_subscription_callback( jedex_value *val, const char *json ) {
+menu_subscription_callback( jedex_value *val, const char *json, void *user_data ) {
+  assert( user_data );
   if ( json ) {
     printf( "%s\n", json );
   }
@@ -63,7 +64,7 @@ main( int argc, char **argv ) {
   emirates_iface *iface = emirates_initialize_only( ENTITY_SET( flag, SUBSCRIBER ) );
   if ( iface != NULL ) {
     const char *sub_schema_names[] = { NULL };
-    iface->set_subscription( iface, "menu", sub_schema_names, menu_subscription_callback );
+    iface->set_subscription( iface, "menu", sub_schema_names, iface, menu_subscription_callback );
     emirates_loop( iface );
     emirates_finalize( &iface );
   }

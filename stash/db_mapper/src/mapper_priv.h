@@ -157,7 +157,7 @@ void where_clause( key_info *kinfo, void *user_data );
 void redis_clause( key_info *kinfo, void *user_data );
 void foreach_primary_key( table_info *tinfo, primary_key_fn fn, void *user_data );
 const char * fld_type_str_to_sql( jedex_schema *fld_schema );
-DB_MAPPER_ERROR set_table_name( const char *db_name, jedex_value *val, mapper *self );
+db_mapper_error set_table_name( const char *db_name, jedex_value *val, mapper *self );
 const char *db_info_dbname( mapper *self, const char *tbl_name );
 
 /*
@@ -167,7 +167,7 @@ const char *db_info_dbname( mapper *self, const char *tbl_name );
 const char *table_name_get( jedex_value *val );
 jedex_schema *table_schema_get( const char *tbl_name, jedex_schema *schema );
 void get_string_field( jedex_value *val, const char *name, const char **field_name );
-void db_reply_set( jedex_value *val, DB_MAPPER_ERROR err );
+void db_reply_set( jedex_value *val, db_mapper_error err );
 
 
 CLOSE_EXTERN

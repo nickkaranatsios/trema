@@ -73,20 +73,19 @@ request_save_topic_callback( jedex_value *val, const char *json, void *user_data
   const char *db_name = NULL;
   get_string_field( val, "dbname", &db_name );
 
-  DB_MAPPER_ERROR err = set_table_name( db_name, val, self );
+  db_mapper_error err = set_table_name( db_name, val, self );
   
   const char *topic = NULL;
   get_string_field( val, "topic", &topic );
   const char *schemas[] = { NULL };
-  self->emirates->set_subscription( self->emirates, topic, schemas, topic_subscription_callback );
+  self->emirates->set_subscription( self->emirates, topic, schemas, user_data, topic_subscription_callback );
 
-  // TODO send a proper reply back to caller
   db_reply_set( self->reply_val, err );
   self->emirates->send_reply( self->emirates, "save_topic", self->reply_val );
 }
 
 
-static void
+static db_mapper_error
 unpack_find_object( mapper *self, jedex_value *val, const char *tbl_name ) {
   strbuf sb = STRBUF_INIT;
 
@@ -101,8 +100,16 @@ unpack_find_object( mapper *self, jedex_value *val, const char *tbl_name ) {
   table_info *tinfo = table_info_get( tbl_name, db );
 
   foreach_primary_key( tinfo, where_clause, &ref );
-  strbuf_rtrimn( &sb, strlen( "and " ) );
+  if ( !suffixcmp( sb.buf, "and " ) ) {
+    strbuf_rtrimn( &sb, strlen( "and " ) );
+  }
+  else {
+    // can not find a record without any primary key setting.
+    strbuf_release( &sb );
+    return DB_REC_NOT_FOUND;
+  }
 
+  db_mapper_error err = NO_ERROR;
   query_info *qinfo = query_info_get( tinfo );
   if ( qinfo != NULL ) {
     if ( !query( db, qinfo, sb.buf ) ) {
@@ -114,14 +121,19 @@ unpack_find_object( mapper *self, jedex_value *val, const char *tbl_name ) {
           char *json = strbuf_rsplit( &sb, '|' );
           *( json - 1 ) = '\0';
           char *keys = sb.buf;
-          printf( "keys %s json %s\n", json, keys );
+          printf( "keys %s json %s\n", keys, json );
         }
       }
       query_free_result( qinfo );
-        //self->emirates->send_reply_raw( self->emirates, "find_record_reply", json ); 
+        //self->emirates->send_reply_raw( self->emirates, "find_record", json ); 
+    }
+    else {
+      err = DB_REC_NOT_FOUND;
     }
   }
   strbuf_release( &sb );
+
+  return err;
 }
 
 
@@ -205,10 +217,13 @@ unpack_delete_object( mapper *self, jedex_value *val, const char *tbl_name ) {
 }
 
 
-
-
-
-
+/*
+ * Processing of the find record message. Expected a record with the primary
+ * key information filled in. Multiple kye records concatenated together in 
+ * the where clause of the SQL statement. If have multiple keys and a key is
+ * not set it is ignored. By not set we mean that it has a value that if it is
+ * a string is an empty string or if it is numeric it has the value of zero.
+ */
 void
 request_find_record_callback( jedex_value *val, const char *json, void *user_data ) {
   UNUSED( json );
@@ -217,7 +232,10 @@ request_find_record_callback( jedex_value *val, const char *json, void *user_dat
 
   const char *tbl_name = table_name_get( val );
   if ( tbl_name != NULL ) {
-    unpack_find_object( self, val, tbl_name );
+    db_mapper_error err = unpack_find_object( self, val, tbl_name );
+    if ( err != NO_ERROR ) {
+      self->emirates->send_reply_raw( self->emirates, "find_record", json );
+    }
   }
 }
 

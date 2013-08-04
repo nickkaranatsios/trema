@@ -114,7 +114,7 @@ mapper_initialize( mapper **mptr, int argc, char **argv ) {
   }
   
   // do not create db if false
-  bool hint = false;
+  bool hint = args->create_db;
   if ( db_create( self, hint ) ) {
     return NULL;
   }
@@ -130,6 +130,9 @@ mapper_initialize( mapper **mptr, int argc, char **argv ) {
   }
   self->request_reply_schema = jedex_initialize( args->request_reply_schema_fn );
   check_ptr_return( self->request_reply_schema, NULL, "Failed to initialize request/reply schema" );
+
+  // we don't need the command line arguments anymore
+  xfree( args );
 
   jedex_schema *reply_schema = jedex_schema_get_subschema( self->request_reply_schema, "db_mapper_reply" );
   check_ptr_return( reply_schema, NULL, "Failed to get db_mapper_reply schema" );
@@ -157,11 +160,11 @@ mapper_initialize( mapper **mptr, int argc, char **argv ) {
 
   jedex_schema *request_schema = jedex_schema_get_subschema( self->request_reply_schema, "save_all" );
   check_ptr_return( request_schema, NULL, "Failed to get request save_all schema" );
-  ( self )->emirates->set_service_request( self->emirates,
-                                            "save_topic",
-                                            request_schema,
-                                            self,
-                                            request_save_topic_callback );
+  self->emirates->set_service_request( self->emirates,
+                                       "save_topic",
+                                       request_schema,
+                                       self,
+                                       request_save_topic_callback );
   sleep( 1 );
   set_ready( self->emirates );
 
@@ -171,15 +174,17 @@ mapper_initialize( mapper **mptr, int argc, char **argv ) {
 
 void
 mapper_finalize( mapper **mptr ) {
-  emirates_finalize( &( *mptr )->emirates );
-  redisFree( ( *mptr )->rcontext );
-  jedex_finalize( &( *mptr )->request_reply_schema );
-  jedex_finalize( &( *mptr )->schema );
-  for ( uint32_t i  = 0; i < ( *mptr )->dbs_nr; i++ ) {
-    db_info *db = ( *mptr )->dbs[ i ];
+  mapper *self = *mptr;
+  emirates_finalize( &self->emirates );
+  redisFree( self->rcontext );
+  jedex_finalize( &self->request_reply_schema );
+  jedex_finalize( &self->schema );
+  for ( uint32_t i  = 0; i < self->dbs_nr; i++ ) {
+    db_info *db = self->dbs[ i ];
     mysql_close( db->db_handle );
     xfree( db->name );
 	}
+  xfree( self );
 }
 
 

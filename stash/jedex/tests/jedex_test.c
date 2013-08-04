@@ -507,6 +507,8 @@ main( int argc, char **argv ) {
       jedex_value *val = jedex_parcel_value( parcel, "" );
       assert( val );
 
+      jedex_parcel_destroy( &parcel );
+
       set_db_record( val );
 
       char *json;
@@ -530,6 +532,8 @@ main( int argc, char **argv ) {
 
       jedex_value *val = jedex_parcel_value( parcel, "" );
       assert( val );
+
+      jedex_parcel_destroy( &parcel );
 
       set_simple_map_double( val );
 
@@ -555,6 +559,8 @@ main( int argc, char **argv ) {
       jedex_value *val = jedex_parcel_value( parcel, "" );
       assert( val );
 
+      jedex_parcel_destroy( &parcel );
+
       set_simple_array( val );
 
       char *json;
@@ -579,6 +585,8 @@ main( int argc, char **argv ) {
       jedex_value *val = jedex_parcel_value( parcel, "" );
       assert( val );
 
+      jedex_parcel_destroy( &parcel );
+
       set_ref_to_another( val );
 
       char *json;
@@ -602,6 +610,8 @@ main( int argc, char **argv ) {
 
       jedex_value *val = jedex_parcel_value( parcel, "" );
       assert( val );
+
+      jedex_parcel_destroy( &parcel );
 
       set_union_vegetables( val );
       set_union_meat( val );
@@ -629,6 +639,8 @@ main( int argc, char **argv ) {
       jedex_value *val = jedex_parcel_value( parcel, "" );
       assert( val );
 
+      jedex_parcel_destroy( &parcel );
+
       set_menu_union_value( val );
 
       char *json;
@@ -653,6 +665,8 @@ main( int argc, char **argv ) {
 
       set_menu_record_value( val );
 
+      jedex_parcel_destroy( &parcel );
+
       char *json;
       jedex_value_to_json( val, false, &json );
       printf( "json: %s\n", json );
@@ -676,6 +690,8 @@ main( int argc, char **argv ) {
       assert( val );
 
       set_fruits( val );
+
+      jedex_parcel_destroy( &parcel );
 
       char *json;
       jedex_value_to_json( val, false, &json );
@@ -715,6 +731,8 @@ main( int argc, char **argv ) {
 
       val = jedex_parcel_value( parcel, sub_schemas[ 1 ] );
       assert( val );
+
+      jedex_parcel_destroy( &parcel );
 
       set_meat( val );
 

@@ -24,7 +24,8 @@ static char const * const mapper_usage[] = {
   "  -d --daemonize                             run as a daemon",
   "  -c --config=config_fn                      set config fn to read",
   "  -s --schema=schema_fn                      set schema fn to read",
-  "  -r --request_reply_schema=schema_fn        set request reply schema fn to read",
+  "  -f --request_reply_schema=schema_fn        set request reply schema fn to read",
+  "  -r --create_db                             create db at startup",
   "  -h --help                                  display usage and exit",
   NULL
 };
@@ -66,10 +67,13 @@ handle_option( int c, char *optarg, void *user_data ) {
         args->schema_fn = optarg;
       }
     break;
-    case 'r':
+    case 'f':
       if ( optarg ) {
         args->request_reply_schema_fn = optarg;
       }
+    break;
+    case 'r':
+      args->create_db = true;
     break;
     default:
       log_err( "Unrecognized option skip" );
@@ -85,11 +89,12 @@ parse_options( int argc, char **argv, void *user_data ) {
     { "daemonize", no_argument, 0, 'd' },
     { "config", required_argument, 0, 'c' },
     { "schema", required_argument, 0, 's' },
-    { "request_reply_schema", required_argument, 0, 'r' },
+    { "request_reply_schema", required_argument, 0, 'f' },
+    { "create_db", no_argument, 0, 'r' },
     { "help", no_argument, 0, 'h' },
     { 0, 0, 0, 0 },
   };
-  const char *short_options = "l:dc:s:r:h";
+  const char *short_options = "l:dc:s:frh";
 
   int c;
   int index = 0;

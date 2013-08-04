@@ -35,6 +35,7 @@ typedef struct mapper_args {
   const char *schema_fn;
   const char *request_reply_schema_fn;
   bool run_as_daemon;
+  bool create_db;
 } mapper_args;
 
 

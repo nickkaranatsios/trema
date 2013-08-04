@@ -38,8 +38,12 @@ SRCS_DB_MAPPER += message.c
 
 
 TARGETS = $(TARGET_DB_MAPPER)
+
 SRCS = $(SRCS_DB_MAPPER)
+
 OBJS_DB_MAPPER = $(SRCS_DB_MAPPER:.c=.o)
+
+OBJS = $(OBJS_DB_MAPPER)
 
 DEPENDS = .depends
 

@@ -167,7 +167,7 @@ request_callback_add( responder_info *self, request_callback *cb ) {
   assert( responder_callbacks( self ) );
 
   int rc = 0;
-  request_callback *item = lookup_callback( responder_callbacks( self ), cb->key.service );
+  request_callback *item = lookup_callback( responder_callbacks( self ), cb->key.service, strlen( cb->key.service ) );
   if ( !item ) { 
     rc = zlist_append( responder_callbacks( self ), cb );
   }
@@ -208,7 +208,7 @@ route_msg( const emirates_priv *self, zmsg_t *msg, zframe_t *msg_type_frame ) {
     memcpy( service, zframe_data( service_frame ), frame_size );
     service[ frame_size ] = '\0';
 
-    request_callback *handler = lookup_callback( responder_callbacks( self->responder ), service );
+    request_callback *handler = lookup_callback( responder_callbacks( self->responder ), service, frame_size );
     if ( handler ) {
       zframe_t *data_frame = zmsg_next( msg );
 

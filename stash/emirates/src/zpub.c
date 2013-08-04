@@ -20,19 +20,25 @@
 
 
 static void
-publish_service( const char *service, publisher_info *self, jedex_parcel *parcel ) {
-  for ( list_element_safe *e = parcel->values_list->head; e != NULL; e = e->next ) {
+publish_msg( const char *service, jedex_value *value, publisher_info *self ) {
+  char *json;
+  jedex_value_to_json( value, true, &json );
+  if ( json ) {
+    zmsg_t *msg = zmsg_new();
+    zmsg_addmem( msg, service, strlen( service ) );
+    zmsg_addmem( msg, json, strlen( json ) );
+    zmsg_send( &msg, publisher_socket( self ) );
+    zmsg_destroy( &msg );
+    free( json );
+  }
+}
+
+
+static void
+publish_service( const char *service, jedex_parcel *parcel, publisher_info *self ) {
+  for ( list_element *e = parcel->values_list; e != NULL; e = e->next ) {
     jedex_value *item = e->data;
-    char *json;
-    jedex_value_to_json( item, true, &json );
-    if ( json ) {
-      zmsg_t *msg = zmsg_new();
-      zmsg_addmem( msg, service, strlen( service ) );
-      zmsg_addmem( msg, json, strlen( json ) );
-      zmsg_send( &msg, publisher_socket( self ) );
-      zmsg_destroy( &msg );
-      free( json );
-    }
+    publish_msg( service, item, self );
   }
 
   return;
@@ -98,7 +104,13 @@ get_publisher_socket( emirates_priv *priv ) {
 
 void
 publish( emirates_iface *iface, const char *service, jedex_parcel *parcel ) {
-  publish_service( service, ( priv( iface ) )->publisher, parcel );
+  publish_service( service, parcel, ( priv( iface ) )->publisher );
+}
+
+
+void
+publish_value( emirates_iface *iface, const char *service, jedex_value *value ) {
+  publish_msg( service, value, ( priv( iface ) )->publisher );
 }
 
 

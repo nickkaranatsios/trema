@@ -54,7 +54,7 @@ typedef struct reply_callback {
 
 typedef struct subscriber_callback {
   callback_key key;
-  void **schemas;
+  jedex_schema **schemas;
   void *user_data;
   subscription_handler callback;
 } subscriber_callback;

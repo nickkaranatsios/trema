@@ -27,6 +27,12 @@ menu_subscription_callback( jedex_value *val, const char *json, void *user_data 
   if ( json ) {
     printf( "%s\n", json );
   }
+  if ( val ) {
+    jedex_schema *schema = jedex_value_get_schema( val );
+    if ( schema ) {
+      jedex_finalize( &schema );
+    }
+  }
 }
 
 
@@ -51,20 +57,17 @@ main( int argc, char **argv ) {
   UNUSED( argv );
   jedex_schema *schema = jedex_initialize( "" );
 
-  const char *sub_schemas[] = { NULL };
-  jedex_parcel *parcel = jedex_parcel_create( schema, sub_schemas );
-  assert( parcel );
-
-  jedex_value *val = jedex_parcel_value( parcel, "" );
-  assert( val );
-
-  set_menu_record_value( val );
-
   int flag = 0;
   emirates_iface *iface = emirates_initialize_only( ENTITY_SET( flag, SUBSCRIBER ) );
   if ( iface != NULL ) {
-    const char *sub_schema_names[] = { NULL };
-    iface->set_subscription( iface, "menu", sub_schema_names, iface, menu_subscription_callback );
+    //const char *sub_schema_names[] = { NULL };
+    //iface->set_subscription( iface, "menu", sub_schema_names, iface, menu_subscription_callback );
+    jedex_schema *array_schema = jedex_schema_array( schema );
+    jedex_schema **schemas = ( jedex_schema ** ) zmalloc( sizeof( jedex_schema * ) * 2 + 1 );
+    schemas[ 0 ] = schema;
+    schemas[ 1 ] = array_schema;
+    schemas[ 2 ] = NULL;
+    iface->set_subscription_new( iface, "menu", schemas, iface, menu_subscription_callback );
     emirates_loop( iface );
     emirates_finalize( &iface );
   }

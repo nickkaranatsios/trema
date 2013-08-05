@@ -81,7 +81,7 @@ kinfo_to_sql( key_info *kinfo, jedex_value *val, int clause, strbuf *command ) {
   else if ( key_type == JEDEX_FLOAT ) {
     float float_val;
     jedex_value_get_float( &field, &float_val );
-    if ( clause == WHERE_CLAUSE && float_val ) {
+    if ( clause == WHERE_CLAUSE && ( float_val < 0.0f || float_val > 0.0f ) ) {
       strbuf_addf( command, "%s=%.17f and ", pk_name, float_val );
     }
     else if ( clause == INSERT_CLAUSE ) {
@@ -94,7 +94,7 @@ kinfo_to_sql( key_info *kinfo, jedex_value *val, int clause, strbuf *command ) {
   else if ( key_type == JEDEX_DOUBLE ) {
     double double_val;
     jedex_value_get_double( &field, &double_val );
-    if ( clause == WHERE_CLAUSE  && double_val ) {
+    if ( clause == WHERE_CLAUSE  && ( double_val < 0.0 || double_val > 0.0 ) ) {
       strbuf_addf( command, "%s=%.17g and ", pk_name, double_val );
     }
     else if ( clause == INSERT_CLAUSE ) {

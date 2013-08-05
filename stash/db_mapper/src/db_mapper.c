@@ -230,6 +230,15 @@ set_delete_record( mapper *self ) {
 #endif
 
 
+static void
+test_assign( jedex_schema **schemas ) {
+  jedex_schema **test;
+
+  test = schemas;
+  assert( test );
+}
+
+
 /*
  * Db_mapper when it receives a save_topic message would create the database
  * and the given tables. Db_mapper expects to receive multiple save_topic
@@ -246,6 +255,8 @@ main( int argc, char **argv ) {
   mapper *self = NULL;
   self = mapper_initialize( &self, argc, argv );
   if ( self != NULL ) {
+    jedex_schema **schemas = ( jedex_schema ** ) xmalloc ( 2 * sizeof( jedex_schema * ) * 2  );
+    test_assign( schemas );
     // set_topic( self );
     // set_find_all_records( self );
     // set_find_record( self );

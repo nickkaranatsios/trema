@@ -18,6 +18,7 @@
 
 #include "emirates.h"
 #include "jedex_iface.h"
+#include "generic.h"
 #include "checks.h"
 
 
@@ -36,6 +37,14 @@ set_menu_record_value( jedex_value *val ) {
 }
 
 
+static void
+set_menu_array( jedex_value *val ) {
+  jedex_value element;
+  jedex_value_append( val, &element, NULL );
+  set_menu_record_value( &element );
+}
+
+
 int
 main( int argc, char **argv ) {
   UNUSED( argc );
@@ -49,13 +58,18 @@ main( int argc, char **argv ) {
   jedex_value *val = jedex_parcel_value( parcel, "" );
   assert( val );
 
-  set_menu_record_value( val );
+  jedex_schema *array_schema = jedex_schema_array( schema );
+  jedex_value_iface *array_class = jedex_generic_class_from_schema( array_schema );
+  jedex_generic_value_new( array_class, val );
+
+  set_menu_array( val );
+  //set_menu_record_value( val );
 
   int flag = 0;
   emirates_iface *iface = emirates_initialize_only( ENTITY_SET( flag, PUBLISHER ) );
   if ( iface != NULL ) {
     zclock_sleep( 5 * 1000 );
-    iface->publish( iface, "menu", parcel );
+    iface->publish_value( iface, "menu", val );
     zclock_sleep( 5 * 1000 );
   }
   emirates_finalize( &iface );

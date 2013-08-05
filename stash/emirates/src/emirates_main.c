@@ -184,12 +184,14 @@ initialize_entities( emirates_iface *iface, const int flag ) {
     }
     iface->get_publisher = publisher;
     iface->publish = publish;
+    iface->publish_value = publish_value;
   }
   if ( ENTITY_TST( flag, SUBSCRIBER ) ) {
     if ( subscriber_init( iface->priv ) ) {
       return NULL;
     }
     iface->set_subscription = subscription;
+    iface->set_subscription_new = subscription_new;
   }
   if ( ENTITY_TST( flag, RESPONDER ) ) {
     if ( responder_init( iface->priv ) ) {

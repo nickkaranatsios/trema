@@ -21,7 +21,8 @@
 
 
 static void
-topic_subscription_callback( jedex_value *val, const char *json ) {
+topic_subscription_callback( jedex_value *val, const char *json, void *user_data ) {
+  UNUSED( user_data );
   UNUSED( val );
   if ( json ) {
     printf( "topic subscription callback called %s\n", json );

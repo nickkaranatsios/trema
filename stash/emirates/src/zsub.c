@@ -44,8 +44,11 @@ subscription_callback_free( zlist_t *callbacks ) {
   subscriber_callback *item = zlist_first( callbacks );
 
   while ( item != NULL ) {
-    if ( *item->schemas ) {
-      free_array( item->schemas );
+    int i = 0;
+    while ( *( item->schemas + i ) ) {
+      jedex_schema *ptr = *( item->schemas + i );
+      jedex_finalize( &ptr );
+      i++;
     }
     item = zlist_next( callbacks );
   }
@@ -57,7 +60,6 @@ static int
 subscriber_data_handler( zmq_pollitem_t *poller, void *arg ) {
   subscriber_info *self = arg;
 
-  
   zmsg_t *msg = one_or_more_msg( poller->socket );
   
   size_t nr_frames = zmsg_size( msg );
@@ -71,7 +73,8 @@ subscriber_data_handler( zmq_pollitem_t *poller, void *arg ) {
     subscriber_callback *item = lookup_callback( subscriber_callbacks( self ), ( const char * ) zframe_data( sub_frame ), zframe_size( sub_frame ) );  
     if ( item != NULL ) {
       zframe_t *service_frame = zmsg_next( msg );
-      const char *json_data = ( const char * ) zframe_data( service_frame );
+      char *json_data = ( char * ) zframe_data( service_frame );
+      json_data[ zframe_size( service_frame ) ] = '\0';
       int i = 0;
       while ( *( item->schemas + i ) ) {
         jedex_value *ret_val = json_to_jedex_value( *( item->schemas + i ), json_data );
@@ -83,7 +86,6 @@ subscriber_data_handler( zmq_pollitem_t *poller, void *arg ) {
       }
     }
   }
-  zmsg_destroy( &msg );
 
   return rc;
 }
@@ -103,7 +105,6 @@ subscriber_input( zloop_t *loop, zmq_pollitem_t *poller, void *arg ) {
   else {
     log_err( "Failed to send subscribed topic to parent thread" );
   }
-  zmsg_destroy( &msg );
 
   return rc;
 }
@@ -203,8 +204,8 @@ subscribe_to_service( const char *service,
     while ( *( schema_names + nr_schema_names ) ) {
       nr_schema_names++;
     }
-    size_t schema_size = sizeof( void * ) * nr_schema_names + 1;
-    cb->schemas = ( void ** ) zmalloc( schema_size );
+    size_t schema_size = sizeof( jedex_schema * ) * nr_schema_names + 1;
+    cb->schemas = ( jedex_schema ** ) zmalloc( schema_size );
     size_t i;
     for ( i = 0; i < nr_schema_names; i++ ) {
       cb->schemas[ i ] = jedex_initialize( schema_names[ i ] );
@@ -213,7 +214,7 @@ subscribe_to_service( const char *service,
   }
   else {
     size_t schema_size = sizeof( void * ) * 2;
-    cb->schemas = ( void ** ) zmalloc( schema_size );
+    cb->schemas = ( jedex_schema ** ) zmalloc( schema_size );
     cb->schemas[ 0 ] = jedex_initialize( "" );
     cb->schemas[ 1 ] = NULL;
   }
@@ -223,7 +224,6 @@ subscribe_to_service( const char *service,
     zmsg_addstr( set_subscription, SUBSCRIPTION_MSG );
     zmsg_addstr( set_subscription, service );
     zmsg_send( &set_subscription, subscriber_socket( self ) );
-    zmsg_destroy( &set_subscription );
   }
   else {
     free_array( cb->schemas );
@@ -242,35 +242,21 @@ subscribe_to_service_new( const char *service,
   cb->callback = user_callback;
   cb->key.service = service;
   cb->user_data = user_data;
+  cb->schemas = schemas;
 
-  if ( *schemas ) {
-    size_t nr_schemas = 0;
-    while ( *( schemas + nr_schemas ) ) {
-      nr_schemas++;
-    }
-    size_t schema_size = sizeof( void * ) * nr_schemas + 1;
-    cb->schemas = ( void ** ) zmalloc( schema_size );
-    size_t i;
-    for ( i = 0; i < nr_schemas; i++ ) {
-      cb->schemas[ i ] = schemas[ i ];
-    }
-    cb->schemas[ i ] = NULL;
-  }
-  else {
-    size_t schema_size = sizeof( void * );
-    cb->schemas = ( void ** ) zmalloc( schema_size );
-    cb->schemas[ 0 ] = NULL;
-  }
-    
   if ( !subscription_callback_add( self, cb ) ) {
     zmsg_t *set_subscription = zmsg_new();
     zmsg_addstr( set_subscription, SUBSCRIPTION_MSG );
     zmsg_addstr( set_subscription, service );
     zmsg_send( &set_subscription, subscriber_socket( self ) );
-    zmsg_destroy( &set_subscription );
   }
   else {
-    free_array( cb->schemas );
+    int i = 0;
+    while ( *( cb->schemas + i ) ) {
+      jedex_schema *ptr = *( cb->schemas + i );
+      jedex_finalize( &ptr );
+      i++;
+    }
     free( cb );
   }
 }

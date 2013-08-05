@@ -617,12 +617,17 @@ unpack_array( json_t *json_value, jedex_value *val ) {
 
 
 static int
-jedex_parse_json( json_t *root, jedex_value *val ) {
+jedex_parse_json( json_t *root, jedex_value *val, jedex_schema *schema ) {
   int rc = 0;
  
   if ( root ) {
     if ( json_is_array( root ) ) {
-      unpack_array( root, val );
+      if ( is_jedex_array( schema ) || is_jedex_union( schema ) ) {
+        unpack_array( root, val );
+      }
+      else {
+        return EINVAL;
+      }
     }
     if ( json_is_object( root ) ) {
       unpack_object( root, val );
@@ -660,7 +665,7 @@ json_to_jedex_value( void *schema, const char *json ) {
     return NULL;
   }
   jedex_value *val = jedex_value_from_iface( val_iface );
-  int rc = jedex_parse_json( root, val );
+  int rc = jedex_parse_json( root, val, schema );
 
   return rc == 0 ? val : NULL;
 }

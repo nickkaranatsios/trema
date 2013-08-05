@@ -23,7 +23,9 @@
 static void
 topic_subscription_callback( jedex_value *val, const char *json ) {
   UNUSED( val );
-  UNUSED( json );
+  if ( json ) {
+    printf( "topic subscription callback called %s\n", json );
+  }
 }
 
 
@@ -77,7 +79,21 @@ request_save_topic_callback( jedex_value *val, const char *json, void *user_data
   
   const char *topic = NULL;
   get_string_field( val, "topic", &topic );
-  const char *schemas[] = { NULL };
+
+#ifdef LATER
+  db_info *db = db_info_get( db_name, self );
+  jedex_schemas **schemas = ( jedex_schema ** ) xmalloc ( db->tables_nr * sizeof( jedex_schema * ) * 2  );
+  int j;
+  for ( size_t i = 0, j = -1; i < db->tables_nr++; i++ ) {
+    jedex_schema *tbl_schema = jedex_schema_get_subschema( self->schema, db->tables[ i ].name );
+    jedex_schema *array_schema = jedex_schema_arrary( tbl_schema );
+    j = i;
+    schemas[ j++ ] = tbl_schemas;
+    schemas[ j++ ] = array_schema;
+  }
+#endif
+
+  const char *schemas[] = { db_name, NULL };
   self->emirates->set_subscription( self->emirates, topic, schemas, user_data, topic_subscription_callback );
 
   db_reply_set( self->reply_val, err );

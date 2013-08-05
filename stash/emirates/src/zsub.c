@@ -232,6 +232,49 @@ subscribe_to_service( const char *service,
 }
 
 
+static void
+subscribe_to_service_new( const char *service,
+                      subscriber_info *self,
+                      jedex_schema **schemas,
+                      void *user_data,
+                      subscription_handler user_callback ) {
+  subscriber_callback *cb = ( subscriber_callback * ) zmalloc( sizeof( subscriber_callback ) );
+  cb->callback = user_callback;
+  cb->key.service = service;
+  cb->user_data = user_data;
+
+  if ( *schemas ) {
+    size_t nr_schemas = 0;
+    while ( *( schemas + nr_schemas ) ) {
+      nr_schemas++;
+    }
+    size_t schema_size = sizeof( void * ) * nr_schemas + 1;
+    cb->schemas = ( void ** ) zmalloc( schema_size );
+    size_t i;
+    for ( i = 0; i < nr_schemas; i++ ) {
+      cb->schemas[ i ] = schemas[ i ];
+    }
+    cb->schemas[ i ] = NULL;
+  }
+  else {
+    size_t schema_size = sizeof( void * );
+    cb->schemas = ( void ** ) zmalloc( schema_size );
+    cb->schemas[ 0 ] = NULL;
+  }
+    
+  if ( !subscription_callback_add( self, cb ) ) {
+    zmsg_t *set_subscription = zmsg_new();
+    zmsg_addstr( set_subscription, SUBSCRIPTION_MSG );
+    zmsg_addstr( set_subscription, service );
+    zmsg_send( &set_subscription, subscriber_socket( self ) );
+    zmsg_destroy( &set_subscription );
+  }
+  else {
+    free_array( cb->schemas );
+    free( cb );
+  }
+}
+
 int
 subscriber_invoke( const emirates_priv *priv ) {
   return subscriber_poll( priv );
@@ -247,6 +290,18 @@ subscription( emirates_iface *iface,
   emirates_priv *priv = iface->priv;
   assert( priv );
   subscribe_to_service( service, priv->subscriber, schema_names, user_data, callback );
+}
+
+
+void
+subscription_new( emirates_iface *iface,
+                  const char *service,
+                  jedex_schema **schemas,
+                  void *user_data,
+              subscription_handler callback ) {
+  emirates_priv *priv = iface->priv;
+  assert( priv );
+  subscribe_to_service_new( service, priv->subscriber, schemas, user_data, callback );
 }
 
 

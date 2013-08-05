@@ -65,6 +65,11 @@ struct emirates_iface {
                                const char **schema_names,
                                void *user_data,
                                subscription_handler subscription_callback );
+  void ( *set_subscription_new ) ( emirates_iface *iface,
+                               const char *service,
+                               jedex_schema **schemas,
+                               void *user_data,
+                               subscription_handler subscription_callback );
   void ( *publish ) ( emirates_iface *iface, const char *service, jedex_parcel *parcel );
   void ( *publish_value ) ( emirates_iface *iface, const char *service, jedex_value *value );
   uint32_t ( *send_request ) ( emirates_iface *iface,
@@ -92,6 +97,11 @@ void service_reply( emirates_iface *iface, const char *service, reply_handler ca
 void subscription( emirates_iface *iface,
                    const char *service,
                    const char **schema_names,
+                   void *user_data,
+                   subscription_handler subscription_callback );
+void subscription_new( emirates_iface *iface,
+                   const char *service,
+                   jedex_schema **schemas,
                    void *user_data,
                    subscription_handler subscription_callback );
 uint32_t send_request( emirates_iface *iface, const char *service, jedex_value *value, jedex_schema *reply_schema );

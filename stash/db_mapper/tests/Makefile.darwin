@@ -1,0 +1,52 @@
+# Makefile for test programs
+TREMA = ../../../../trema
+
+CC = gcc
+
+APILIB = -lczmq -lsodium -lzmq -ljansson -lm -lpthread
+APIPATH = -L. -L/usr/local/lib -L/usr/lib
+
+CFLAGS += -I ../../emirates/include
+CFLAGS += -I ../..
+CFLAGS += -I ../czmq/include
+CFLAGS += -I../../jedex/include
+CFLAGS += $(shell $(TREMA)/trema-config --cflags)
+CFLAGS += -I../usr/local/include
+CFLAGS += -std=gnu99 -D_GNU_SOURCE -g -fno-strict-aliasing -Wall -Wextra -Wformat=2 -Wcast-qual -Wcast-align -Wwrite-strings -Wconversion -Wfloat-equal -Wpointer-arith -O0
+
+LDFLAGS += -lemirates
+LDFLAGS += -ljedex
+LDFLAGS += $(APILIB)
+LDFLAGS += $(shell $(TREMA)/trema-config --libs)
+
+TARGET_DB_REQUESTER = db_requester
+SRCS_DB_REQUESTER = db_requester.c
+
+TARGETS = $(TARGET_DB_REQUESTER)
+
+SRCS = $(SRCS_DB_REQUESTER)
+OBJS_DB_REQUESTER = $(SRCS_DB_REQUESTER:.c=.o)
+
+OBJS = $(OBJS_DB_REQUESTER)
+
+DEPENDS = .depends
+
+.PHONY: all depend clean
+
+.SUFFIXES: .c .o
+
+all: depend $(TARGETS)
+
+$(TARGET_DB_REQUESTER): $(OBJS_DB_REQUESTER)
+	$(CC) $(OBJS_DB_REQUESTER) $(APIPATH) $(LDFLAGS) -o $@
+
+.c.o:
+	$(CC) $(CFLAGS) -c $<
+
+depend:
+	$(CC) -MM $(CFLAGS) $(SRCS) > $(DEPENDS)
+
+clean:
+	@rm -rf $(DEPENDS) $(OBJS) $(TARGETS) *~
+
+-include $(DEPENDS)

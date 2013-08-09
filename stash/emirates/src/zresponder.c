@@ -216,6 +216,10 @@ route_msg( const emirates_priv *self, zmsg_t *msg, zframe_t *msg_type_frame ) {
       jedex_value *val = json_to_jedex_value( handler->schema, json ); 
       handler->callback( val, json, handler->user_data );
     }
+    else {
+      log_err( "Failed to route %s to application", service );
+      printf( "Failed to route %s to application\n", service );
+    }
   }
 }
 
@@ -299,6 +303,7 @@ service_request( emirates_iface *iface,
   zmsg_addstr( msg, ADD_SERVICE_REQUEST );
   zmsg_addstr( msg, service );
   zmsg_send( &msg, responder_socket( priv->responder ) );
+  wait_for_reply( responder_socket( priv->responder ) );
 }
 
 

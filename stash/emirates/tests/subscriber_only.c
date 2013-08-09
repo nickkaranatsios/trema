@@ -24,14 +24,9 @@
 static void
 menu_subscription_callback( jedex_value *val, const char *json, void *user_data ) {
   assert( user_data );
+  UNUSED( val );
   if ( json ) {
     printf( "%s\n", json );
-  }
-  if ( val ) {
-    jedex_schema *schema = jedex_value_get_schema( val );
-    if ( schema ) {
-      jedex_finalize( &schema );
-    }
   }
 }
 
@@ -69,6 +64,7 @@ main( int argc, char **argv ) {
     schemas[ 2 ] = NULL;
     iface->set_subscription_new( iface, "menu", schemas, iface, menu_subscription_callback );
     emirates_loop( iface );
+    jedex_finalize( &array_schema );
     emirates_finalize( &iface );
   }
 

@@ -41,17 +41,6 @@ subscription_callback_add( subscriber_info *self, subscriber_callback *cb ) {
 
 static void
 subscription_callback_free( zlist_t *callbacks ) {
-  subscriber_callback *item = zlist_first( callbacks );
-
-  while ( item != NULL ) {
-    int i = 0;
-    while ( *( item->schemas + i ) ) {
-      jedex_schema *ptr = *( item->schemas + i );
-      jedex_finalize( &ptr );
-      i++;
-    }
-    item = zlist_next( callbacks );
-  }
   zlist_destroy( &callbacks );
 }
 

@@ -112,7 +112,7 @@ jedex_schema_array_free( jedex_schema *schema ) {
   struct jedex_array_schema *aschema = jedex_schema_to_array( schema );
 
   if ( aschema ) {
-    free( aschema->items );
+    jedex_schema_free( aschema->items );
     free( aschema );
   }
 }

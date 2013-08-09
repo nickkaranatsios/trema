@@ -6,7 +6,7 @@ TREMA = ../../../../trema
 CC = gcc
 
 APILIB = -ljansson -lm -lpthread
-APIPATH = -L. -L/usr/local/lib -L/usr/lib
+APIPATH = -L. -L../src -L/usr/local/lib -L/usr/lib
 
 CFLAGS += -I ../include
 CFLAGS += -I ../src

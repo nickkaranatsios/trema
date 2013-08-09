@@ -46,6 +46,7 @@ jedex_generic_array_reset( const jedex_value_iface *viface, void *vself ) {
   jedex_generic_array *self = ( jedex_generic_array * ) vself;
   jedex_generic_array_free_elements( iface->child_giface, self );
   jedex_raw_array_clear( &self->array );
+  jedex_raw_array_done( &self->array );
 
   return 0;
 }

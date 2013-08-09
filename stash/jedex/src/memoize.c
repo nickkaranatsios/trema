@@ -61,6 +61,7 @@ jedex_memoize_free_key( jedex_memoize_key *key, void *result, void *dummy ) {
   UNUSED( dummy );
 
   jedex_free( key );
+
   return ST_CONTINUE;
 }
 

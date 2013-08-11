@@ -37,22 +37,28 @@ lookup_identity( zlist_t *list, const char *id ) {
 static service_route *
 lookup_service_route( zlist_t *list, const service_route *sroute,  bool partial_search ) {
   service_route *item = zlist_first( list );
+  service_route *ret_item = NULL;
 
   while ( item ) {
     if ( partial_search ) {
       if ( !memcmp( item->service, sroute->service, strlen( sroute->service ) ) ) {
-        return item;
+        item->active = false;
+        ret_item = item;
       }
     }
     else {
       if ( !memcmp( item, sroute, sizeof( *item ) ) ) {
-        return item;
+        item->active = false;
+        ret_item = item;
       }
     }
     item = zlist_next( list );
   }
+  if ( ret_item != NULL ) {
+    ret_item->active = true;
+  }
 
-  return NULL;
+  return ret_item;
 }
 
 
@@ -162,6 +168,8 @@ route_add_service_reply( proxy *self,
 
   memcpy( &sroute.identity, client_id, client_id_frame_size );
   sroute.identity[ client_id_frame_size ] = '\0';
+  sroute.join_at = zclock_time();
+  sroute.active = true;
 #ifndef LOAD_BALANCING
   bool replace = true;
   add_service_route( &self->replies, &sroute, replace );
@@ -297,6 +305,7 @@ route_add_service_request( proxy *self,
   }
   memcpy( sroute.identity, worker_id, worker_id_frame_size );
   sroute.identity[ worker_id_frame_size ] = '\0';
+  sroute.join_at = zclock_time();
 #ifndef LOAD_BALANCING
   bool replace = true;
   add_service_route( &self->requests, &sroute, replace );

@@ -34,6 +34,8 @@ extern "C" {
 #define SUBSCRIBER  ( 1 << 1 )
 #define REQUESTER   ( 1 << 2 )
 #define RESPONDER   ( 1 << 3 )
+#define IDENTITY_MAX 64
+#define SERVICE_MAX 64 + IDENTITY_MAX
 
 #define ENTITY_SET( flag, entity ) ( ( flag ) | ( entity ) )
 #define ENTITY_TST( flag, entity ) ( ( flag ) & ( entity ) )
@@ -43,9 +45,15 @@ extern "C" {
 typedef struct emirates_iface emirates_iface;
 typedef void ( *request_handler ) ( jedex_value *val,
                                     const char *json,
+                                    const char *client_id,
                                     void *user_data );
-typedef void ( *reply_handler ) ( const uint32_t tx_id, jedex_value *val, const char *json );
-typedef void ( *subscription_handler ) ( jedex_value *val, const char *json, void *user_data );
+typedef void ( *reply_handler ) ( const uint32_t tx_id,
+                                  jedex_value *val,
+                                  const char *json,
+                                  void *user_data );
+typedef void ( *subscription_handler ) ( jedex_value *val,
+                                         const char *json,
+                                         void *user_data );
 typedef void ( *timer_handler ) ( void *user_data );
 
 
@@ -58,7 +66,10 @@ struct emirates_iface {
                                   jedex_schema *schema,
                                   void *user_data,
                                   request_handler request_callback );
-  void ( *set_service_reply ) ( emirates_iface *iface, const char *service, reply_handler reply_callback );
+  void ( *set_service_reply ) ( emirates_iface *iface,
+                                const char *service,
+                                void *user_data,
+                                reply_handler reply_callback );
   // this call sets a callback handler to be called when a subscription received
   void ( *set_subscription ) ( emirates_iface *iface,
                                const char *service,
@@ -70,15 +81,26 @@ struct emirates_iface {
                                jedex_schema **schemas,
                                void *user_data,
                                subscription_handler subscription_callback );
-  void ( *publish ) ( emirates_iface *iface, const char *service, jedex_parcel *parcel );
-  void ( *publish_value ) ( emirates_iface *iface, const char *service, jedex_value *value );
+  void ( *publish ) ( emirates_iface *iface,
+                      const char *service,
+                      jedex_parcel *parcel );
+  void ( *publish_value ) ( emirates_iface *iface,
+                            const char *service,
+                            jedex_value *value );
   uint32_t ( *send_request ) ( emirates_iface *iface,
                                const char *service,
                                jedex_value *value,
                                jedex_schema *reply_schema );
-  void ( *send_reply_raw ) ( emirates_iface *iface, const char *service, const char *json );
-  void ( *send_reply ) ( emirates_iface *iface, const char *service, jedex_value *value );
-  void ( *set_periodic_timer ) ( emirates_iface *iface, int msecs, timer_handler timer_callback, void *user_data );
+  void ( *send_reply_raw ) ( emirates_iface *iface,
+                             const char *service,
+                             const char *json );
+  void ( *send_reply ) ( emirates_iface *iface,
+                         const char *service,
+                         jedex_value *value );
+  void ( *set_periodic_timer ) ( emirates_iface *iface,
+                                 int msecs,
+                                 timer_handler timer_callback,
+                                 void *user_data );
 };
 
 
@@ -86,14 +108,21 @@ emirates_iface *emirates_initialize( void );
 emirates_iface *emirates_initialize_only( const int flag );
 int emirates_loop( emirates_iface *iface );
 void emirates_finalize( emirates_iface **iface );
-void publish( emirates_iface *iface, const char *service_name, jedex_parcel *parcel );
-void publish_value( emirates_iface *iface, const char *service_name, jedex_value *value );
+void publish( emirates_iface *iface,
+              const char *service_name,
+              jedex_parcel *parcel );
+void publish_value( emirates_iface *iface,
+                    const char *service_name,
+                    jedex_value *value );
 void service_request( emirates_iface *iface,
                       const char *service,
                       jedex_schema *schema,
                       void *user_data,
                       request_handler callback );
-void service_reply( emirates_iface *iface, const char *service, reply_handler callback );
+void service_reply( emirates_iface *iface,
+                    const char *service,
+                    void *user_data,
+                    reply_handler callback );
 void subscription( emirates_iface *iface,
                    const char *service,
                    const char **schema_names,
@@ -104,10 +133,20 @@ void subscription_new( emirates_iface *iface,
                    jedex_schema **schemas,
                    void *user_data,
                    subscription_handler subscription_callback );
-uint32_t send_request( emirates_iface *iface, const char *service, jedex_value *value, jedex_schema *reply_schema );
-void send_reply_raw( emirates_iface *iface, const char *service, const char *json );
-void send_reply( emirates_iface *iface, const char *service, jedex_value *value );
-void set_periodic_timer( emirates_iface *iface, int msecs, timer_handler timer_callback, void *user_data );
+uint32_t send_request( emirates_iface *iface,
+                       const char *service,
+                       jedex_value *value,
+                       jedex_schema *reply_schema );
+void send_reply_raw( emirates_iface *iface,
+                     const char *service,
+                     const char *json );
+void send_reply( emirates_iface *iface,
+                 const char *service,
+                 jedex_value *value );
+void set_periodic_timer( emirates_iface *iface,
+                         int msecs,
+                         timer_handler timer_callback,
+                         void *user_data );
 
 
 // example ONLY

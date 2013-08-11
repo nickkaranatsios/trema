@@ -48,6 +48,7 @@ typedef struct request_callback {
 typedef struct reply_callback {
   callback_key key;
   const char *requester_id;
+  void *user_data;
   reply_handler callback;
 } reply_callback;
 

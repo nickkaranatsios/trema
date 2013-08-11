@@ -165,6 +165,16 @@ mapper_initialize( mapper **mptr, int argc, char **argv ) {
                                        request_schema,
                                        self,
                                        request_save_topic_callback );
+  self->emirates->set_service_request( self->emirates,
+                                       "find_record",
+                                       self->schema,
+                                       self,
+                                       request_find_record_callback );
+  self->emirates->set_service_request( self->emirates,
+                                       "find_all_records",
+                                       self->schema,
+                                       self,
+                                       request_find_all_records_callback );
   sleep( 1 );
   set_ready( self->emirates );
 

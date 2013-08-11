@@ -198,7 +198,10 @@ add_request_callback( const char *service,
 
 
 static void
-route_msg( const emirates_priv *self, zmsg_t *msg, zframe_t *msg_type_frame ) {
+route_msg( const emirates_priv *self,
+           zmsg_t *msg,
+           zframe_t *client_id_frame,
+           zframe_t *msg_type_frame ) {
   char service[ IDENTITY_MAX ];
 
   if ( !msg_is( REQUEST, ( const char * ) zframe_data( msg_type_frame ), zframe_size( msg_type_frame ) ) ) {
@@ -212,9 +215,12 @@ route_msg( const emirates_priv *self, zmsg_t *msg, zframe_t *msg_type_frame ) {
     if ( handler ) {
       zframe_t *data_frame = zmsg_next( msg );
 
-      const char *json = ( const char * ) zframe_data( data_frame );
+      char *json = ( char * ) zframe_data( data_frame );
+      json[ zframe_size( data_frame ) ] = '\0';
       jedex_value *val = json_to_jedex_value( handler->schema, json ); 
-      handler->callback( val, json, handler->user_data );
+      char *client_id = ( char * ) zframe_data( client_id_frame );
+      client_id[ zframe_size( client_id_frame ) ] = '\0';
+      handler->callback( val, json, client_id, handler->user_data );
     }
     else {
       log_err( "Failed to route %s to application", service );
@@ -236,11 +242,10 @@ responder_poll( const emirates_priv *self ) {
     log_debug( "poll responder(%zu)\n", nr_frames );
     printf( "poll responder(%zu)\n", nr_frames );
     zframe_t *client_id_frame = zmsg_first( msg );
-    UNUSED( client_id_frame );
     zframe_t *empty_frame = zmsg_next( msg );
     UNUSED( empty_frame ); 
     zframe_t *msg_type_frame = zmsg_next( msg );
-    route_msg( self, msg, msg_type_frame );
+    route_msg( self, msg, client_id_frame, msg_type_frame );
   }
 
   return rc;

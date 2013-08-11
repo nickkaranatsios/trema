@@ -47,7 +47,9 @@ extern "C" {
 
 typedef struct query_info {
   MYSQL_RES *res;
+  char client_id[ IDENTITY_MAX ];
   uint32_t used;
+  uint32_t row_count;
 } query_info;
 
 
@@ -91,6 +93,7 @@ typedef struct db_info {
 
 
 typedef struct mapper {
+  char client_id[ IDENTITY_MAX ];
   db_info **dbs;
   emirates_iface *emirates;
   jedex_schema *schema;
@@ -117,8 +120,9 @@ typedef int ( *config_fn ) ( const char *key, const char *value, void *user_data
 int read_config( config_fn fn, void *user_data, const char *filename );
 
 // message.c
-void request_save_topic_callback( jedex_value *val, const char *json, void *user_data );
-void request_find_record_callback( jedex_value *val, const char *json, void *user_data );
+void request_save_topic_callback( jedex_value *val, const char *json, const char *client_id, void *user_data );
+void request_find_record_callback( jedex_value *val, const char *json, const char *client_id, void *user_data );
+void request_find_all_records_callback( jedex_value *val, const char *json, const char *client_id, void *user_data );
 void request_insert_record_callback( jedex_value *val, const char *json, void *user_data );
 void request_update_record_callback( jedex_value *val, const char *json, void *user_data );
 void request_delete_record_callback( jedex_value *val, const char *json, void *user_data );
@@ -164,7 +168,7 @@ const char *db_info_dbname( mapper *self, const char *tbl_name );
  * jedex_utils.c - jedex object manipulation utility function to either extract
  * schema information or jedex value information.
  */
-const char *table_name_get( jedex_value *val );
+const char *table_name_get( const char *jscontent, jedex_value *val );
 jedex_schema *table_schema_get( const char *tbl_name, jedex_schema *schema );
 void get_string_field( jedex_value *val, const char *name, const char **field_name );
 void db_reply_set( jedex_value *val, db_mapper_error err );

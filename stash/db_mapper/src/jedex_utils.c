@@ -21,19 +21,23 @@
 
 
 const char *
-table_name_get( jedex_value *val ) {
+table_name_get( const char *jscontent, jedex_value *val ) {
   const char *tbl_name = NULL;
 
+  const char *key = NULL;
+  json_t *root = jedex_decode_json( jscontent );
+  if ( json_is_object( root ) ) {
+    void *iter = json_object_iter( root );
+    if ( iter ) {
+      key = json_object_iter_key( iter );
+    }
+  }
   jedex_schema *root_schema = jedex_value_get_schema( val );
   if ( is_jedex_union( root_schema ) ) {
-    size_t branch_count;
-    jedex_value_get_size( val, &branch_count ); 
-    // should only be one find record
-    assert( branch_count == 1 );
-
     jedex_value branch_val;
     size_t idx = 0;
-    jedex_value_get_branch( val, idx, &branch_val );
+    jedex_value_get_by_name( val, key, &branch_val, &idx );
+
     jedex_schema *bschema = jedex_value_get_schema( &branch_val );
     tbl_name = jedex_schema_type_name( bschema );
   }
@@ -89,7 +93,7 @@ db_reply_set( jedex_value *val, db_mapper_error err ) {
   jedex_value field;
   size_t index;
   jedex_value_get_by_name( val, "error", &field, &index );
-  jedex_value_set_int( val, err );
+  jedex_value_set_int( val, ( int ) err );
 }
 
 

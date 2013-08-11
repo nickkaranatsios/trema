@@ -42,7 +42,7 @@ kinfo_to_sql( key_info *kinfo, jedex_value *val, int clause, strbuf *command ) {
     const char *cstr = NULL;
     size_t size = 0;
     jedex_value_get_string( &field, &cstr, &size );
-    if ( clause == WHERE_CLAUSE && size > 0 ) {
+    if ( clause == WHERE_CLAUSE && size > 1 ) {
       strbuf_addf( command, "%s='%s' and ", pk_name, cstr );
     }
     else if ( clause == INSERT_CLAUSE ) {

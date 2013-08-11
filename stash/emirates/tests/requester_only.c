@@ -33,7 +33,8 @@ typedef void ( *parse_fn ) ( int option, char *optarg, void *user_data );
 
 
 static void
-menu_handler( uint32_t tx_id, jedex_value *val, const char *json ) {
+menu_handler( uint32_t tx_id, jedex_value *val, const char *json, void *user_data ) {
+  UNUSED( user_data );
   if ( val != NULL ) {
     printf( "menu handler called tx_id(%u) %s\n", tx_id, json );
   }
@@ -145,7 +146,7 @@ main( int argc, char **argv ) {
   int flag = 0;
   iface = emirates_initialize_only( ENTITY_SET( flag, REQUESTER ) );
   if ( iface != NULL ) {
-    iface->set_service_reply( iface, "menu", menu_handler );
+    iface->set_service_reply( iface, "menu", NULL, menu_handler );
     //iface->set_periodic_timer( iface, 5000,  my_timer, val );
     // assume request/reply use the same schema
     iface->send_request( iface, "menu", val, schema );

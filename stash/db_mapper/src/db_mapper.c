@@ -231,11 +231,8 @@ set_delete_record( mapper *self ) {
 
 
 static void
-test_assign( jedex_schema **schemas ) {
-  jedex_schema **test;
-
-  test = schemas;
-  assert( test );
+test_assign( void *test ) {
+  memcpy( test, "this is a test", strlen( "this is a test" ) );
 }
 
 
@@ -255,8 +252,7 @@ main( int argc, char **argv ) {
   mapper *self = NULL;
   self = mapper_initialize( &self, argc, argv );
   if ( self != NULL ) {
-    jedex_schema **schemas = ( jedex_schema ** ) xmalloc ( 2 * sizeof( jedex_schema * ) * 2  );
-    test_assign( schemas );
+    test_assign( ( void * ) self );
     // set_topic( self );
     // set_find_all_records( self );
     // set_find_record( self );

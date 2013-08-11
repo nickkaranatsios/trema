@@ -205,9 +205,13 @@ reply_callback_add( requester_info *self, reply_callback *cb ) {
 
 
 static void
-add_reply_callback( const char *service , reply_handler user_callback, requester_info *self ) {
+add_reply_callback( const char *service, 
+                    void *user_data,
+                    reply_handler user_callback,
+                    requester_info *self ) {
   reply_callback *cb = ( reply_callback * ) zmalloc( sizeof( reply_callback ) );
   cb->key.service = service;
+  cb->user_data = user_data;
   cb->requester_id = requester_own_id( self );
   cb->callback = user_callback;
   if ( reply_callback_add( self, cb ) ) {
@@ -241,7 +245,7 @@ route_msg( const emirates_priv *self, zmsg_t *msg ) {
     uint32_t tx_id;
     memcpy( &tx_id, ( const uint32_t * ) zframe_data( tx_id_frame ), zframe_size( tx_id_frame ) );
     jedex_value *val = NULL;
-    const char *json = NULL;
+    char *json = NULL;
     if ( !tx_id ) {
       log_debug( "Late response to request" );
       printf( "Late response to request\n" );
@@ -253,14 +257,15 @@ route_msg( const emirates_priv *self, zmsg_t *msg ) {
         if ( request_schema != NULL ) {
           jedex_schema *schema = request_schema->schema;
           if ( schema && data_frame ) {
-            json = ( const char * ) zframe_data( data_frame );
+            json = ( char * ) zframe_data( data_frame );
+            json[ zframe_size( data_frame ) ] = '\0';
             val = json_to_jedex_value( schema, json ); 
             zlist_remove( requester_schemas( self->requester ), request_schema );
           }
         }
       }
     }
-    handler->callback( tx_id, val, json );
+    handler->callback( tx_id, val, json, handler->user_data );
   }
 }
 
@@ -296,12 +301,15 @@ get_requester_socket( emirates_priv *priv ) {
 
 
 void
-service_reply( emirates_iface *iface, const char *service, reply_handler callback ) {
+service_reply( emirates_iface *iface,
+               const char *service,
+               void *user_data,
+               reply_handler callback ) {
   emirates_priv *priv = iface->priv;
   assert( priv );
 
   requester_inc_timeout_id( priv->requester );
-  add_reply_callback( service, callback, priv->requester );
+  add_reply_callback( service, user_data, callback, priv->requester );
   zmsg_t *msg = zmsg_new();
   zmsg_addstr( msg, ADD_SERVICE_REPLY );
   zmsg_addmem( msg, &requester_timeout_id( priv->requester ), sizeof( requester_timeout_id( priv->requester ) ) );

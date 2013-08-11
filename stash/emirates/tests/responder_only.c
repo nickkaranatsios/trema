@@ -24,8 +24,9 @@
 
 
 static void
-request_menu_callback( jedex_value *val, const char *json, void *user_data ) {
+request_menu_callback( jedex_value *val, const char *json, const char *client_id, void *user_data ) {
   UNUSED( val );
+  UNUSED( client_id );
   assert( user_data );
   emirates_iface *iface = user_data;
 
@@ -52,6 +53,7 @@ set_menu_record_value( jedex_value *val ) {
 static void
 my_timer( void *args ) {
   jedex_parcel *parcel = args;
+  UNUSED( parcel );
   printf( "my timer called\n" );
 }
 

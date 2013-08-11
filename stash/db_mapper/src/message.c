@@ -22,11 +22,10 @@
 
 static void
 topic_subscription_callback( jedex_value *val, const char *json, void *user_data ) {
-  UNUSED( user_data );
-  UNUSED( val );
   if ( json ) {
     printf( "topic subscription callback called %s\n", json );
   }
+  request_insert_record_callback( val, json, user_data );
 }
 
 
@@ -67,8 +66,9 @@ json_to_s( json_t *json ) {
  * is plural. For example flows not flow.
  */
 void
-request_save_topic_callback( jedex_value *val, const char *json, void *user_data ) {
+request_save_topic_callback( jedex_value *val, const char *json, const char *client_id, void *user_data ) {
   UNUSED( json );
+  UNUSED( client_id );
   assert( user_data );
   assert( val );
 
@@ -81,21 +81,19 @@ request_save_topic_callback( jedex_value *val, const char *json, void *user_data
   const char *topic = NULL;
   get_string_field( val, "topic", &topic );
 
-#ifdef LATER
   db_info *db = db_info_get( db_name, self );
-  jedex_schemas **schemas = ( jedex_schema ** ) xmalloc ( db->tables_nr * sizeof( jedex_schema * ) * 2  );
+  jedex_schema **schemas = ( jedex_schema ** ) xmalloc ( db->tables_nr * sizeof( jedex_schema * ) * 2 + 1 );
   int j;
-  for ( size_t i = 0, j = -1; i < db->tables_nr++; i++ ) {
-    jedex_schema *tbl_schema = jedex_schema_get_subschema( self->schema, db->tables[ i ].name );
-    jedex_schema *array_schema = jedex_schema_arrary( tbl_schema );
+  for ( size_t i = 0; i < db->tables_nr; i++ ) {
+    jedex_schema *tbl_schema = jedex_schema_get_subschema( self->schema, db->tables[ i ]->name );
+    jedex_schema *array_schema = jedex_schema_array( tbl_schema );
     j = i;
-    schemas[ j++ ] = tbl_schemas;
+    schemas[ j++ ] = tbl_schema;
     schemas[ j++ ] = array_schema;
   }
-#endif
+  schemas[ j ] = NULL;
 
-  const char *schemas[] = { db_name, NULL };
-  self->emirates->set_subscription( self->emirates, topic, schemas, user_data, topic_subscription_callback );
+  self->emirates->set_subscription_new( self->emirates, topic, schemas, user_data, topic_subscription_callback );
 
   db_reply_set( self->reply_val, err );
   self->emirates->send_reply( self->emirates, "save_topic", self->reply_val );
@@ -107,7 +105,7 @@ unpack_find_object( mapper *self, jedex_value *val, const char *tbl_name ) {
   strbuf sb = STRBUF_INIT;
 
   const char *db_name = db_info_dbname( self, tbl_name );
-  strbuf_addf( &sb, "select * from %s.%s where ", db_name, tbl_name );
+  strbuf_addf( &sb, "select json from %s.%s where ", db_name, tbl_name );
 
   ref_data ref;
   ref.command = &sb;
@@ -117,8 +115,8 @@ unpack_find_object( mapper *self, jedex_value *val, const char *tbl_name ) {
   table_info *tinfo = table_info_get( tbl_name, db );
 
   foreach_primary_key( tinfo, where_clause, &ref );
-  if ( !suffixcmp( sb.buf, "and " ) ) {
-    strbuf_rtrimn( &sb, strlen( "and " ) );
+  if ( !suffixcmp( sb.buf, " and " ) ) {
+    strbuf_rtrimn( &sb, strlen( " and " ) );
   }
   else {
     // can not find a record without any primary key setting.
@@ -131,18 +129,58 @@ unpack_find_object( mapper *self, jedex_value *val, const char *tbl_name ) {
   if ( qinfo != NULL ) {
     if ( !query( db, qinfo, sb.buf ) ) {
       strbuf_reset( &sb );
+      strbuf_addstr( &sb, "[" );
       // store a record row of all fields delimited by ":"
       my_ulonglong num_rows = query_num_rows( qinfo );
       for ( my_ulonglong i = 0; i < num_rows; i++ ) {
         if ( !query_fetch_result( qinfo, &sb ) ) {
-          char *json = strbuf_rsplit( &sb, '|' );
-          *( json - 1 ) = '\0';
-          char *keys = sb.buf;
-          printf( "keys %s json %s\n", keys, json );
+          strbuf_addstr( &sb, "," );
         }
       }
+      strbuf_rtrimn( &sb, strlen( "," ) );
+      strbuf_addstr( &sb, "]" );
       query_free_result( qinfo );
-        //self->emirates->send_reply_raw( self->emirates, "find_record", json ); 
+      self->emirates->send_reply_raw( self->emirates, "find_record", sb.buf ); 
+    }
+    else {
+      err = DB_REC_NOT_FOUND;
+    }
+  }
+  strbuf_release( &sb );
+
+  return err;
+}
+
+
+static db_mapper_error
+unpack_find_all_object( mapper *self, jedex_value *val, const char *tbl_name ) {
+  UNUSED( val );
+  strbuf sb = STRBUF_INIT;
+
+  const char *db_name = db_info_dbname( self, tbl_name );
+  strbuf_addf( &sb, "select json from %s.%s limit 0, 1", db_name, tbl_name );
+
+  db_info *db = db_info_get( db_name, self );
+  table_info *tinfo = table_info_get( tbl_name, db );
+
+  db_mapper_error err = NO_ERROR;
+  query_info *qinfo = query_info_get( tinfo );
+  if ( qinfo != NULL ) {
+    qinfo->row_count = 1;
+    memcpy( qinfo->client_id, self->client_id, sizeof( self->client_id ) );
+    if ( !query( db, qinfo, sb.buf ) ) {
+      strbuf_reset( &sb );
+      strbuf_addstr( &sb, "[" );
+      // store a record row of all fields delimited by ":"
+      my_ulonglong num_rows = query_num_rows( qinfo );
+      for ( my_ulonglong i = 0; i < num_rows; i++ ) {
+        if ( !query_fetch_result( qinfo, &sb ) ) {
+          strbuf_addstr( &sb, "," );
+        }
+      }
+      strbuf_rtrimn( &sb, strlen( "," ) );
+      strbuf_addstr( &sb, "]" );
+      self->emirates->send_reply_raw( self->emirates, "find_all_records", sb.buf ); 
     }
     else {
       err = DB_REC_NOT_FOUND;
@@ -236,22 +274,56 @@ unpack_delete_object( mapper *self, jedex_value *val, const char *tbl_name ) {
 
 /*
  * Processing of the find record message. Expected a record with the primary
- * key information filled in. Multiple kye records concatenated together in 
+ * key information filled in. Multiple key records concatenated together in 
  * the where clause of the SQL statement. If have multiple keys and a key is
  * not set it is ignored. By not set we mean that it has a value that if it is
  * a string is an empty string or if it is numeric it has the value of zero.
  */
 void
-request_find_record_callback( jedex_value *val, const char *json, void *user_data ) {
-  UNUSED( json );
+request_find_record_callback( jedex_value *val, const char *json, const char *client_id, void *user_data ) {
   assert( user_data );
   mapper *self = user_data;
 
-  const char *tbl_name = table_name_get( val );
+  const char *tbl_name = table_name_get( json, val );
   if ( tbl_name != NULL ) {
-    db_mapper_error err = unpack_find_object( self, val, tbl_name );
+    jedex_schema *root_schema = jedex_value_get_schema( val );
+    db_mapper_error err;
+    if ( is_jedex_union( root_schema ) ) {
+      jedex_value branch_val;
+      size_t idx = 0;
+      jedex_value_get_by_name( val, tbl_name, &branch_val, &idx );
+      err = unpack_find_object( self, &branch_val, tbl_name );
+    }
+    else {
+      err = unpack_find_object( self, val, tbl_name );
+    }
     if ( err != NO_ERROR ) {
       self->emirates->send_reply_raw( self->emirates, "find_record", json );
+    }
+  }
+}
+
+
+void
+request_find_all_records_callback( jedex_value *val, const char *json, const char *client_id, void *user_data ) {
+  assert( user_data );
+  mapper *self = user_data;
+
+  const char *tbl_name = table_name_get( json, val );
+  if ( tbl_name != NULL ) {
+    jedex_schema *root_schema = jedex_value_get_schema( val );
+    db_mapper_error err;
+    if ( is_jedex_union( root_schema ) ) {
+      jedex_value branch_val;
+      size_t idx = 0;
+      jedex_value_get_by_name( val, tbl_name, &branch_val, &idx );
+      err = unpack_find_all_object( self, &branch_val, tbl_name );
+    }
+    else {
+      err = unpack_find_all_object( self, val, tbl_name );
+    }
+    if ( err != NO_ERROR ) {
+      self->emirates->send_reply_raw( self->emirates, "find_all_records", json );
     }
   }
 }
@@ -262,6 +334,7 @@ request_insert_record_callback( jedex_value *val, const char *json, void *user_d
   assert( user_data );
   mapper *self = user_data;
 
+printf( "insert record %s\n", json );
   jedex_schema *root_schema = jedex_value_get_schema( val );
   if ( is_jedex_record( root_schema ) ) {
     const char *tbl_name = jedex_schema_type_name( root_schema );
@@ -288,7 +361,6 @@ request_insert_record_callback( jedex_value *val, const char *json, void *user_d
   else if ( is_jedex_union( root_schema ) ) {
     size_t branch_size;
     jedex_value_get_size( val, &branch_size ); 
-    // should only be one find record
     json_t *jarray = jedex_decode_json( json );
     for ( size_t i = 0; i < branch_size; i++ ) {
       jedex_value branch_val;
@@ -313,7 +385,7 @@ request_update_record_callback( jedex_value *val, const char *json, void *user_d
   assert( user_data );
   mapper *self = user_data;
 
-  const char *tbl_name = table_name_get( val );
+  const char *tbl_name = table_name_get( json, val );
   if ( tbl_name != NULL ) {
     unpack_update_object( self, val, json, tbl_name );
   }
@@ -326,7 +398,7 @@ request_delete_record_callback( jedex_value *val, const char *json, void *user_d
   assert( user_data );
   mapper *self = user_data;
 
-  const char *tbl_name = table_name_get( val );
+  const char *tbl_name = table_name_get( json, val );
   if ( tbl_name != NULL ) {
     unpack_delete_object( self, val, tbl_name );
   }

@@ -487,6 +487,7 @@ main( int argc, char **argv ) {
       char *json;
       jedex_value_to_json( &val, false, &json );
       printf( "json: %s\n", json );
+      jedex_value_reset( &val );
      
       jedex_value *ret_val = json_to_jedex_value( array_schema, json );
       free( json );
@@ -494,6 +495,7 @@ main( int argc, char **argv ) {
 
       get_menu_array( ret_val );
 
+      jedex_value_reset( ret_val );
       jedex_finalize( &menu_schema );
     }
     if ( !strcmp( test_schema, "db_record" ) ) {

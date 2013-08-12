@@ -83,7 +83,7 @@ request_save_topic_callback( jedex_value *val, const char *json, const char *cli
 
   db_info *db = db_info_get( db_name, self );
   jedex_schema **schemas = ( jedex_schema ** ) xmalloc ( db->tables_nr * sizeof( jedex_schema * ) * 2 + 1 );
-  int j;
+  size_t j;
   for ( size_t i = 0; i < db->tables_nr; i++ ) {
     jedex_schema *tbl_schema = jedex_schema_get_subschema( self->schema, db->tables[ i ]->name );
     jedex_schema *array_schema = jedex_schema_array( tbl_schema );
@@ -101,7 +101,13 @@ request_save_topic_callback( jedex_value *val, const char *json, const char *cli
 
 
 static db_mapper_error
-unpack_find_object( mapper *self, jedex_value *val, const char *tbl_name ) {
+unpack_find_record( const char *tbl_name,
+                    const char *client_id,
+                    const char *json,
+                    jedex_value *val,
+                    mapper *self ) {
+  UNUSED( client_id );
+  UNUSED( json );
   strbuf sb = STRBUF_INIT;
 
   const char *db_name = db_info_dbname( self, tbl_name );
@@ -140,6 +146,7 @@ unpack_find_object( mapper *self, jedex_value *val, const char *tbl_name ) {
       strbuf_rtrimn( &sb, strlen( "," ) );
       strbuf_addstr( &sb, "]" );
       query_free_result( qinfo );
+      query_info_reset( qinfo );
       self->emirates->send_reply_raw( self->emirates, "find_record", sb.buf ); 
     }
     else {
@@ -153,8 +160,13 @@ unpack_find_object( mapper *self, jedex_value *val, const char *tbl_name ) {
 
 
 static db_mapper_error
-unpack_find_all_object( mapper *self, jedex_value *val, const char *tbl_name ) {
+unpack_find_all_records( const char *tbl_name,
+                         const char *client_id,
+                         const char *json,
+                         jedex_value *val,
+                         mapper *self ) {
   UNUSED( val );
+  UNUSED( json );
   strbuf sb = STRBUF_INIT;
 
   const char *db_name = db_info_dbname( self, tbl_name );
@@ -167,7 +179,7 @@ unpack_find_all_object( mapper *self, jedex_value *val, const char *tbl_name ) {
   query_info *qinfo = query_info_get( tinfo );
   if ( qinfo != NULL ) {
     qinfo->row_count = 1;
-    memcpy( qinfo->client_id, self->client_id, sizeof( self->client_id ) );
+    memcpy( qinfo->client_id, client_id, sizeof( qinfo->client_id ) );
     if ( !query( db, qinfo, sb.buf ) ) {
       strbuf_reset( &sb );
       strbuf_addstr( &sb, "[" );
@@ -180,10 +192,56 @@ unpack_find_all_object( mapper *self, jedex_value *val, const char *tbl_name ) {
       }
       strbuf_rtrimn( &sb, strlen( "," ) );
       strbuf_addstr( &sb, "]" );
+      query_free_result( qinfo );
       self->emirates->send_reply_raw( self->emirates, "find_all_records", sb.buf ); 
     }
     else {
       err = DB_REC_NOT_FOUND;
+    }
+  }
+  strbuf_release( &sb );
+
+  return err;
+}
+
+
+static db_mapper_error
+unpack_find_next_record( const char *tbl_name,
+                         const char *client_id,
+                         const char *json,
+                         jedex_value *val,
+                         mapper *self ) {
+  UNUSED( json );
+  UNUSED( val );
+  db_mapper_error err = NO_ERROR;
+  strbuf sb = STRBUF_INIT;
+
+  const char *db_name = db_info_dbname( self, tbl_name );
+  db_info *db = db_info_get( db_name, self );
+  table_info *tinfo = table_info_get( tbl_name, db );
+  query_info *qinfo = query_info_get_by_client_id( tinfo, client_id );
+  if ( qinfo != NULL ) {
+    strbuf_addf( &sb, "select json from %s.%s limit %u, 1", db_name, tbl_name, qinfo->row_count );
+    qinfo->row_count++;
+
+    if ( !query( db, qinfo, sb.buf ) ) {
+      strbuf_reset( &sb );
+      strbuf_addstr( &sb, "[" );
+      // store a record row of all fields delimited by ":"
+      my_ulonglong num_rows = query_num_rows( qinfo );
+      for ( my_ulonglong i = 0; i < num_rows; i++ ) {
+        if ( !query_fetch_result( qinfo, &sb ) ) {
+          strbuf_addstr( &sb, "," );
+        }
+      }
+      strbuf_rtrimn( &sb, strlen( "," ) );
+      strbuf_addstr( &sb, "]" );
+      self->emirates->send_reply_raw( self->emirates, "find_next_record", sb.buf ); 
+      query_free_result( qinfo );
+    }
+    else {
+      err = DB_REC_NOT_FOUND;
+      query_info_reset( qinfo );
     }
   }
   strbuf_release( &sb );
@@ -222,8 +280,13 @@ unpack_insert_object( mapper *self, jedex_value *val, const char *json, const ch
 }
 
 
-void
-unpack_update_object( mapper *self, jedex_value *val, const char *json, const char *tbl_name ) {
+static db_mapper_error
+unpack_update_record( const char *tbl_name,
+                      const char *client_id,
+                      const char *json,
+                      jedex_value *val,
+                      mapper *self ) {
+  UNUSED( client_id );
   const char *db_name = db_info_dbname( self, tbl_name );
 
   strbuf sb = STRBUF_INIT;
@@ -236,19 +299,37 @@ unpack_update_object( mapper *self, jedex_value *val, const char *json, const ch
   ref.command = &sb;
   ref.val = val;
   foreach_primary_key( tinfo, where_clause, &ref );
-  strbuf_rtrimn( &sb, strlen( "and " ) );
+  if ( !suffixcmp( sb.buf, " and " ) ) {
+    strbuf_rtrimn( &sb, strlen( " and " ) );
+  }
+  else {
+    // can not update a record without any primary key setting.
+    strbuf_release( &sb );
+    return DB_REC_NOT_FOUND;
+  }
+
+  db_mapper_error err = DB_REC_NOT_FOUND;
   query_info *qinfo = query_info_get( tinfo );
   if ( qinfo != NULL ) {
     if ( !query( db, qinfo, sb.buf ) ) {
       cache_set( self->rcontext, tinfo, json, &ref, &sb );
+      err = NO_ERROR;
     }
   }
   strbuf_release( &sb );
+
+  return err;
 }
 
 
-void
-unpack_delete_object( mapper *self, jedex_value *val, const char *tbl_name ) {
+static db_mapper_error
+unpack_delete_record( const char *tbl_name,
+                      const char *client_id,
+                      const char *json,
+                      jedex_value *val,
+                      mapper *self ) {
+  UNUSED( client_id );
+  UNUSED( json );
   const char *db_name = db_info_dbname( self, tbl_name );
 
   strbuf sb = STRBUF_INIT;
@@ -261,14 +342,50 @@ unpack_delete_object( mapper *self, jedex_value *val, const char *tbl_name ) {
   ref.command = &sb;
   ref.val = val;
   foreach_primary_key( tinfo, where_clause, &ref );
-  strbuf_rtrimn( &sb, strlen( "and " ) );
+  if ( !suffixcmp( sb.buf, " and " ) ) {
+    strbuf_rtrimn( &sb, strlen( " and " ) );
+  }
+  else {
+    // can not update a record without any primary key setting.
+    strbuf_release( &sb );
+    return DB_REC_NOT_FOUND;
+  }
+  db_mapper_error err = DB_REC_NOT_FOUND;
   query_info *qinfo = query_info_get( tinfo );
   if ( qinfo != NULL ) {
     if ( !query( db, qinfo, sb.buf ) ) {
       cache_del( self->rcontext, tinfo, &ref, &sb );
+      err = NO_ERROR;
     }
   }
   strbuf_release( &sb );
+
+  return err;
+}
+
+
+static db_mapper_error
+unpack_record( jedex_value *val,
+               const char *json,
+               const char *client_id,
+               mapper *self,
+               unpack_record_fn fn ) {
+  const char *tbl_name = table_name_get( json, val );
+  db_mapper_error err = DB_TABLE_NOT_FOUND;
+  if ( tbl_name != NULL ) {
+    jedex_schema *root_schema = jedex_value_get_schema( val );
+    if ( is_jedex_union( root_schema ) ) {
+      jedex_value branch_val;
+      size_t idx = 0;
+      jedex_value_get_by_name( val, tbl_name, &branch_val, &idx );
+      err = fn( tbl_name, client_id, json, &branch_val, self );
+    }
+    else {
+      err = fn( tbl_name, client_id, json, val, self );
+    }
+  }
+
+  return err;
 }
 
 
@@ -281,25 +398,13 @@ unpack_delete_object( mapper *self, jedex_value *val, const char *tbl_name ) {
  */
 void
 request_find_record_callback( jedex_value *val, const char *json, const char *client_id, void *user_data ) {
+  UNUSED( client_id );
   assert( user_data );
   mapper *self = user_data;
 
-  const char *tbl_name = table_name_get( json, val );
-  if ( tbl_name != NULL ) {
-    jedex_schema *root_schema = jedex_value_get_schema( val );
-    db_mapper_error err;
-    if ( is_jedex_union( root_schema ) ) {
-      jedex_value branch_val;
-      size_t idx = 0;
-      jedex_value_get_by_name( val, tbl_name, &branch_val, &idx );
-      err = unpack_find_object( self, &branch_val, tbl_name );
-    }
-    else {
-      err = unpack_find_object( self, val, tbl_name );
-    }
-    if ( err != NO_ERROR ) {
-      self->emirates->send_reply_raw( self->emirates, "find_record", json );
-    }
+  db_mapper_error err = unpack_record( val, json, client_id, self, unpack_find_record );
+  if ( err != NO_ERROR ) {
+    self->emirates->send_reply_raw( self->emirates, "find_record", json );
   }
 }
 
@@ -309,22 +414,24 @@ request_find_all_records_callback( jedex_value *val, const char *json, const cha
   assert( user_data );
   mapper *self = user_data;
 
-  const char *tbl_name = table_name_get( json, val );
-  if ( tbl_name != NULL ) {
-    jedex_schema *root_schema = jedex_value_get_schema( val );
-    db_mapper_error err;
-    if ( is_jedex_union( root_schema ) ) {
-      jedex_value branch_val;
-      size_t idx = 0;
-      jedex_value_get_by_name( val, tbl_name, &branch_val, &idx );
-      err = unpack_find_all_object( self, &branch_val, tbl_name );
-    }
-    else {
-      err = unpack_find_all_object( self, val, tbl_name );
-    }
-    if ( err != NO_ERROR ) {
-      self->emirates->send_reply_raw( self->emirates, "find_all_records", json );
-    }
+  db_mapper_error err = unpack_record( val, json, client_id, self, unpack_find_all_records );
+  if ( err != NO_ERROR ) {
+    self->emirates->send_reply_raw( self->emirates, "find_all_records", json );
+  }
+}
+
+
+void
+request_find_next_record_callback( jedex_value *val,
+                                   const char *json,
+                                   const char *client_id,
+                                   void *user_data ) {
+  assert( user_data );
+  mapper *self = user_data;
+
+  db_mapper_error err = unpack_record( val, json, client_id, self, unpack_find_next_record );
+  if ( err != NO_ERROR ) {
+    self->emirates->send_reply_raw( self->emirates, "find_next_record", json );
   }
 }
 
@@ -381,27 +488,30 @@ printf( "insert record %s\n", json );
 
 
 void
-request_update_record_callback( jedex_value *val, const char *json, void *user_data ) {
+request_update_record_callback( jedex_value *val,
+                                const char *json,
+                                const char *client_id,
+                                void *user_data ) {
   assert( user_data );
   mapper *self = user_data;
 
-  const char *tbl_name = table_name_get( json, val );
-  if ( tbl_name != NULL ) {
-    unpack_update_object( self, val, json, tbl_name );
-  }
+  db_mapper_error err = unpack_record( val, json, client_id, self, unpack_update_record );
+  db_reply_set( self->reply_val, err );
+  self->emirates->send_reply( self->emirates, "update_record", self->reply_val );
 }
 
 
 void
-request_delete_record_callback( jedex_value *val, const char *json, void *user_data ) {
-  UNUSED( json );
+request_delete_record_callback( jedex_value *val,
+                                const char *json,
+                                const char *client_id,
+                                void *user_data ) {
   assert( user_data );
   mapper *self = user_data;
 
-  const char *tbl_name = table_name_get( json, val );
-  if ( tbl_name != NULL ) {
-    unpack_delete_object( self, val, tbl_name );
-  }
+  db_mapper_error err = unpack_record( val, json, client_id, self, unpack_delete_record );
+  db_reply_set( self->reply_val, err );
+  self->emirates->send_reply( self->emirates, "delete_record", self->reply_val );
 }
 
 

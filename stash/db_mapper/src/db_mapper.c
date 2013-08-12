@@ -230,12 +230,6 @@ set_delete_record( mapper *self ) {
 #endif
 
 
-static void
-test_assign( void *test ) {
-  memcpy( test, "this is a test", strlen( "this is a test" ) );
-}
-
-
 /*
  * Db_mapper when it receives a save_topic message would create the database
  * and the given tables. Db_mapper expects to receive multiple save_topic
@@ -252,7 +246,6 @@ main( int argc, char **argv ) {
   mapper *self = NULL;
   self = mapper_initialize( &self, argc, argv );
   if ( self != NULL ) {
-    test_assign( ( void * ) self );
     // set_topic( self );
     // set_find_all_records( self );
     // set_find_record( self );

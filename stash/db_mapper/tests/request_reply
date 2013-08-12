@@ -1,0 +1,18 @@
+[
+  {
+    "type": "record",
+    "name": "save_all",
+    "fields": [
+      { "name": "dbname", "type": "string" },
+      { "name": "topic", "type": "string" },
+      { "name": "tables", "type": { "type": "array", "items": "string" } }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "db_mapper_reply",
+    "fields": [
+      { "name": "error", "type": "int" }
+    ]
+  }
+]

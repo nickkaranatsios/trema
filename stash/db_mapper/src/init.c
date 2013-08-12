@@ -175,7 +175,21 @@ mapper_initialize( mapper **mptr, int argc, char **argv ) {
                                        self->schema,
                                        self,
                                        request_find_all_records_callback );
-  sleep( 1 );
+  self->emirates->set_service_request( self->emirates,
+                                       "find_next_record",
+                                       self->schema,
+                                       self,
+                                       request_find_next_record_callback );
+  self->emirates->set_service_request( self->emirates,
+                                       "update_record",
+                                       self->schema,
+                                       self,
+                                       request_update_record_callback );
+  self->emirates->set_service_request( self->emirates,
+                                       "delete_record",
+                                       self->schema,
+                                       self,
+                                       request_delete_record_callback );
   set_ready( self->emirates );
 
   return self;

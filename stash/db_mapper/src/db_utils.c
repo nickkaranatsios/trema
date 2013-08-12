@@ -351,6 +351,42 @@ db_info_dbname( mapper *self, const char *tbl_name ) {
 }
 
 
+void
+cache_set( redisContext *rcontext,
+           table_info *tinfo,
+           const char *json,
+           ref_data *ref,
+           strbuf *sb ) {
+  strbuf_reset( sb );
+  strbuf_addf( sb, "%s|", tinfo->name );
+  ref->command = sb;
+  foreach_primary_key( tinfo, redis_clause, ref );
+  size_t slen = 1;
+  strbuf_rtrimn( sb, slen );
+  size_t klen = sb->len; 
+  strbuf_addf( sb, " %s", json );
+
+  redis_cache_set( rcontext, sb->buf, klen, sb->buf + klen + 1, sb->len - klen - 1 );
+}
+
+
+void
+cache_del( redisContext *rcontext,
+           table_info *tinfo,
+           ref_data *ref,
+           strbuf *sb ) {
+  strbuf_reset( sb );
+  strbuf_addf( sb, "%s|", tinfo->name );
+  ref->command = sb;
+  foreach_primary_key( tinfo, redis_clause, ref );
+  size_t slen = 1;
+  strbuf_rtrimn( sb, slen );
+  size_t klen = sb->len; 
+
+  redis_cache_del( rcontext, sb->buf, klen );
+}
+
+
 /*
  * Returns a query informatiion object for a given table name.
  * We don't keep a fixed number of queries per table. (MAX_QUERIES_PER_TABLE).
@@ -368,6 +404,25 @@ query_info_get( table_info *table ) {
   return NULL;
 }
 
+
+query_info *
+query_info_get_by_client_id( table_info *table, const char *client_id ) {
+  uint32_t i;
+
+  for ( i = 0; i < MAX_QUERIES_PER_TABLE; i++ ) {
+    if ( table->queries[ i ].used && !strncmp( table->queries[ i ].client_id, client_id, strlen( client_id ) ) ) {
+      return &table->queries[ i ];
+    }
+  }
+
+  return NULL;
+}
+
+
+void
+query_info_reset( query_info *qinfo ) {
+  memset( qinfo, 0, sizeof( qinfo ) );
+}
 
 
 /*

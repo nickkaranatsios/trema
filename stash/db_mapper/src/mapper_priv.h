@@ -93,7 +93,6 @@ typedef struct db_info {
 
 
 typedef struct mapper {
-  char client_id[ IDENTITY_MAX ];
   db_info **dbs;
   emirates_iface *emirates;
   jedex_schema *schema;
@@ -120,13 +119,39 @@ typedef int ( *config_fn ) ( const char *key, const char *value, void *user_data
 int read_config( config_fn fn, void *user_data, const char *filename );
 
 // message.c
-void request_save_topic_callback( jedex_value *val, const char *json, const char *client_id, void *user_data );
-void request_find_record_callback( jedex_value *val, const char *json, const char *client_id, void *user_data );
-void request_find_all_records_callback( jedex_value *val, const char *json, const char *client_id, void *user_data );
-void request_insert_record_callback( jedex_value *val, const char *json, void *user_data );
-void request_update_record_callback( jedex_value *val, const char *json, void *user_data );
-void request_delete_record_callback( jedex_value *val, const char *json, void *user_data );
+void request_save_topic_callback( jedex_value *val,
+                                  const char *json,
+                                  const char *client_id,
+                                  void *user_data );
+void request_find_record_callback( jedex_value *val,
+                                   const char *json,
+                                   const char *client_id,
+                                   void *user_data );
+void request_find_all_records_callback( jedex_value *val,
+                                        const char *json,
+                                        const char *client_id,
+                                        void *user_data );
+void request_find_next_record_callback( jedex_value *val,
+                                        const char *json,
+                                        const char *client_id,
+                                        void *user_data );
+void request_update_record_callback( jedex_value *val,
+                                     const char *json,
+                                     const char *client_id,
+                                     void *user_data );
+void request_delete_record_callback( jedex_value *val,
+                                     const char *json,
+                                     const char *client_id,
+                                     void *user_data );
+void request_insert_record_callback( jedex_value *val,
+                                     const char *json,
+                                     void *user_data );
 typedef void ( *primary_key_fn ) ( key_info *kinfo, void *user_data ); 
+typedef db_mapper_error ( *unpack_record_fn ) ( const char *tbl_name,
+                                                const char *client_id,
+                                                const char *json,
+                                                jedex_value *val,
+                                                mapper *self );
 
 // init.c
 mapper *mapper_initialize( mapper **mptr, int argc, char **argv );
@@ -140,7 +165,27 @@ my_ulonglong query_num_rows( query_info *qinfo );
 void query_free_result( query_info *qinfo );
 int query_fetch_result( query_info *qinfo, strbuf *rbuf );
 
-// cache.c - redis access functions
+
+redisReply *cache_get( const char *key,
+                       redisContext *rcontext );
+
+redisContext *cache_connect( void );
+
+// db_utils.c - access to db_mapper's internal dataabse information object
+db_info *db_info_get( const char *name, mapper *self );
+table_info *table_info_get( const char *name, db_info *db );
+query_info *query_info_get( table_info *table );
+query_info *query_info_get_by_client_id( table_info *table, const char *client_id );
+void query_info_reset( query_info *qinfo );
+void insert_clause( key_info *kinfo, void *user_data ); 
+void where_clause( key_info *kinfo, void *user_data );
+void redis_clause( key_info *kinfo, void *user_data );
+void foreach_primary_key( table_info *tinfo, primary_key_fn fn, void *user_data );
+const char * fld_type_str_to_sql( jedex_schema *fld_schema );
+db_mapper_error set_table_name( const char *db_name, jedex_value *val, mapper *self );
+const char *db_info_dbname( mapper *self, const char *tbl_name );
+
+// redis cache wrapper access functions
 void cache_set( redisContext *rcontext,
                 table_info *tinfo,
                 const char *json,
@@ -151,19 +196,6 @@ void cache_del( redisContext *rcontext,
                 table_info *tinfo,
                 ref_data *ref,
                 strbuf *sb );
-
-// db_utils.c - access to db_mapper's internal dataabse information object
-db_info *db_info_get( const char *name, mapper *self );
-table_info *table_info_get( const char *name, db_info *db );
-query_info *query_info_get( table_info *table );
-void insert_clause( key_info *kinfo, void *user_data ); 
-void where_clause( key_info *kinfo, void *user_data );
-void redis_clause( key_info *kinfo, void *user_data );
-void foreach_primary_key( table_info *tinfo, primary_key_fn fn, void *user_data );
-const char * fld_type_str_to_sql( jedex_schema *fld_schema );
-db_mapper_error set_table_name( const char *db_name, jedex_value *val, mapper *self );
-const char *db_info_dbname( mapper *self, const char *tbl_name );
-
 /*
  * jedex_utils.c - jedex object manipulation utility function to either extract
  * schema information or jedex value information.

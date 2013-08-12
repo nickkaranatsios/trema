@@ -16,29 +16,20 @@
  */
 
 
-#include "db_mapper.h"
-#include "mapper_priv.h"
+#include <hiredis/hiredis.h>
+#include "log_writer.h"
 
 
 /*
  * sets the Redis cache using the set comand.
  */
 void
-cache_set( redisContext *rcontext,
-           table_info *tinfo,
-           const char *json,
-           ref_data *ref,
-           strbuf *sb ) {
-  strbuf_reset( sb );
-  strbuf_addf( sb, "%s|", tinfo->name );
-  ref->command = sb;
-  foreach_primary_key( tinfo, redis_clause, ref );
-  size_t slen = 1;
-  strbuf_rtrimn( sb, slen );
-  size_t klen = sb->len; 
-  strbuf_addf( sb, " %s", json );
-
-  redisReply *reply = redisCommand( rcontext, "SET %b %b", sb->buf, klen, sb->buf + klen + 1, sb->len - klen - 1 ); 
+redis_cache_set( redisContext *rcontext,
+           const char *key,
+           size_t klen,
+           const char *value,
+           size_t value_len ) {
+  redisReply *reply = redisCommand( rcontext, "SET %b %b", key, klen, value, value_len ); 
   if ( reply != NULL ) {
     if ( reply->type != REDIS_REPLY_STATUS ) {
       log_err( "Failed to update the redis cache set %s", reply->str );
@@ -46,7 +37,7 @@ cache_set( redisContext *rcontext,
     freeReplyObject( reply );
   }
   else {
-    log_err( "Failed to update the redis cache %s", sb->buf );
+    log_err( "Failed to update the redis cache %s", key );
   }
   // an example of how to read a cache value
   // reply = redisCommand( rcontext, "GET %s", "fruits|name|jackfruit" );
@@ -57,19 +48,10 @@ cache_set( redisContext *rcontext,
  * Deletes a Redis cache value. 
  */
 void
-cache_del( redisContext *rcontext,
-           table_info *tinfo,
-           ref_data *ref,
-           strbuf *sb ) {
-  strbuf_reset( sb );
-  strbuf_addf( sb, "%s|", tinfo->name );
-  ref->command = sb;
-  foreach_primary_key( tinfo, redis_clause, ref );
-  size_t slen = 1;
-  strbuf_rtrimn( sb, slen );
-  size_t klen = sb->len; 
-
-  redisReply *reply = redisCommand( rcontext, "DEL %b", sb->buf, klen ); 
+redis_cache_del( redisContext *rcontext,
+           const char *key,
+           size_t klen ) {
+  redisReply *reply = redisCommand( rcontext, "DEL %b", key, klen ); 
   if ( reply != NULL ) {
     if ( reply->type != REDIS_REPLY_INTEGER ) {
       log_err( "Failed to update the redis cache set %s", reply->str );
@@ -77,8 +59,56 @@ cache_del( redisContext *rcontext,
     freeReplyObject( reply );
   }
   else {
-    log_err( "Failed to update the redis cache %s", sb->buf );
+    log_err( "Failed to update the redis cache %s", key );
   }
+}
+
+
+/*
+ * Retrieves a Redis cache value (redisReply object) given by its key.
+ * The caller should free the redis reply object after its use.
+ * For example: GET fruits|name|jackfruit|country|Thailand
+ * The fruits is the database table fruits. Name and country are the two
+ * primary keys of the table.
+ */
+redisReply *
+redis_cache_get( redisContext *rcontext, const char *key) {
+  redisReply *reply = redisCommand( rcontext, "GET %s", key );
+  if ( reply != NULL ) {
+    if ( reply->type == REDIS_REPLY_NIL ) {
+      log_err( "Failed to read from the redis cache using key(%s)", key ); 
+      freeReplyObject( reply );
+      return NULL;
+    }
+  }
+
+  return reply;
+}
+
+
+/*
+ * Connects to the redis server and returns a redisContext object.
+ * The redis server should be started from the redis source code installation
+ * directory (redis-<version>/src) for example ./redis-server &
+ * How to compile and install the read server read the README file under the
+ * redis-<version> directory.
+ */
+redisContext *
+redis_cache_connect( void ) {
+  struct timeval timeout = { 1, 0 }; // 1 second
+  redisContext *rcontext = redisConnectWithTimeout( "127.0.0.1", 6379, timeout );
+  if ( rcontext == NULL || rcontext->err ) {
+    if ( rcontext ) {
+      log_err( "Connection to redis server failed error %s", rcontext->errstr ); 
+      redisFree( rcontext );
+      rcontext = NULL;
+    }
+    if ( rcontext == NULL ) {
+      log_err( "Connection to redis server failed perhaps redis server is not started" );
+    }
+  }
+
+  return rcontext;
 }
 
 

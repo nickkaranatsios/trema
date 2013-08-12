@@ -17,13 +17,20 @@
 
 
 #include <getopt.h>
+#include <hiredis/hiredis.h>
 #include "emirates.h"
 #include "jedex_iface.h"
 #include "generic.h"
+#include "cache.h"
 #include "checks.h"
 
 
-static emirates_iface *iface;
+typedef struct db_requester {
+  emirates_iface *iface;
+  redisContext *rcontext;
+  jedex_schema *request_reply_schema;
+  jedex_schema *groceries_schema;
+} db_requester;
 
 
 static char const * const requester_only_usage[] = {
@@ -35,96 +42,15 @@ static char const * const requester_only_usage[] = {
 typedef void ( *parse_fn ) ( int option, char *optarg, void *user_data );
 
 
-void
-set_fruits( jedex_value *val, const char *name, const char *country, float price ) {
-  jedex_value field;
-  size_t index;
-
-  jedex_value_get_by_name( val, "name", &field, &index );
-  jedex_value_set_string( &field, name );
-  jedex_value_get_by_name( val, "country", &field, &index );
-  jedex_value_set_string( &field, country );
-  jedex_value_get_by_name( val, "price", &field, &index );
-  jedex_value_set_float( &field, price );
+static jedex_schema *
+fruits_schema_get( jedex_schema *schema ) {
+  return jedex_schema_get_subschema( schema, "fruits" );
 }
 
 
-void
-set_many_fruits( jedex_value *val ) {
-  jedex_value element;
-  jedex_value_append( val, &element, NULL );
-  set_fruits( &element, "jackfruit", "Thailand", 5.38f );
-  jedex_value_append( val, &element, NULL );
-  set_fruits( &element, "pineapple", "Thailand", 2.66f );
-  jedex_value_append( val, &element, NULL );
-  set_fruits( &element, "mango", "Malaysia", 3.25f );
-  jedex_value_append( val, &element, NULL );
-  set_fruits( &element, "apples", "Japan", 1.55f );
-  jedex_value_append( val, &element, NULL );
-  set_fruits( &element, "bananas", "Mexico", 0.85f );
-}
-
-
-static jedex_value *
-set_find_record( jedex_schema *schema ) {
-  jedex_value_iface *val_iface;
-
-  jedex_schema *fruits_schema = jedex_schema_get_subschema( schema, "fruits" );
-  val_iface = jedex_generic_class_from_schema( fruits_schema );
-  jedex_value *val = jedex_value_from_iface( val_iface );
-  set_fruits( val, "", "Thailand", 0.0f );
-
-  return val;
-}
-
-
-static jedex_value *
-set_find_all_records( jedex_schema *schema ) {
-  jedex_value_iface *val_iface;
-
-  jedex_schema *fruits_schema = jedex_schema_get_subschema( schema, "fruits" );
-  val_iface = jedex_generic_class_from_schema( fruits_schema );
-  jedex_value *val = jedex_value_from_iface( val_iface );
-
-  return val;
-}
-
-
-
-static void
-insert_publish_data( jedex_schema *schema ) {
-  jedex_schema *fruits_schema = jedex_schema_get_subschema( schema, "fruits" );
-  assert( fruits_schema );
-
-  jedex_schema *array_schema = jedex_schema_array( fruits_schema );
-    
-  jedex_value_iface *array_class = jedex_generic_class_from_schema( array_schema );
-  assert( array_class );
-  
-  jedex_value val;
-  jedex_generic_value_new( array_class, &val );
-  set_many_fruits( &val );
-  publish_value( iface, "save_groceries", &val );
-}
-
-
-static void
-save_topic_handler( const uint32_t tx_id, jedex_value *val, const char *json, void *user_data ) {
-  if ( val != NULL ) {
-    printf( "save all handler called tx_id(%u) %s\n", tx_id, json );
-    jedex_schema *schema = user_data;
-    insert_publish_data( schema );
-    //jedex_value *find_record_val = set_find_record( schema );
-
-    jedex_schema *fruits_schema = jedex_schema_get_subschema( schema, "fruits" );
-    assert( fruits_schema );
-
-    jedex_schema *array_schema = jedex_schema_array( fruits_schema );
-    
-    //iface->send_request( iface, "find_record", find_record_val, array_schema );
-    jedex_value *find_all_records_val = set_find_all_records( schema );
-    iface->send_request( iface, "find_all_records", find_all_records_val, array_schema ); 
-  }
+static jedex_schema *
+reply_schema_get( jedex_schema *schema ) {
+  return jedex_schema_get_subschema( schema, "db_mapper_reply" );
 }
 
 
@@ -151,30 +77,227 @@ print_groceries( jedex_value *val ) {
 }
 
 
+static int
+print_groceries_array( jedex_value *val ) {
+  jedex_value element;
+  size_t array_size;
+  jedex_value_get_size( val, &array_size );
+  for ( size_t i = 0; i < array_size; i++ ) {
+    jedex_value_get_by_index( val, i, &element, NULL );
+    print_groceries( &element );
+    return 0;
+  }
+
+  return -1;
+}
+
+
 static void
-find_record_handler( const uint32_t tx_id, jedex_value *val, const char *json, void *user_data ) {
+print_db_reply( jedex_value *val ) {
+  jedex_value field;
+  size_t index;
+  jedex_value_get_by_name( val, "error", &field, &index );
+  int error;
+  jedex_value_get_int( &field, &error );
+  printf( "error %d\n", error );
+}
+
+
+static void
+set_fruits( jedex_value *val, const char *name, const char *country, float price ) {
+  jedex_value field;
+  size_t index;
+
+  jedex_value_get_by_name( val, "name", &field, &index );
+  jedex_value_set_string( &field, name );
+  jedex_value_get_by_name( val, "country", &field, &index );
+  jedex_value_set_string( &field, country );
+  jedex_value_get_by_name( val, "price", &field, &index );
+  jedex_value_set_float( &field, price );
+}
+
+
+static void
+set_many_fruits( jedex_value *val ) {
+  jedex_value element;
+  jedex_value_append( val, &element, NULL );
+  set_fruits( &element, "jackfruit", "Thailand", 5.38f );
+  jedex_value_append( val, &element, NULL );
+  set_fruits( &element, "pineapple", "Thailand", 2.66f );
+  jedex_value_append( val, &element, NULL );
+  set_fruits( &element, "mango", "Malaysia", 3.25f );
+  jedex_value_append( val, &element, NULL );
+  set_fruits( &element, "apples", "Japan", 1.55f );
+  jedex_value_append( val, &element, NULL );
+  set_fruits( &element, "bananas", "Mexico", 0.85f );
+}
+
+
+static jedex_value *
+set_find_record( jedex_schema *schema ) {
+  jedex_value_iface *val_iface;
+
+  jedex_schema *fruits_schema = fruits_schema_get( schema );
+  val_iface = jedex_generic_class_from_schema( fruits_schema );
+  jedex_value *val = jedex_value_from_iface( val_iface );
+  set_fruits( val, "", "Thailand", 0.0f );
+
+  return val;
+}
+
+
+static jedex_value *
+set_find_all_records( jedex_schema *schema ) {
+  jedex_value_iface *val_iface;
+
+  jedex_schema *fruits_schema = fruits_schema_get( schema );
+  val_iface = jedex_generic_class_from_schema( fruits_schema );
+  jedex_value *val = jedex_value_from_iface( val_iface );
+
+  return val;
+}
+
+
+static jedex_schema *
+jedex_schema_fruits( jedex_schema *schema ) {
+  jedex_schema *fruits_schema = fruits_schema_get( schema );
+  assert( fruits_schema );
+
+  return jedex_schema_array( fruits_schema );
+}
+  
+
+static void
+insert_publish_data( emirates_iface *iface, jedex_schema *schema ) {
+  jedex_schema *array_schema = jedex_schema_fruits( schema );
+
+  jedex_value_iface *array_class = jedex_generic_class_from_schema( array_schema );
+  assert( array_class );
+  
+  jedex_value val;
+  jedex_generic_value_new( array_class, &val );
+  set_many_fruits( &val );
+  publish_value( iface, "save_groceries", &val );
+}
+
+
+static void
+save_topic_handler( const uint32_t tx_id,
+                    jedex_value *val,
+                    const char *json,
+                    void *user_data ) {
   if ( val != NULL ) {
-     printf( "find_record_handler called tx_id(%u) %s\n", tx_id, json );
-     jedex_schema *schema = user_data;
-     jedex_value element;
-     size_t array_size;
-     jedex_value_get_size( val, &array_size );
-     for ( size_t i = 0; i < array_size; i++ ) {
-       jedex_value_get_by_index( val, i, &element, NULL );
-       print_groceries( &element );
-     }
-     
-     UNUSED( schema );
+    printf( "save_topic_handler called tx_id(%u) %s\n", tx_id, json );
+    print_db_reply( val );
+    db_requester *db_req = user_data;
+    insert_publish_data( db_req->iface, db_req->groceries_schema );
+    //jedex_value *find_record_val = set_find_record( schema );
+
+    jedex_schema *array_schema = jedex_schema_fruits( db_req->groceries_schema );
+    
+    //iface->send_request( iface, "find_record", find_record_val, array_schema );
+    jedex_value *find_all_records_val = set_find_all_records( db_req->groceries_schema );
+    db_req->iface->send_request( db_req->iface, "find_all_records", find_all_records_val, array_schema ); 
   }
 }
 
 
 static void
-find_all_records_handler( const uint32_t tx_id, jedex_value *val, const char *json, void *user_data ) {
+find_record_handler( const uint32_t tx_id,
+                     jedex_value *val,
+                     const char *json,
+                     void *user_data ) {
+  UNUSED( user_data );
+  // we expect the "val" pointer to be array of fruits.
+  if ( val != NULL ) {
+     printf( "find_record_handler called tx_id(%u) %s\n", tx_id, json );
+     print_groceries_array( val );
+  }
+}
+
+
+static void
+find_next_record_handler( const uint32_t tx_id,
+                          jedex_value *val,
+                          const char *json,
+                          void *user_data ) {
+  if ( val != NULL ) {
+    printf( "find_next_record_handler called tx_id(%u) %s\n", tx_id, json );
+    db_requester *db_req = user_data;
+    if ( !print_groceries_array( val ) ) {
+      jedex_value *find_next_record_val = set_find_all_records( db_req->groceries_schema );
+      jedex_schema *array_schema = jedex_schema_fruits( db_req->groceries_schema );
+      db_req->iface->send_request( db_req->iface, "find_next_record", find_next_record_val, array_schema ); 
+    }
+    else {
+      
+      redisReply *reply = redis_cache_get( db_req->rcontext, "fruits|name|jackfruit|country|Thailand" );
+      if ( reply != NULL ) {
+        jedex_value *update_val = json_to_jedex_value( fruits_schema_get( db_req->groceries_schema ), reply->str );
+        assert( update_val );
+        printf( "redis json data %s\n", reply->str );
+        freeReplyObject( reply );
+
+        jedex_value field;
+        size_t index;
+        jedex_value_get_by_name( update_val, "price", &field, &index );
+        float price = 4.44f;
+        jedex_value_set_float( &field, price );
+        db_req->iface->send_request( db_req->iface, "update_record", update_val, reply_schema_get( db_req->request_reply_schema ) );
+      }
+    }
+  }
+}
+
+
+static void
+find_all_records_handler( const uint32_t tx_id,
+                          jedex_value *val,
+                          const char *json,
+                          void *user_data ) {
   if ( val != NULL ) {
     printf( "find_all_records_handler called tx_id(%u) %s\n", tx_id, json );
-     jedex_schema *schema = user_data;
-     UNUSED( schema );
+    db_requester *db_req = user_data;
+    print_groceries_array( val );
+
+    jedex_value *find_next_record_val = set_find_all_records( db_req->groceries_schema );
+    jedex_schema *array_schema = jedex_schema_fruits( db_req->groceries_schema );
+    db_req->iface->send_request( db_req->iface, "find_next_record", find_next_record_val, array_schema ); 
+  }
+}
+
+
+static void
+update_record_handler( const uint32_t tx_id,
+                       jedex_value *val,
+                       const char *json,
+                       void *user_data ) {
+  if ( val != NULL ) {
+    printf( "update_record_handler called tx_id(%u) %s\n", tx_id, json );
+    db_requester *db_req = user_data;
+    redisReply *reply = redis_cache_get( db_req->rcontext, "fruits|name|apples|country|Japan" );
+    if ( reply != NULL ) {
+      jedex_value *delete_val = json_to_jedex_value( fruits_schema_get( db_req->groceries_schema ), reply->str );
+      assert( delete_val );
+      printf( "redis json data %s\n", reply->str );
+      freeReplyObject( reply );
+
+      db_req->iface->send_request( db_req->iface, "delete_record", delete_val, reply_schema_get( db_req->request_reply_schema ) );
+    }
+  }
+}
+
+
+static void
+delete_record_handler( const uint32_t tx_id,
+                       jedex_value *val,
+                       const char *json,
+                       void *user_data ) {
+  if ( val != NULL ) {
+    printf( "delete_record_handler called tx_id(%u) %s\n", tx_id, json );
+    db_requester *db_req = user_data;
+    UNUSED( db_req );
+    print_db_reply( val );
   }
 }
 
@@ -265,14 +388,6 @@ set_topic( jedex_schema *schema ) {
 }
 
 
-
-
-static jedex_schema *
-reply_schema_get( jedex_schema *schema ) {
-  return jedex_schema_get_subschema( schema, "db_mapper_reply" );
-}
-
-
 int
 main( int argc, char **argv ) {
   char schema_fn[ 2 ][ PATH_MAX ];
@@ -281,29 +396,38 @@ main( int argc, char **argv ) {
 
   parse_options( argc, argv, handle_option, &schema_fn[ 0 ] );
 
-  jedex_schema *request_reply_schema = jedex_initialize( schema_fn[ 0 ] );
-  jedex_schema *groceries_schema = jedex_initialize( schema_fn[ 1 ] );
+  db_requester *db_req = ( db_requester * ) malloc( sizeof( db_requester ) );
 
-  jedex_value *val = set_topic( request_reply_schema );
+  db_req->request_reply_schema = jedex_initialize( schema_fn[ 0 ] );
+  db_req->groceries_schema = jedex_initialize( schema_fn[ 1 ] );
+
+  jedex_value *val = set_topic( db_req->request_reply_schema );
 
   int flag = 0;
-  iface = emirates_initialize_only( ENTITY_SET( flag, REQUESTER | PUBLISHER ) );
-  if ( iface != NULL ) {
-    iface->set_service_reply( iface, "save_topic", ( void * ) groceries_schema, save_topic_handler );
-    jedex_schema *reply_schema = reply_schema_get( request_reply_schema );
-    iface->send_request( iface, "save_topic", val, reply_schema );
-
-    jedex_schema *fruits_schema = jedex_schema_get_subschema( groceries_schema, "fruits" );
-    assert( fruits_schema );
-    jedex_schema *array_schema = jedex_schema_array( fruits_schema );
+  db_req->iface = emirates_initialize_only( ENTITY_SET( flag, REQUESTER | PUBLISHER ) );
+  if ( db_req->iface != NULL ) {
+    db_req->rcontext = redis_cache_connect();
+    if ( db_req->rcontext == NULL ) {
+      printf( "Failed to connect to cache exiting ...\n" );
+      return -1;
+    }
+    db_req->iface->set_service_reply( db_req->iface, "save_topic", db_req, save_topic_handler );
+    jedex_schema *reply_schema = reply_schema_get( db_req->request_reply_schema );
+    db_req->iface->send_request( db_req->iface, "save_topic", val, reply_schema );
 
     // the 3th parameter is just a user data pointer and not to be confused with the schema pointer
-    iface->set_service_reply( iface, "find_record", ( void * ) array_schema, find_record_handler );
+    db_req->iface->set_service_reply( db_req->iface, "find_record", db_req, find_record_handler );
 
-    iface->set_service_reply( iface, "find_all_records", ( void * ) array_schema, find_all_records_handler );
+    db_req->iface->set_service_reply( db_req->iface, "find_all_records", db_req, find_all_records_handler );
 
-    emirates_loop( iface );
-    emirates_finalize( &iface );
+    db_req->iface->set_service_reply( db_req->iface, "find_next_record", db_req, find_next_record_handler );
+
+    db_req->iface->set_service_reply( db_req->iface, "update_record", db_req, update_record_handler );
+
+    db_req->iface->set_service_reply( db_req->iface, "delete_record", db_req, delete_record_handler );
+
+    emirates_loop( db_req->iface );
+    emirates_finalize( &db_req->iface );
   }
 
   return 0;

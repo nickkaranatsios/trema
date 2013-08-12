@@ -124,7 +124,6 @@ query_num_rows( query_info *qinfo ) {
 
 void
 query_free_result( query_info *qinfo ) {
-  qinfo->used = 0;
   mysql_free_result( qinfo->res );
 }
 

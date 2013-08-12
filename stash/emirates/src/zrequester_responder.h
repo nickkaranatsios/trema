@@ -33,7 +33,7 @@ extern "C" {
 typedef struct service_route {
   char service[ SERVICE_MAX ];
   char identity[ IDENTITY_MAX ];
-  uint64_t join_at;
+  int64_t join_at;
   bool active;
 } service_route;
 

@@ -388,41 +388,9 @@ set_topic( jedex_schema *schema ) {
 
 
 /*
- * This is the main test program to exercise db_mapper's functionality.
- * It uses two schemas our groceries schema and a request_reply schema.
- * Although the groceries schema contains three different kind of records we 
- * use only the fruits record for all the tests. We enhanced the fruits record
- * to include another field(country) as a key in order to test access to db
- * using multiple keys. 
- * For every message that we send a request we expect a reply back from
- * db_mapper. Iteraction with db_mapper begins with the sending of the
- * save_topic message. The save_topic message instructs the db_mapper to create
- * the specified database and tables. You can not set any arbitrary table and
- * expect db_mapper to work. Db_mapper should be aware of the tables it can
- * create by reading a schema pertaining to such information. 
- * We insert data into the tables using one publish_value() call that contains
- * an array of fruit records. Then we attempt to retrieve one and all records.
- * This process starts with a find_all_records message and more
- * find_next_record calls. At the moment db_mapper is hard-coded to return a
- * record at the time to exercise the find_next_record call. The process
- * terminates when the find_next_record call returns no more records. The
- * last find_next_record call might seem a waste but since we don't pass any
- * record positioning markers to the application this is necessary. To be able
- * to handle multiple find_next_record requests from multiple clients we pass
- * the client_id to the requester. Requester(worker) uses the client_id to 
- * sort out record positioning information per requester/client. The last
- * find_next_record request it serves an additional purpose to reset the
- * values of the record positioning information. The next step is to update
- * a field (price) of a record selecting the record using their keys. 
- * But before we actually send the update_record request we retrieve its
- * json representation from the Redis cache. To retrieve the cache value we use
- * the following key "table_name|pk_key1|pk_key_value1|pk_key2|pk_value2"
- * For example "fruits|name|jackfruit|country|Thailand".
- * We could have also included the db_name to guarantee uniqueness but we
- * settled with the above format assuming this combination is unique enough at
- * the moment. Also we every request message we don't include the database name
- * hence assuming that the table name is system wide unique. Finally to
- * complete all CRUD opeerations we issue a delete_record request.
+ * This test program is used in addition to db_requester test program
+ * to ensure that db_mapper can handle more than one find_record service
+ * requests originating from different processes.:wq
  */
 int
 main( int argc, char **argv ) {
@@ -437,30 +405,19 @@ main( int argc, char **argv ) {
   db_req->request_reply_schema = jedex_initialize( schema_fn[ 0 ] );
   db_req->groceries_schema = jedex_initialize( schema_fn[ 1 ] );
 
-  jedex_value *val = set_topic( db_req->request_reply_schema );
-
   int flag = 0;
-  db_req->iface = emirates_initialize_only( ENTITY_SET( flag, REQUESTER | PUBLISHER ) );
+  db_req->iface = emirates_initialize_only( ENTITY_SET( flag, REQUESTER ) );
   if ( db_req->iface != NULL ) {
     db_req->rcontext = redis_cache_connect();
     if ( db_req->rcontext == NULL ) {
       printf( "Failed to connect to cache exiting ...\n" );
       return -1;
     }
-    db_req->iface->set_service_reply( db_req->iface, "save_topic", db_req, save_topic_handler );
-    jedex_schema *reply_schema = reply_schema_get( db_req->request_reply_schema );
-    db_req->iface->send_request( db_req->iface, "save_topic", val, reply_schema );
-
-    // the 3th parameter is just a user data pointer and not to be confused with the schema pointer
     db_req->iface->set_service_reply( db_req->iface, "find_record", db_req, find_record_handler );
 
-    db_req->iface->set_service_reply( db_req->iface, "find_all_records", db_req, find_all_records_handler );
-
-    db_req->iface->set_service_reply( db_req->iface, "find_next_record", db_req, find_next_record_handler );
-
-    db_req->iface->set_service_reply( db_req->iface, "update_record", db_req, update_record_handler );
-
-    db_req->iface->set_service_reply( db_req->iface, "delete_record", db_req, delete_record_handler );
+    jedex_value *find_record_val = set_find_record( db_req->groceries_schema );
+    jedex_schema *array_schema = jedex_schema_fruits( db_req->groceries_schema );
+    db_req->iface->send_request( db_req->iface, "find_record", find_record_val, array_schema );
 
     emirates_loop( db_req->iface );
     emirates_finalize( &db_req->iface );

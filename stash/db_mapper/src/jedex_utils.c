@@ -93,7 +93,7 @@ db_reply_set( jedex_value *val, db_mapper_error err ) {
   jedex_value field;
   size_t index;
   jedex_value_get_by_name( val, "error", &field, &index );
-  jedex_value_set_int( val, ( int ) err );
+  jedex_value_set_int( &field, ( int ) err );
 }
 
 

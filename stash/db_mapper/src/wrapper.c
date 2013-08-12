@@ -109,6 +109,13 @@ query( db_info *db, query_info *qinfo, const char *format, ... ) {
       if ( mysql_field_count( db->db_handle) ) {
         ret = query_store_result ( db->db_handle, qinfo );
       }
+      else {
+        my_ulonglong rows_affected = mysql_affected_rows( db->db_handle );
+        // operation (insert/update/delete) failed.
+        if ( rows_affected == 0 ) {
+          ret = -1;
+        }
+      }
     }
   }
 

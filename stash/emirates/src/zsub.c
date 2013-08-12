@@ -180,50 +180,6 @@ subscriber_poll( const emirates_priv *priv ) {
 static void
 subscribe_to_service( const char *service,
                       subscriber_info *self,
-                      const char **schema_names,
-                      void *user_data,
-                      subscription_handler user_callback ) {
-  subscriber_callback *cb = ( subscriber_callback * ) zmalloc( sizeof( subscriber_callback ) );
-  cb->callback = user_callback;
-  cb->key.service = service;
-  cb->user_data = user_data;
-
-  if ( *schema_names ) {
-    size_t nr_schema_names = 0;
-    while ( *( schema_names + nr_schema_names ) ) {
-      nr_schema_names++;
-    }
-    size_t schema_size = sizeof( jedex_schema * ) * nr_schema_names + 1;
-    cb->schemas = ( jedex_schema ** ) zmalloc( schema_size );
-    size_t i;
-    for ( i = 0; i < nr_schema_names; i++ ) {
-      cb->schemas[ i ] = jedex_initialize( schema_names[ i ] );
-    }
-    cb->schemas[ i ] = NULL;
-  }
-  else {
-    size_t schema_size = sizeof( void * ) * 2;
-    cb->schemas = ( jedex_schema ** ) zmalloc( schema_size );
-    cb->schemas[ 0 ] = jedex_initialize( "" );
-    cb->schemas[ 1 ] = NULL;
-  }
-    
-  if ( !subscription_callback_add( self, cb ) ) {
-    zmsg_t *set_subscription = zmsg_new();
-    zmsg_addstr( set_subscription, SUBSCRIPTION_MSG );
-    zmsg_addstr( set_subscription, service );
-    zmsg_send( &set_subscription, subscriber_socket( self ) );
-  }
-  else {
-    free_array( cb->schemas );
-    free( cb );
-  }
-}
-
-
-static void
-subscribe_to_service_new( const char *service,
-                      subscriber_info *self,
                       jedex_schema **schemas,
                       void *user_data,
                       subscription_handler user_callback ) {
@@ -250,6 +206,7 @@ subscribe_to_service_new( const char *service,
   }
 }
 
+
 int
 subscriber_invoke( const emirates_priv *priv ) {
   return subscriber_poll( priv );
@@ -258,25 +215,13 @@ subscriber_invoke( const emirates_priv *priv ) {
 
 void
 subscription( emirates_iface *iface,
-              const char *service,
-              const char **schema_names,
-              void *user_data,
-              subscription_handler callback ) {
-  emirates_priv *priv = iface->priv;
-  assert( priv );
-  subscribe_to_service( service, priv->subscriber, schema_names, user_data, callback );
-}
-
-
-void
-subscription_new( emirates_iface *iface,
                   const char *service,
                   jedex_schema **schemas,
                   void *user_data,
-              subscription_handler callback ) {
+                  subscription_handler callback ) {
   emirates_priv *priv = iface->priv;
   assert( priv );
-  subscribe_to_service_new( service, priv->subscriber, schemas, user_data, callback );
+  subscribe_to_service( service, priv->subscriber, schemas, user_data, callback );
 }
 
 

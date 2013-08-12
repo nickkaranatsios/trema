@@ -43,10 +43,19 @@ extern "C" {
 
 
 typedef struct emirates_iface emirates_iface;
+/*
+ * This is what a responder(worker) would receive to handle a request.
+ * The perculiar parameter client_id is the requester_id. Most processes would
+ * ignore this parameter but it is needed by db_mapper to effectively process
+ * certain kind of messages.
+ */
 typedef void ( *request_handler ) ( jedex_value *val,
                                     const char *json,
                                     const char *client_id,
                                     void *user_data );
+/*
+ * This is what a requester(client) would receive after sending a request.
+ */
 typedef void ( *reply_handler ) ( const uint32_t tx_id,
                                   jedex_value *val,
                                   const char *json,
@@ -61,11 +70,18 @@ struct emirates_iface {
   void *priv;
   void *( *get_publisher ) ( emirates_iface *iface );
   void *( *get_requester ) ( emirates_iface *iface );
+  /*
+   * A responder(worker) indicates to emirates library that it can service
+   * a request. The schema parameter is a pointer to a schema object that
+   * would be used to parse the json data in order to create a jedex_value
+   * object.
+   */
   void ( *set_service_request ) ( emirates_iface *iface, 
                                   const char *service,
                                   jedex_schema *schema,
                                   void *user_data,
                                   request_handler request_callback );
+
   void ( *set_service_reply ) ( emirates_iface *iface,
                                 const char *service,
                                 void *user_data,
@@ -73,30 +89,43 @@ struct emirates_iface {
   // this call sets a callback handler to be called when a subscription received
   void ( *set_subscription ) ( emirates_iface *iface,
                                const char *service,
-                               const char **schema_names,
-                               void *user_data,
-                               subscription_handler subscription_callback );
-  void ( *set_subscription_new ) ( emirates_iface *iface,
-                               const char *service,
                                jedex_schema **schemas,
                                void *user_data,
                                subscription_handler subscription_callback );
+  /*
+   * The parcel parameter is used to be able to set multiple objects to be
+   * published at once. But the jedex_value object can hold for example an
+   * array of same kind of objects so we don't expect applications to have
+   * a need for it. Anyway at the moment is supported.
+   */
   void ( *publish ) ( emirates_iface *iface,
                       const char *service,
                       jedex_parcel *parcel );
+
   void ( *publish_value ) ( emirates_iface *iface,
                             const char *service,
                             jedex_value *value );
+  /*
+   * This sends a request for a service that contains a jedex_value. The
+   * reply_schema parameter is the schema that would be used to parse 
+   * the expected reply with this request.
+   */
   uint32_t ( *send_request ) ( emirates_iface *iface,
                                const char *service,
                                jedex_value *value,
                                jedex_schema *reply_schema );
+  /*
+   * The following call mainly used by db_mapper to transmit replies.
+   * Most other applications should use the send_reply call.
+   */
   void ( *send_reply_raw ) ( emirates_iface *iface,
                              const char *service,
                              const char *json );
+
   void ( *send_reply ) ( emirates_iface *iface,
                          const char *service,
                          jedex_value *value );
+
   void ( *set_periodic_timer ) ( emirates_iface *iface,
                                  int msecs,
                                  timer_handler timer_callback,
@@ -105,71 +134,55 @@ struct emirates_iface {
 
 
 emirates_iface *emirates_initialize( void );
+
 emirates_iface *emirates_initialize_only( const int flag );
+
 int emirates_loop( emirates_iface *iface );
+
 void emirates_finalize( emirates_iface **iface );
+
 void publish( emirates_iface *iface,
               const char *service_name,
               jedex_parcel *parcel );
+
 void publish_value( emirates_iface *iface,
                     const char *service_name,
                     jedex_value *value );
+
 void service_request( emirates_iface *iface,
                       const char *service,
                       jedex_schema *schema,
                       void *user_data,
                       request_handler callback );
+
 void service_reply( emirates_iface *iface,
                     const char *service,
                     void *user_data,
                     reply_handler callback );
+
 void subscription( emirates_iface *iface,
-                   const char *service,
-                   const char **schema_names,
-                   void *user_data,
-                   subscription_handler subscription_callback );
-void subscription_new( emirates_iface *iface,
                    const char *service,
                    jedex_schema **schemas,
                    void *user_data,
                    subscription_handler subscription_callback );
+
 uint32_t send_request( emirates_iface *iface,
                        const char *service,
                        jedex_value *value,
                        jedex_schema *reply_schema );
+
 void send_reply_raw( emirates_iface *iface,
                      const char *service,
                      const char *json );
+
 void send_reply( emirates_iface *iface,
                  const char *service,
                  jedex_value *value );
+
 void set_periodic_timer( emirates_iface *iface,
                          int msecs,
                          timer_handler timer_callback,
                          void *user_data );
-
-
-// example ONLY
-#define quote( name ) #name
-#define str( name ) quote( name )
-
-#define subscribe_service_profile( iface, sub_schema_names, user_data, user_callback ) \
-  subscribe_to_service( str( service_profile ), ( priv( iface ) )->subscriber, sub_schema_names, user_data, user_callback )
-
-#define subscribe_user_profile( iface, sub_schema_names, user_data, user_callback ) \
-  subscribe_to_service( str( user_profile ), ( priv ( iface ) )->subscriber, sub_schema_names, user_data, user_callback )
-
-#define set_menu_reply( iface, callback ) \
-  service_reply( str( menu ), priv( iface ), callback )
-
-#define set_profile_reply( iface, callback ) \
-  service_reply( str( profile ), priv( iface ), callback )
-
-#define send_menu_request( priv ) \
-  send_request( str( menu ), priv )
-
-#define send_profile_request( priv ) \
-  send_request( str( profile ), priv )
 
 void set_ready( emirates_iface *iface );
 

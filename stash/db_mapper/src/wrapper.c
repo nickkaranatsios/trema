@@ -43,7 +43,7 @@ _db_connect( db_info *db ) {
 
 
 /*
- * returns zero if the query was successful.Nonzero if an error occurred.
+ * returns zero if the query was successful. Nonzero if an error occurred.
  */
 static int
 _query( MYSQL *db_handle, const char *stmt_str, size_t stmt_size ) {
@@ -91,6 +91,12 @@ query_store_result( MYSQL *db_handle, query_info *qinfo ) {
 }
   
 
+my_ulonglong
+query_affected_rows( db_info *db ) {
+  return mysql_affected_rows( db->db_handle );
+}
+
+
 int
 query( db_info *db, query_info *qinfo, const char *format, ... ) {
   char *stmt_str = NULL;
@@ -108,13 +114,6 @@ query( db_info *db, query_info *qinfo, const char *format, ... ) {
     if ( !ret ) {
       if ( mysql_field_count( db->db_handle) ) {
         ret = query_store_result ( db->db_handle, qinfo );
-      }
-      else {
-        my_ulonglong rows_affected = mysql_affected_rows( db->db_handle );
-        // operation (insert/update/delete) failed.
-        if ( rows_affected == 0 ) {
-          ret = -1;
-        }
       }
     }
   }

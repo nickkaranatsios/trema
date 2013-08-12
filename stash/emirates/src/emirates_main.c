@@ -191,7 +191,6 @@ initialize_entities( emirates_iface *iface, const int flag ) {
       return NULL;
     }
     iface->set_subscription = subscription;
-    iface->set_subscription_new = subscription_new;
   }
   if ( ENTITY_TST( flag, RESPONDER ) ) {
     if ( responder_init( iface->priv ) ) {

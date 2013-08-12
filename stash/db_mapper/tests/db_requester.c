@@ -462,6 +462,7 @@ main( int argc, char **argv ) {
 
     db_req->iface->set_service_reply( db_req->iface, "delete_record", db_req, delete_record_handler );
 
+
     emirates_loop( db_req->iface );
     emirates_finalize( &db_req->iface );
   }

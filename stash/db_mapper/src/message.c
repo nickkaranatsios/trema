@@ -93,7 +93,7 @@ request_save_topic_callback( jedex_value *val, const char *json, const char *cli
   }
   schemas[ j ] = NULL;
 
-  self->emirates->set_subscription_new( self->emirates, topic, schemas, user_data, topic_subscription_callback );
+  self->emirates->set_subscription( self->emirates, topic, schemas, user_data, topic_subscription_callback );
 
   db_reply_set( self->reply_val, err );
   self->emirates->send_reply( self->emirates, "save_topic", self->reply_val );
@@ -254,7 +254,7 @@ unpack_find_next_record( const char *tbl_name,
  * We expect either an array of records or one record object to insert
  */
 void
-unpack_insert_object( mapper *self, jedex_value *val, const char *json, const char *tbl_name ) {
+unpack_insert_record( mapper *self, jedex_value *val, const char *json, const char *tbl_name ) {
   const char *db_name = db_info_dbname( self, tbl_name );
 
   strbuf sb = STRBUF_INIT;
@@ -270,7 +270,7 @@ unpack_insert_object( mapper *self, jedex_value *val, const char *json, const ch
   strbuf_addf( &sb, "'%s')", json );
   query_info *qinfo = query_info_get( tinfo );
   if ( qinfo != NULL ) {
-    if ( !query( db, qinfo, sb.buf ) ) {
+    if ( !query( db, qinfo, sb.buf ) && query_affected_rows( db ) ) {
       // here we want to save the key/value to redis cache.
       // and we have nothing to return to application.
       cache_set( self->rcontext, tinfo, json, &ref, &sb );
@@ -311,7 +311,7 @@ unpack_update_record( const char *tbl_name,
   db_mapper_error err = DB_REC_NOT_FOUND;
   query_info *qinfo = query_info_get( tinfo );
   if ( qinfo != NULL ) {
-    if ( !query( db, qinfo, sb.buf ) ) {
+    if ( !query( db, qinfo, sb.buf ) && query_affected_rows( db ) ) {
       cache_set( self->rcontext, tinfo, json, &ref, &sb );
       err = NO_ERROR;
     }
@@ -353,7 +353,7 @@ unpack_delete_record( const char *tbl_name,
   db_mapper_error err = DB_REC_NOT_FOUND;
   query_info *qinfo = query_info_get( tinfo );
   if ( qinfo != NULL ) {
-    if ( !query( db, qinfo, sb.buf ) ) {
+    if ( !query( db, qinfo, sb.buf ) && query_affected_rows( db ) ) {
       cache_del( self->rcontext, tinfo, &ref, &sb );
       err = NO_ERROR;
     }
@@ -445,7 +445,7 @@ printf( "insert record %s\n", json );
   jedex_schema *root_schema = jedex_value_get_schema( val );
   if ( is_jedex_record( root_schema ) ) {
     const char *tbl_name = jedex_schema_type_name( root_schema );
-    unpack_insert_object( self, val, json, tbl_name );
+    unpack_insert_record( self, val, json, tbl_name );
   }
   else if ( is_jedex_array( root_schema ) ) {
     size_t array_size;
@@ -460,7 +460,7 @@ printf( "insert record %s\n", json );
 
       json_t *jelement = json_array_get( jarray, i );
       char *json_str = json_to_s( jelement );
-      unpack_insert_object( self, &element, json_str, tbl_name );
+      unpack_insert_record( self, &element, json_str, tbl_name );
       free( json_str );
       json_decref( jelement );
     }
@@ -479,7 +479,7 @@ printf( "insert record %s\n", json );
       // now unpack the find
       json_t *jelement = json_array_get( jarray, i );
       char *json_str = json_to_s( jelement );
-      unpack_insert_object( self, val, json, tbl_name );
+      unpack_insert_record( self, val, json, tbl_name );
       free( json_str );
       json_decref( jelement );
     }

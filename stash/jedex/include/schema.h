@@ -48,7 +48,7 @@ jedex_schema *jedex_schema_null( void );
 
 jedex_schema *jedex_schema_record( const char *name, const char *space );
 jedex_schema *jedex_schema_record_field_get( jedex_schema *schema, const char *field_name );
-const char *jedex_schema_record_field_name( jedex_schema *schema, int index );
+char *jedex_schema_record_field_name( jedex_schema *schema, int index );
 int jedex_schema_record_field_get_index( jedex_schema *schema, const char *field_name );
 bool jedex_schema_record_field_is_primary( jedex_schema *schema, const char *field_name );
 jedex_schema *jedex_schema_record_field_get_by_index( jedex_schema *schema, int index );
@@ -74,6 +74,8 @@ jedex_schema *jedex_schema_link_target( jedex_schema *schema );
 int jedex_schema_from_json( const char *jsontext, jedex_schema **schema );
 int jedex_schema_from_json_length( const char *jsontext, size_t length, jedex_schema **schema );
 jedex_schema *jedex_schema_get_subschema( jedex_schema *schema, const char *name );
+const char *jedex_schema_name( jedex_schema *schema );
+int jedex_schema_equal( jedex_schema *a, jedex_schema *b );
 
 #define jedex_schema_from_json_literal( json, schema ) \
   jedex_schema_from_json_length( ( json ), sizeof( ( json ) ) - 1, ( schema ) )

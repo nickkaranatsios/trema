@@ -82,14 +82,13 @@ request_save_topic_callback( jedex_value *val, const char *json, const char *cli
   get_string_field( val, "topic", &topic );
 
   db_info *db = db_info_get( db_name, self );
-  jedex_schema **schemas = ( jedex_schema ** ) xmalloc ( db->tables_nr * sizeof( jedex_schema * ) * 2 + 1 );
-  size_t j;
-  for ( size_t i = 0; i < db->tables_nr; i++ ) {
+  jedex_schema **schemas = ( jedex_schema ** ) xmalloc ( sizeof( jedex_schema * ) * ( db->tables_nr * 2 + 1 ) );
+  size_t j = 0;
+  for ( size_t i = 0; i < db->tables_nr; i++, j += 2 ) {
     jedex_schema *tbl_schema = jedex_schema_get_subschema( self->schema, db->tables[ i ]->name );
     jedex_schema *array_schema = jedex_schema_array( tbl_schema );
-    j = i;
-    schemas[ j++ ] = tbl_schema;
-    schemas[ j++ ] = array_schema;
+    schemas[ j ] = tbl_schema;
+    schemas[ j + 1 ] = array_schema;
   }
   schemas[ j ] = NULL;
 

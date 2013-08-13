@@ -56,26 +56,26 @@ kinfo_to_sql( key_info *kinfo, jedex_value *val, int clause, strbuf *command ) {
     int int_val;
     jedex_value_get_int( &field, &int_val );
     if ( clause == WHERE_CLAUSE && int_val ) {
-      strbuf_addf( command, "%s=" PRId32 "and ", pk_name, int_val );
+      strbuf_addf( command, "%s=%"PRId32 "and ", pk_name, int_val );
     }
     else if ( clause == INSERT_CLAUSE ) {
-      strbuf_addf( command, PRId32",", int_val );
+      strbuf_addf( command, "%"PRId32",", int_val );
     }
     else if ( clause == REDIS_CLAUSE ) {
-      strbuf_addf( command, "%s|"PRId32"|", pk_name, int_val );
+      strbuf_addf( command, "%s|%"PRId32"|", pk_name, int_val );
     }
   }
   else if ( key_type == JEDEX_INT64 ) {
     int64_t long_val;
     jedex_value_get_long( &field, &long_val );
     if ( clause == WHERE_CLAUSE && long_val ) {
-      strbuf_addf( command, "%s=" PRId64 "and ", pk_name, long_val );
+      strbuf_addf( command, "%s=%"PRId64 "and ", pk_name, long_val );
     }
     else if ( clause == INSERT_CLAUSE ) {
-      strbuf_addf( command, PRId64",", long_val );
+      strbuf_addf( command, "%"PRId64",", long_val );
     }
     else if ( clause == REDIS_CLAUSE ) {
-      strbuf_addf( command, "%s|"PRId64"|", pk_name, long_val );
+      strbuf_addf( command, "%s|%"PRId64"|", pk_name, long_val );
     }
   }
   else if ( key_type == JEDEX_FLOAT ) {

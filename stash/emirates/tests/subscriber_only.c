@@ -62,7 +62,7 @@ main( int argc, char **argv ) {
     schemas[ 0 ] = schema;
     schemas[ 1 ] = array_schema;
     schemas[ 2 ] = NULL;
-    iface->set_subscription_new( iface, "menu", schemas, iface, menu_subscription_callback );
+    iface->set_subscription( iface, "menu", schemas, iface, menu_subscription_callback );
     emirates_loop( iface );
     jedex_finalize( &array_schema );
     emirates_finalize( &iface );

@@ -138,6 +138,17 @@ static void
 jedex_schema_record_free( jedex_schema *schema ) {
   struct jedex_record_schema *rschema = jedex_schema_to_record( schema );
 
+  for ( int i = 0; i < rschema->fields->num_entries; i++ ) {
+    jedex_schema *field_schema = jedex_schema_record_field_get_by_index( schema, i );
+    if ( is_jedex_array( field_schema ) ) {
+      jedex_schema_free( field_schema );  
+    }
+    else {
+      jedex_free( field_schema );
+      char *field_name = jedex_schema_record_field_name( schema, i );
+      jedex_free( field_name );
+    }
+  }
   if ( rschema->name ) {
     jedex_free( rschema->name );
   }
@@ -145,8 +156,9 @@ jedex_schema_record_free( jedex_schema *schema ) {
     jedex_free( rschema->space );
   }
   if ( rschema->fields ) {
-     st_free_table( rschema->fields );
+    st_free_table( rschema->fields );
   }
+  st_delete_value( rschema->fields_byname );
   if ( rschema->fields_byname ) {
     st_free_table( rschema->fields_byname );
   }
@@ -238,7 +250,7 @@ jedex_schema_record_field_is_primary( jedex_schema *record, const char *field_na
 }
 
 
-const char *
+char *
 jedex_schema_record_field_name( jedex_schema *record, int index ) {
   union {
     st_data_t data;
@@ -909,6 +921,16 @@ jedex_schema_from_json_root( json_t *root, jedex_schema **schema ) {
   st_free_table( named_schemas );
   
   return rval;
+}
+
+
+const char *
+jedex_schema_name( jedex_schema *schema ) {
+  if ( is_jedex_record( schema ) ) {
+    return ( jedex_schema_to_record( schema ) )->name;
+  }
+
+  return NULL;
 }
 
 

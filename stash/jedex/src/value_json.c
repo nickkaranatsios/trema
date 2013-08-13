@@ -505,7 +505,7 @@ unpack_primitive( json_t *json_value, jedex_value *val ) {
 }
 
 
-static void unpack_array( json_t *json_value, jedex_value *val );
+static int unpack_array( json_t *json_value, jedex_value *val );
 
 
 static void
@@ -558,7 +558,7 @@ unpack_object( json_t *json_value, jedex_value *val ) {
 }
 
 
-static void
+static int
 unpack_multi_array( json_t *json_value, jedex_value *val ) {
   jedex_value branch;
   size_t index;
@@ -575,12 +575,15 @@ unpack_multi_array( json_t *json_value, jedex_value *val ) {
       unpack_object( json_element, &element );
     }
   }
+
+  return 0;
 }
 
 
-static void
+static int
 unpack_array( json_t *json_value, jedex_value *val ) {
   size_t items;
+
   items = json_array_size( json_value );
   for ( size_t i = 0; i < items; i++ ) {
     json_t *json_element = json_array_get( json_value, i );
@@ -602,7 +605,15 @@ unpack_array( json_t *json_value, jedex_value *val ) {
         else {
           jedex_value array_element;
           jedex_value_append( val, &array_element, NULL );
-          unpack_object( json_value, &array_element );
+          jedex_schema *item_schema = jedex_value_get_schema( &array_element );
+          if ( item_schema ) {
+            if ( !strcmp( jedex_schema_name( item_schema ), key ) ) {
+              unpack_object( json_value, &array_element );
+            }
+            else {
+              return EINVAL;
+            }
+          }
         }
       }
     }
@@ -612,8 +623,9 @@ unpack_array( json_t *json_value, jedex_value *val ) {
       unpack_primitive( json_element, &array_element );
     }
   }
-}
 
+  return 0;
+}
 
 
 static int
@@ -623,7 +635,7 @@ jedex_parse_json( json_t *root, jedex_value *val, jedex_schema *schema ) {
   if ( root ) {
     if ( json_is_array( root ) ) {
       if ( is_jedex_array( schema ) || is_jedex_union( schema ) ) {
-        unpack_array( root, val );
+        rc = unpack_array( root, val );
       }
       else {
         return EINVAL;
@@ -666,6 +678,9 @@ json_to_jedex_value( void *schema, const char *json ) {
   }
   jedex_value *val = jedex_value_from_iface( val_iface );
   int rc = jedex_parse_json( root, val, schema );
+  if ( rc && val != NULL ) {
+    jedex_value_reset( val );
+  }
 
   return rc == 0 ? val : NULL;
 }

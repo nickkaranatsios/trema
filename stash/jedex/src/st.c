@@ -429,7 +429,7 @@ st_delete( register st_table *table, register st_data_t *key, st_data_t *value )
 
 
 int
-st_delete_safe(register st_table *table, register st_data_t *key, st_data_t *value, st_data_t never ) {
+st_delete_safe( register st_table *table, register st_data_t *key, st_data_t *value, st_data_t never ) {
 	unsigned int hash_val;
 	register st_table_entry *ptr;
 
@@ -460,12 +460,13 @@ st_delete_safe(register st_table *table, register st_data_t *key, st_data_t *val
 
 
 static int
-delete_never(st_data_t key, st_data_t value, st_data_t never) {
+delete_never( st_data_t key, st_data_t value, st_data_t never ) {
 	UNUSED( key );
 
 	if ( value == never ) {
 		return ST_DELETE;
   }
+
 	return ST_CONTINUE;
 }
 
@@ -487,7 +488,7 @@ st_foreach( st_table *table, int ( *func ) ( ANYARGS ), st_data_t arg ) {
 
 	for ( i = 0; i < table->num_bins; i++ ) {
 		last = 0;
-		for ( ptr = table->bins[i]; ptr != 0; ) {
+		for ( ptr = table->bins[ i ]; ptr != 0; ) {
 			retval = ( enum st_retval ) ( *func ) ( ptr->key, ptr->record, arg );
 			switch ( retval ) {
 			case ST_CHECK:	/* check if hash is modified during
@@ -532,6 +533,22 @@ st_foreach( st_table *table, int ( *func ) ( ANYARGS ), st_data_t arg ) {
 	}
 
 	return 0;
+}
+
+
+void
+st_delete_value( st_table *table ) {
+  st_table_entry *ptr;
+  int i;
+
+  for ( i = 0; i < table->num_bins; i++ ) {
+    ptr = table->bins[ i ];
+    if ( ptr != NULL ) {
+      if ( ptr->record != 0 ) {
+        jedex_free( ( void * ) ptr->record );
+      }
+    }
+  }
 }
 
 

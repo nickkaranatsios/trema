@@ -162,7 +162,7 @@ int db_create( mapper *mptr, bool hint );
 // wrapper.c
 int query( db_info *db, query_info *qinfo, const char *format, ...);
 my_ulonglong query_num_rows( query_info *qinfo );
-my_ulonglong query_rows_affected( db_info *db );
+my_ulonglong query_affected_rows( db_info *db );
 void query_free_result( query_info *qinfo );
 int query_fetch_result( query_info *qinfo, strbuf *rbuf );
 

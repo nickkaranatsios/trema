@@ -140,14 +140,14 @@ jedex_schema_record_free( jedex_schema *schema ) {
 
   for ( int i = 0; i < rschema->fields->num_entries; i++ ) {
     jedex_schema *field_schema = jedex_schema_record_field_get_by_index( schema, i );
+    char *field_name = jedex_schema_record_field_name( schema, i );
     if ( is_jedex_array( field_schema ) ) {
       jedex_schema_free( field_schema );  
     }
     else {
       jedex_free( field_schema );
-      char *field_name = jedex_schema_record_field_name( schema, i );
-      jedex_free( field_name );
     }
+    jedex_free( field_name );
   }
   if ( rschema->name ) {
     jedex_free( rschema->name );

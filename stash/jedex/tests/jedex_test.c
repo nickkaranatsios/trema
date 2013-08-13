@@ -477,11 +477,32 @@ main( int argc, char **argv ) {
       jedex_schema *menu_schema = jedex_initialize( "schema/menu_record" );
       assert( menu_schema );
 
+
       jedex_schema *array_schema = jedex_schema_array( menu_schema );
       jedex_value_iface *array_class = jedex_generic_class_from_schema( array_schema );
 
       jedex_value val;
       jedex_generic_value_new( array_class, &val );
+      jedex_generic_array_value_iface *garray = container_non_const_of( val.iface, jedex_generic_array_value_iface, parent );
+      assert( garray );
+      jedex_generic_record_value_iface *grec = container_non_const_of( garray->child_giface, jedex_generic_record_value_iface, parent );
+      assert( grec );
+
+      jedex_generic_value_iface *gchild0 = container_non_const_of( grec->field_ifaces[ 0 ], jedex_generic_value_iface, parent );
+      assert( gchild0 );
+
+      jedex_generic_array_value_iface *gchild1 = container_non_const_of( grec->field_ifaces[ 1 ], jedex_generic_array_value_iface, parent );
+      assert( gchild1 );
+
+      jedex_generic_value_iface *ggchild = container_non_const_of( gchild1->child_giface, jedex_generic_value_iface, parent );
+      assert( ggchild );
+      jedex_value_reset( &val );
+
+      free( gchild1 );
+      free( gchild0 );
+      free( grec );
+      free( garray );
+      exit( 1 );
       set_menu_array( &val );
 
       char *json;

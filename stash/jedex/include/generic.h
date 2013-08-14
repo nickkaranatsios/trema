@@ -47,13 +47,16 @@ extern "C" {
 
 jedex_value_iface *jedex_generic_class_from_schema( jedex_schema *schema );
 
-/**
+/*
  * Allocate a new instance of the given generic value class.  @a iface
  * must have been created by @ref jedex_generic_class_from_schema.
  */
 
 int jedex_generic_value_new( jedex_value_iface *iface, jedex_value *dest );
 
+
+void jedex_generic_value_incref( jedex_value *value );
+void jedex_generic_value_decref( jedex_value *value );
 
 /*
  * These functions return an jedex_value_iface_t implementation for each

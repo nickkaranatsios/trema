@@ -126,6 +126,8 @@ jedex_generic_boolean_class( void ) {
     pthread_setspecific( generic_boolean_key, generic_boolean );
 
     memset( &generic_boolean->parent, 0, sizeof( generic_boolean->parent ) );
+    generic_boolean->parent.incref = jedex_generic_value_incref;
+    generic_boolean->parent.decref = jedex_generic_value_decref;
     generic_boolean->parent.reset = jedex_generic_boolean_reset;
     generic_boolean->parent.free = jedex_generic_boolean_free;
     generic_boolean->parent.get_type = jedex_generic_boolean_get_type;

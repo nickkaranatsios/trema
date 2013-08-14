@@ -73,6 +73,7 @@ typedef struct jedex_generic_value_iface {
 
 typedef struct jedex_generic_array_value_iface {
   jedex_generic_value_iface parent;
+  volatile int refcount;
   jedex_schema *schema;
   jedex_generic_value_iface *child_giface;
 } jedex_generic_array_value_iface;
@@ -86,6 +87,7 @@ typedef struct jedex_generic_array {
 
 typedef struct jedex_generic_union_value_iface {
   jedex_generic_value_iface parent;
+  volatile int refcount;
   jedex_schema *schema;
 
   /* The total size of each value struct for this union. */
@@ -119,6 +121,7 @@ typedef struct jedex_generic_union {
 
 typedef struct jedex_generic_map_value_iface {
   jedex_generic_value_iface parent;
+  volatile int refcount;
   jedex_schema *schema;
   jedex_generic_value_iface *child_giface;
 } jedex_generic_map_value_iface;
@@ -138,6 +141,7 @@ typedef struct jedex_generic_map {
 
 typedef struct jedex_generic_record_value_iface {
   jedex_generic_value_iface parent;
+  volatile int refcount;
   jedex_schema *schema;
 
   /** The total size of each value struct for this record. */
@@ -177,6 +181,7 @@ typedef struct memoize_state {
 
 struct jedex_generic_link_value_iface {
   jedex_generic_value_iface parent;
+  volatile int refcount;
 
   /** The schema for this interface. */
   jedex_schema *schema;

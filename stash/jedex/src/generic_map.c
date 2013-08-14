@@ -51,6 +51,15 @@ jedex_generic_map_reset( const jedex_value_iface *viface, void *vself ) {
 }
 
 
+static int
+jedex_generic_map_free( jedex_value_iface *viface, void *vself ) {
+  UNUSED( viface );
+  UNUSED( vself );
+
+  return 0;
+}
+
+
 static jedex_type
 jedex_generic_map_get_type( const jedex_value_iface *viface, const void *vself ) {
   UNUSED( viface );
@@ -187,6 +196,7 @@ jedex_generic_map_get( void ) {
     pthread_setspecific( generic_map_key, generic_map );
     memset( &generic_map->parent, 0, sizeof( generic_map->parent ) );
     generic_map->parent.reset = jedex_generic_map_reset;
+    generic_map->parent.free = jedex_generic_map_free;
     generic_map->parent.get_type = jedex_generic_map_get_type;
     generic_map->parent.get_schema = jedex_generic_map_get_schema;
 

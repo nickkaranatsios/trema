@@ -48,6 +48,25 @@ jedex_generic_union_reset( const jedex_value_iface *viface, void *vself ) {
 }
 
 
+static int
+jedex_generic_union_free( jedex_value_iface *viface, void *vself ) {
+  jedex_generic_union_value_iface *iface = container_non_const_of( viface, jedex_generic_union_value_iface, parent );
+  jedex_generic_union *self = ( jedex_generic_union * ) vself; 
+   
+
+  int rval;
+  for ( size_t i = 0; i < iface->branch_count; i++ ) {
+    jedex_value value = {
+      &iface->branch_ifaces[ i ]->parent,
+      jedex_generic_union_branch( iface, self, i )
+    };
+    check( rval, jedex_value_free( &value ) );
+  }
+
+  return 0;
+}
+
+
 static jedex_schema *
 jedex_generic_union_get_schema( const jedex_value_iface *viface, const void *vself ) {
   UNUSED( vself );
@@ -197,6 +216,7 @@ generic_union_class( void ) {
 
     memset( &generic_union->parent, 0, sizeof( generic_union->parent ) );
     generic_union->parent.reset = jedex_generic_union_reset;
+    generic_union->parent.free = jedex_generic_union_free;
     generic_union->parent.get_type = jedex_generic_union_get_type;
     generic_union->parent.get_size = jedex_generic_union_get_size;
     generic_union->parent.get_schema = jedex_generic_union_get_schema;

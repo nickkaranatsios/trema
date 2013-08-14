@@ -43,7 +43,12 @@ typedef struct jedex_value {
 
 
 struct jedex_value_iface {
+  jedex_value_iface *( *incref_iface ) ( jedex_value_iface *iface );
+  void ( *decref_iface ) ( jedex_value_iface *iface );
+  void ( *incref ) ( jedex_value *value );
+  void ( *decref ) ( jedex_value *value );
   int ( *reset ) ( const jedex_value_iface *iface, void *self );
+  int ( *free ) ( jedex_value_iface *iface, void *self );
   jedex_type ( *get_type ) ( const jedex_value_iface *iface, const void *self );
   jedex_schema *( *get_schema ) ( const jedex_value_iface *iface, const void *self );
   bool ( *is_primary ) ( const jedex_value_iface *iface, void *self, const char *name );
@@ -143,6 +148,8 @@ json_t *jedex_decode_json( const char *json );
 
 #define jedex_value_reset( value ) \
   jedex_value_call0( value, reset, EINVAL )
+#define jedex_value_free( value ) \
+  jedex_value_call0( value, free, EINVAL )
 #define jedex_value_get_type( value ) \
   jedex_value_call0( value, get_type, ( jedex_type ) -1 )
 #define jedex_value_get_schema( value ) \

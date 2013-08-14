@@ -474,42 +474,80 @@ main( int argc, char **argv ) {
     const char *test_schema = *iter;
     
     if ( !strcmp( test_schema, "simple_menu_array" ) ) {
+#ifdef LEAK_CHECK
+      jedex_schema *sschema = jedex_schema_string();
+      jedex_value_iface *string_class = jedex_generic_class_from_schema( sschema );
+      jedex_value sval;
+      jedex_generic_value_new( string_class, &sval );
+      jedex_value_reset( &sval );
+      jedex_finalize( &sschema );
+      jedex_free( sval.self );
+      jedex_free( sval.iface );
+      exit( 1 );
+#endif
+#ifdef LEAK_CHECK
+      jedex_schema *rschema = jedex_initialize( "schema/test_record" );
+      jedex_value_iface *record_class = jedex_generic_class_from_schema( rschema );
+      jedex_value rval;
+      jedex_generic_value_new( record_class, &rval );
+
+      jedex_value_reset( &rval );
+      jedex_finalize( &rschema );
+      
+      jedex_value_free( &rval );
+
+      jedex_free( rval.iface );
+      jedex_free( rval.self );
+      exit( 1 );
+#endif
+#ifdef LEAK_CHECK
+      jedex_schema *rschema = jedex_initialize( "schema/test_record" );
+      jedex_schema *aschema = jedex_schema_array( rschema );
+      jedex_value_iface *aclass = jedex_generic_class_from_schema( aschema );
+      jedex_value aval;
+      jedex_generic_value_new( aclass, &aval );
+
+      
+      jedex_value element;
+      jedex_value field;
+      size_t index;
+
+      jedex_value_append( &aval, &element, NULL );
+      jedex_value_get_by_name( &element, "name", &field, &index );
+      jedex_value_set_string( &field, "this is a test" );
+      jedex_value_get_by_name( &element, "value", &field, &index );
+      jedex_value_set_long( &field, 123456789 );
+      jedex_value_get_by_name( &element, "test_value", &field, &index );
+      jedex_value_set_long( &field, 2233 );
+
+      jedex_value_append( &aval, &element, NULL );
+      jedex_value_get_by_name( &element, "name", &field, &index );
+      jedex_value_set_string( &field, "this is another test" );
+      jedex_value_get_by_name( &element, "value", &field, &index );
+      jedex_value_set_long( &field, 11223344556677 );
+      jedex_value_get_by_name( &element, "test_value", &field, &index );
+      jedex_value_set_long( &field, 4455 );
+
+      jedex_value_reset( &aval );
+      jedex_value_free( &aval );
+
+      jedex_finalize( &aschema );
+      exit( 1 );
+#endif
+
       jedex_schema *menu_schema = jedex_initialize( "schema/menu_record" );
       assert( menu_schema );
-
-
       jedex_schema *array_schema = jedex_schema_array( menu_schema );
       jedex_value_iface *array_class = jedex_generic_class_from_schema( array_schema );
 
-      jedex_value val;
-      jedex_generic_value_new( array_class, &val );
-      jedex_generic_array_value_iface *garray = container_non_const_of( val.iface, jedex_generic_array_value_iface, parent );
-      assert( garray );
-      jedex_generic_record_value_iface *grec = container_non_const_of( garray->child_giface, jedex_generic_record_value_iface, parent );
-      assert( grec );
-
-      jedex_generic_value_iface *gchild0 = container_non_const_of( grec->field_ifaces[ 0 ], jedex_generic_value_iface, parent );
-      assert( gchild0 );
-
-      jedex_generic_array_value_iface *gchild1 = container_non_const_of( grec->field_ifaces[ 1 ], jedex_generic_array_value_iface, parent );
-      assert( gchild1 );
-
-      jedex_generic_value_iface *ggchild = container_non_const_of( gchild1->child_giface, jedex_generic_value_iface, parent );
-      assert( ggchild );
-      jedex_value_reset( &val );
-
-      free( gchild1 );
-      free( gchild0 );
-      free( grec );
-      free( garray );
-      exit( 1 );
-      set_menu_array( &val );
+      jedex_value aval;
+      jedex_generic_value_new( array_class, &aval );
+      set_menu_array( &aval );
 
       char *json;
-      jedex_value_to_json( &val, false, &json );
+      jedex_value_to_json( &aval, false, &json );
       printf( "json: %s\n", json );
-      jedex_value_reset( &val );
-     
+
       jedex_value *ret_val = json_to_jedex_value( array_schema, json );
       free( json );
       assert( ret_val );
@@ -517,7 +555,7 @@ main( int argc, char **argv ) {
       get_menu_array( ret_val );
 
       jedex_value_reset( ret_val );
-      jedex_finalize( &menu_schema );
+      jedex_finalize( &array_schema );
     }
     if ( !strcmp( test_schema, "db_record" ) ) {
       jedex_schema *schema = jedex_initialize( "schema/db_record" );
@@ -566,6 +604,7 @@ main( int argc, char **argv ) {
       jedex_value_to_json( val, false, &json );
       printf( "json: %s\n", json );
       jedex_value_reset( val );
+      jedex_value_free( val );
 
       jedex_value *ret_val = json_to_jedex_value( schema, json );
       free( json );
@@ -573,6 +612,7 @@ main( int argc, char **argv ) {
       get_simple_map_double( ret_val );
 
       jedex_value_reset( ret_val );
+      jedex_value_free( ret_val );
       jedex_finalize( &schema );
     }
     if ( !strcmp( test_schema, "simple_array" ) ) {

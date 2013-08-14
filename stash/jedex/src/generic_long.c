@@ -40,6 +40,16 @@ jedex_generic_long_reset( const jedex_value_iface *iface, void *vself ) {
 }
 
 
+static int
+jedex_generic_long_free( jedex_value_iface *iface, void *vself ) {
+  UNUSED( vself );
+
+  jedex_free( iface );
+
+  return 0;
+}
+
+
 static jedex_type
 jedex_generic_long_get_type( const jedex_value_iface *iface, const void *vself ) {
   UNUSED( iface );
@@ -117,6 +127,7 @@ jedex_generic_long_class( void ) {
 
     memset( &generic_long->parent, 0, sizeof( generic_long->parent ) );
     generic_long->parent.reset = jedex_generic_long_reset;
+    generic_long->parent.free = jedex_generic_long_free;
     generic_long->parent.get_type = jedex_generic_long_get_type;
     generic_long->parent.get_schema = jedex_generic_long_get_schema;
     generic_long->parent.get_long = jedex_generic_long_get;

@@ -40,6 +40,16 @@ jedex_generic_string_reset( const jedex_value_iface *iface, void *vself ) {
 }
 
 
+static int
+jedex_generic_string_free( jedex_value_iface *iface, void *vself ) {
+  UNUSED( vself );
+
+  jedex_free( iface );
+
+  return 0;
+}
+
+
 static jedex_type
 jedex_generic_string_get_type( const jedex_value_iface *iface, const void *vself ) {
   UNUSED( iface );
@@ -181,6 +191,7 @@ jedex_generic_string_class( void ) {
 
     memset( &generic_string->parent, 0, sizeof( generic_string->parent ) );
     generic_string->parent.reset = jedex_generic_string_reset;
+    generic_string->parent.free = jedex_generic_string_free;
     generic_string->parent.get_type = jedex_generic_string_get_type;
     generic_string->parent.get_schema = jedex_generic_string_get_schema;
     generic_string->parent.get_string = jedex_generic_string_get;

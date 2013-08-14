@@ -40,6 +40,16 @@ jedex_generic_boolean_reset( const jedex_value_iface *iface, void *vself ) {
 }
 
 
+static int
+jedex_generic_boolean_free( jedex_value_iface *iface, void *vself ) {
+  UNUSED( vself );
+
+  jedex_free( iface );
+
+  return 0;
+}
+
+
 static jedex_type
 jedex_generic_boolean_get_type( const jedex_value_iface *iface, const void *vself ) {
   UNUSED( iface );
@@ -117,6 +127,7 @@ jedex_generic_boolean_class( void ) {
 
     memset( &generic_boolean->parent, 0, sizeof( generic_boolean->parent ) );
     generic_boolean->parent.reset = jedex_generic_boolean_reset;
+    generic_boolean->parent.free = jedex_generic_boolean_free;
     generic_boolean->parent.get_type = jedex_generic_boolean_get_type;
     generic_boolean->parent.get_schema = jedex_generic_boolean_get_schema;
     generic_boolean->parent.get_boolean = jedex_generic_boolean_get;

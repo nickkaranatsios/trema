@@ -31,107 +31,116 @@ make_generic_bytes_key( void ) {
 
 static int
 jedex_generic_bytes_reset( const jedex_value_iface *iface, void *vself ) {
-	UNUSED( iface );
+  UNUSED( iface );
 
-	jedex_raw_string *self = ( jedex_raw_string * ) vself;
-	jedex_raw_string_clear( self );
+  jedex_raw_string *self = ( jedex_raw_string * ) vself;
+  jedex_raw_string_clear( self );
 
-	return 0;
+  return 0;
+}
+
+
+static int
+jedex_generic_bytes_free( jedex_value_iface *iface, void *vself ) {
+  UNUSED( vself );
+
+  jedex_free( iface );
+  return 0;
 }
 
 
 static jedex_type
 jedex_generic_bytes_get_type( const jedex_value_iface *iface, const void *vself ) {
-	UNUSED( iface );
-	UNUSED( vself );
+  UNUSED( iface );
+  UNUSED( vself );
 
-	return JEDEX_BYTES;
+  return JEDEX_BYTES;
 }
 
 
 static jedex_schema *
 jedex_generic_bytes_get_schema( const jedex_value_iface *iface, const void *vself ) {
   UNUSED( iface );
-	UNUSED( vself );
+  UNUSED( vself );
 
-	return jedex_schema_bytes();
+  return jedex_schema_bytes();
 }
 
 
 static int
 jedex_generic_bytes_get( const jedex_value_iface *iface, const void *vself, const void **buf, size_t *size ) {
-	UNUSED( iface );
+  UNUSED( iface );
 
-	const jedex_raw_string *self = ( const jedex_raw_string * ) vself;
-	if ( buf != NULL ) {
-		*buf = jedex_raw_string_get( self );
-	}
-	if (size != NULL) {
-		*size = jedex_raw_string_length( self );
-	}
+  const jedex_raw_string *self = ( const jedex_raw_string * ) vself;
+  if ( buf != NULL ) {
+    *buf = jedex_raw_string_get( self );
+  }
+  if (size != NULL) {
+    *size = jedex_raw_string_length( self );
+  }
 
-	return 0;
+  return 0;
 }
 
 
 static int
 jedex_generic_bytes_grab( const jedex_value_iface *iface, const void *vself, jedex_wrapped_buffer *dest ) {
-	UNUSED( iface );
+  UNUSED( iface );
 
-	const jedex_raw_string *self = ( const jedex_raw_string * ) vself;
+  const jedex_raw_string *self = ( const jedex_raw_string * ) vself;
 
-	return jedex_raw_string_grab( self, dest );
+  return jedex_raw_string_grab( self, dest );
 }
 
 
 static int
 jedex_generic_bytes_set( const jedex_value_iface *iface, void *vself, void *buf, size_t size ) {
-	UNUSED( iface );
+  UNUSED( iface );
 
-	check_param( EINVAL, buf != NULL, "bytes contents" );
-	jedex_raw_string *self = ( jedex_raw_string * ) vself;
-	jedex_raw_string_set_length( self, buf, size );
+  check_param( EINVAL, buf != NULL, "bytes contents" );
+  jedex_raw_string *self = ( jedex_raw_string * ) vself;
+  jedex_raw_string_set_length( self, buf, size );
 
-	return 0;
+  return 0;
 }
 
 
 static int
 jedex_generic_bytes_give( const jedex_value_iface *iface, void *vself, jedex_wrapped_buffer *buf ) {
-	UNUSED( iface );
+  UNUSED( iface );
 
-	jedex_raw_string *self = ( jedex_raw_string * ) vself;
-	jedex_raw_string_give( self, buf );
+  jedex_raw_string *self = ( jedex_raw_string * ) vself;
+  jedex_raw_string_give( self, buf );
 
-	return 0;
+  return 0;
 }
 
 
 static size_t
 jedex_generic_bytes_instance_size( const jedex_value_iface *iface ) {
-	UNUSED( iface );
+  UNUSED( iface );
 
-	return sizeof( jedex_raw_string );
+  return sizeof( jedex_raw_string );
 }
 
 
 static int
 jedex_generic_bytes_init( const jedex_value_iface *iface, void *vself ) {
-	UNUSED( iface );
+  UNUSED( iface );
 
-	jedex_raw_string *self = ( jedex_raw_string * ) vself;
-	jedex_raw_string_init( self );
+  jedex_raw_string *self = ( jedex_raw_string * ) vself;
+  jedex_raw_string_init( self );
 
-	return 0;
+  return 0;
 }
 
 
 static void
 jedex_generic_bytes_done( const jedex_value_iface *iface, void *vself ) {
-	UNUSED( iface );
+  UNUSED( iface );
 
-	jedex_raw_string *self = ( jedex_raw_string * ) vself;
-	jedex_raw_string_done( self );
+  jedex_raw_string *self = ( jedex_raw_string * ) vself;
+  jedex_raw_string_done( self );
 }
 
 
@@ -146,6 +155,7 @@ jedex_generic_bytes_class( void ) {
 
     memset( &generic_bytes->parent, 0, sizeof( generic_bytes->parent ) );
     generic_bytes->parent.reset = jedex_generic_bytes_reset;
+    generic_bytes->parent.free = jedex_generic_bytes_free;
     generic_bytes->parent.get_type = jedex_generic_bytes_get_type;
     generic_bytes->parent.get_schema = jedex_generic_bytes_get_schema;
     generic_bytes->parent.get_bytes = jedex_generic_bytes_get;

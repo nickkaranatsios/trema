@@ -40,6 +40,16 @@ jedex_generic_null_reset( const jedex_value_iface *iface, void *vself ) {
 }
 
 
+static int
+jedex_generic_null_free( jedex_value_iface *iface, void *vself ) {
+  UNUSED( vself );
+
+  jedex_free( iface );
+
+  return 0;
+}
+
+
 static jedex_type
 jedex_generic_null_get_type( const jedex_value_iface *iface, const void *vself ) {
   UNUSED( iface );
@@ -113,6 +123,7 @@ jedex_generic_null_class( void ) {
 
     memset( &generic_null->parent, 0, sizeof( generic_null->parent ) );
     generic_null->parent.reset = jedex_generic_null_reset;
+    generic_null->parent.free = jedex_generic_null_free;
     generic_null->parent.get_type = jedex_generic_null_get_type;
     generic_null->parent.get_schema = jedex_generic_null_get_schema;
     generic_null->parent.get_null = jedex_generic_null_get;

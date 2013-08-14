@@ -114,13 +114,31 @@ jedex_generic_class_from_schema( jedex_schema *schema ) {
 }
 
 
+void
+jedex_generic_value_incref( jedex_value *value ) {
+  volatile int *refcount = ( volatile int * ) ( ( char * ) value->self - sizeof( volatile int ) );
+
+  jedex_refcount_inc( refcount );
+}
+
+
+void
+jedex_generic_value_decref( jedex_value *value ) {
+  volatile int *refcount = ( volatile int * ) ( ( char * ) value->self - sizeof( volatile int ) );
+
+  if ( jedex_refcount_dec( refcount ) ) {
+    jedex_generic_value_free( value->iface, value->self );
+  }
+}
+
+
 int
 jedex_generic_value_new( jedex_value_iface *iface, jedex_value *dest ) {
   int rval;
   jedex_generic_value_iface *giface = container_non_const_of( iface, jedex_generic_value_iface, parent );
 
   size_t instance_size = jedex_value_instance_size( giface );
-  void *self = jedex_malloc( instance_size );
+  void *self = jedex_malloc( instance_size + sizeof( volatile int ) );
   if ( self == NULL ) {
     log_err( "Failed to allocate a generic value %s", strerror( ENOMEM ) );
     dest->iface = NULL;
@@ -128,6 +146,9 @@ jedex_generic_value_new( jedex_value_iface *iface, jedex_value *dest ) {
     return ENOMEM;
   }
 
+  volatile int *refcount = ( volatile int * ) self;
+  self = ( char * ) self + sizeof( volatile int );
+  *refcount = 1;
   rval = jedex_value_init( giface, self );
   if ( rval != 0 ) {
     jedex_free( self );

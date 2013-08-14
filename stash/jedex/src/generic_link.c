@@ -39,6 +39,16 @@ jedex_generic_link_reset( const jedex_value_iface *iface, void *vself ) {
 }
 
 
+static int
+jedex_generic_link_free( jedex_value_iface *iface, void *vself ) {
+  UNUSED( iface );
+
+  jedex_value *self = ( jedex_value * ) vself;
+
+  return jedex_value_free( self );
+}
+
+
 static jedex_type
 jedex_generic_link_get_type( const jedex_value_iface *viface, const void *vself ) {
   UNUSED( viface );
@@ -391,6 +401,7 @@ generic_link_class( void ) {
     pthread_setspecific( generic_link_key, link );
     memset( &link->parent, 0, sizeof( link->parent ) );
     link->parent.reset = jedex_generic_link_reset;
+    link->parent.free = jedex_generic_link_free;
     link->parent.get_type = jedex_generic_link_get_type;
     link->parent.get_schema = jedex_generic_link_get_schema;
     link->parent.get_boolean = jedex_generic_link_get_boolean;

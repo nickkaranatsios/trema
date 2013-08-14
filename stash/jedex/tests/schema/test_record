@@ -1,1 +1,8 @@
-{ "type": "record", "name": "parameter", "fields": [ { "name": "name", "type": "string" }, { "name": "value", "type": "long" } ] }
+{ 
+  "type": "record", "name": "parameter",
+  "fields": [ 
+    { "name": "name", "type": "string" }, 
+    { "name": "value", "type": "long" },
+    { "name": "test_value", "type": "long" }
+  ]
+}

@@ -40,6 +40,16 @@ jedex_generic_int_reset( const jedex_value_iface *iface, void *vself ) {
 }
 
 
+static int
+jedex_generic_int_free( jedex_value_iface *iface, void *vself ) {
+  UNUSED( vself );
+
+  jedex_free( iface );
+
+  return 0;
+}
+
+
 static jedex_type
 jedex_generic_int_get_type( const jedex_value_iface *iface, const void *vself ) {
   UNUSED( iface );
@@ -117,6 +127,7 @@ jedex_generic_int_class( void ) {
 
     memset( &generic_int->parent, 0, sizeof( generic_int->parent ) );
     generic_int->parent.reset = jedex_generic_int_reset;
+    generic_int->parent.free = jedex_generic_int_free;
     generic_int->parent.get_type = jedex_generic_int_get_type;
     generic_int->parent.get_schema = jedex_generic_int_get_schema;
     generic_int->parent.get_int = jedex_generic_int_get;

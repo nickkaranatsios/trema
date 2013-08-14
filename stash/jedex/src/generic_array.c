@@ -21,6 +21,7 @@
 
 static pthread_key_t generic_array_key;
 static pthread_once_t generic_array_key_once = PTHREAD_ONCE_INIT;
+static jedex_generic_value_iface *generic_array_class( void );
 
 
 static void
@@ -45,8 +46,30 @@ jedex_generic_array_reset( const jedex_value_iface *viface, void *vself ) {
   const jedex_generic_array_value_iface *iface = container_of( viface, jedex_generic_array_value_iface, parent );
   jedex_generic_array *self = ( jedex_generic_array * ) vself;
   jedex_generic_array_free_elements( iface->child_giface, self );
-  jedex_raw_array_clear( &self->array );
+
+  return 0;
+}
+
+
+static int
+jedex_generic_array_free( jedex_value_iface *viface, void *vself ) {
+  jedex_generic_array_value_iface *iface = container_non_const_of( viface, jedex_generic_array_value_iface, parent );
+  jedex_generic_array *self = ( jedex_generic_array * ) vself;
+
+  void *child_self = jedex_raw_array_get_raw( &self->array, 0 );
+  jedex_value value = {
+    &iface->child_giface->parent,
+    child_self
+  };
+  jedex_value_free( &value );
   jedex_raw_array_done( &self->array );
+  jedex_free( iface->child_giface );
+  jedex_free( iface );
+  jedex_free( vself );
+  jedex_generic_value_iface *gviface = generic_array_class();
+  jedex_free( gviface );
+  gviface = NULL;
+  pthread_setspecific( generic_array_key, gviface );
 
   return 0;
 }
@@ -155,7 +178,6 @@ jedex_generic_array_done( const jedex_value_iface *viface, void *vself ) {
   const jedex_generic_array_value_iface *iface = container_of( viface, jedex_generic_array_value_iface, parent );
   jedex_generic_array *self = ( jedex_generic_array * ) vself;
   jedex_generic_array_free_elements( iface->child_giface, self );
-  jedex_raw_array_done( &self->array );
 }
 
 
@@ -170,6 +192,7 @@ generic_array_class( void ) {
 
     memset( &generic_array->parent, 0, sizeof( generic_array->parent ) );
     generic_array->parent.reset = jedex_generic_array_reset;
+    generic_array->parent.free = jedex_generic_array_free;
     generic_array->parent.get_type = jedex_generic_array_get_type;
     generic_array->parent.get_schema = jedex_generic_array_get_schema;
     generic_array->parent.get_size = jedex_generic_array_get_size;

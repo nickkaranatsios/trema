@@ -40,69 +40,78 @@ jedex_generic_double_reset( const jedex_value_iface *iface, void *vself ) {
 }
 
 
+static int
+jedex_generic_double_free( jedex_value_iface *iface, void *vself ) {
+  UNUSED( vself );
+
+  jedex_free( iface );
+  return 0;
+}
+
+
 static jedex_type
 jedex_generic_double_get_type( const jedex_value_iface *iface, const void *vself ) {
-	UNUSED( iface );
-	UNUSED( vself );
+  UNUSED( iface );
+  UNUSED( vself );
 
-	return JEDEX_DOUBLE;
+  return JEDEX_DOUBLE;
 }
 
 
 static jedex_schema *
 jedex_generic_double_get_schema( const jedex_value_iface *iface, const void *vself ) {
-	UNUSED( iface );
-	UNUSED( vself );
+  UNUSED( iface );
+  UNUSED( vself );
 
-	return jedex_schema_double();
+  return jedex_schema_double();
 }
 
 
 static int
 jedex_generic_double_get( const jedex_value_iface *iface, const void *vself, double *out ) {
-	UNUSED( iface );
+  UNUSED( iface );
 
-	const double *self = ( const double * ) vself;
-	*out = *self;
+  const double *self = ( const double * ) vself;
+  *out = *self;
 
-	return 0;
+  return 0;
 }
 
 
 static int
 jedex_generic_double_set( const jedex_value_iface *iface, void *vself, double val ) {
-	UNUSED( iface );
+  UNUSED( iface );
 
-	double *self = ( double * ) vself;
-	*self = val;
+  double *self = ( double * ) vself;
+  *self = val;
 
-	return 0;
+  return 0;
 }
 
 
 static size_t
 jedex_generic_double_instance_size( const jedex_value_iface *iface ) {
-	UNUSED( iface );
+  UNUSED( iface );
 
-	return sizeof( double );
+  return sizeof( double );
 }
 
 
 static int
 jedex_generic_double_init( const jedex_value_iface *iface, void *vself ) {
-	UNUSED( iface );
+  UNUSED( iface );
 
-	double *self = ( double * ) vself;
-	*self = 0.0;
+  double *self = ( double * ) vself;
+  *self = 0.0;
 
-	return 0;
+  return 0;
 }
 
 
 static void
 jedex_generic_double_done( const jedex_value_iface *iface, void *vself ) {
-	UNUSED( iface );
-	UNUSED( vself );
+  UNUSED( iface );
+  UNUSED( vself );
 }
 
 
@@ -117,6 +126,7 @@ jedex_generic_double_class( void ) {
 
     memset( &generic_double->parent, 0, sizeof( generic_double->parent ) );
     generic_double->parent.reset = jedex_generic_double_reset;
+    generic_double->parent.free = jedex_generic_double_free;
     generic_double->parent.get_type = jedex_generic_double_get_type;
     generic_double->parent.get_schema = jedex_generic_double_get_schema;
     generic_double->parent.get_double = jedex_generic_double_get;

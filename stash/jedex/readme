@@ -1,0 +1,4 @@
+This is jedex library designed to support almost any arbitrary C primitive and complex types.
+To compile the source run make under the src directory.
+Note that if make clean is run the trema library needs to be compiled since it depends on it.
+There is a test program under tests (jedex_test) that mainly tests the jedex library.

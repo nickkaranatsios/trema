@@ -41,6 +41,11 @@ extern "C" {
 
 
 #define MAX_QUERIES_PER_TABLE 10
+/*
+ * this is the row_count value of the limit clause of the select statement.
+ * TODO: Eventually this should be set to 50.
+ */
+#define ROW_COUNT 1
 #define INSERT_CLAUSE 1
 #define WHERE_CLAUSE 2
 #define REDIS_CLAUSE 3

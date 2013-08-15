@@ -302,7 +302,7 @@ set_topic( jedex_schema *schema ) {
 /*
  * This test program is used in addition to db_requester test program
  * to ensure that db_mapper can handle more than one find_record service
- * requests originating from different processes.:wq
+ * requests originating from different processes.
  */
 int
 main( int argc, char **argv ) {

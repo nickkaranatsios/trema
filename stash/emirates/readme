@@ -1,0 +1,23 @@
+This is the top directory of the emirates library. It is a library that
+supports IPC using zmq. The library depends on the czmq library that has
+been modified slightly from the original and can be found under czmq directory.
+The czmq in turn depends on the sodium library that needs to be pre-installed.
+To compile the emirates library go to the src directory and run make.
+The make program should create the emirates library and two proxy programs
+zrequester_responder and zxpub_sub. One or both of those programs need to run
+when using the emirates library.
+Emirates library would only transmit json data converted from a jedex value
+with the help of a schema. Similarly emirates receives json data that is in
+most cases converted to jedex value before being passed to application.
+There is also a tests directory with some sample programs that test the emirates
+library. To compile those programs run make in the tests directory.
+A test program execution order is important that is mentioned below.
+For example to run the subscriber_only test program first run the zxpub_sub
+program under src. Then execute the ./subscriber_only followed by 
+./publisher_only. The publisher_only would pusblish some data and exit.
+Similary to run the responder_only test program first start the
+zrequester_responder program under src, then execute ./responder_only followed
+by the ./requester_only. The requester_only should send a request and wait for
+a reply from the responder.
+When time permits would create tests scripts to execute the test programs
+automatically.

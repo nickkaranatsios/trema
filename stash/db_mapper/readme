@@ -1,0 +1,23 @@
+This is the top directory of the db_mapper's process. Db_mapper is a responder
+publisher emirates process that provides an interface to MySQL database for
+most of the CRUD operations. To compile the db_mapper run make under the src
+directory. Db_mapper also depends on two trema library files wrapper.c and
+trema_wrapper.c. Db_mapper accepts a number of options some of them explained
+below.
+The -c <config_fn> option instructs db_mapper to read a configuration file
+other than the default (db_mapper.conf). This file contains database connection
+inormation in order for db_mapper to function properly.
+The -s <schema_fn> option instructs db_mapper to read a schema file that should
+contain an array of records db_mapper is capable of handling. 
+The -f <request_reply_schema> option instructs db_mapper to read a schema file
+that should contain the request reply record and the "save_all" message format.
+For all the other operations that db_mapper is capable of processing ie. 
+find_record schema information is not necessary.
+The -r <create_db> instructs db_mapper to drop an existing database and create
+the database again when it receives the subscription "save_all". For testing
+purposes this option might not be necessary since it is useful at times to
+keep the already created database.
+The tests directory contains some test programs to test the db_mapper.
+To compile them run make under the tests directory.
+Please note that in order to execute them you also need the emirates proxy
+programs (zrequester_responder/zxpub_sub) to run in advance.

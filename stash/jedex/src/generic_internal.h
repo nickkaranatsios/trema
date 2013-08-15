@@ -110,8 +110,6 @@ typedef struct jedex_generic_union_value_iface {
 typedef struct jedex_generic_union {
   /* the current selected branch */
   int discriminant;
-  /* keep track of all selected branches */
-  int *selected_branches;
 } jedex_generic_union;
 
 
@@ -220,6 +218,19 @@ jedex_generic_value_iface *jedex_generic_record_class( jedex_schema *schema, mem
 jedex_generic_value_iface *jedex_generic_union_class( jedex_schema *schema, memoize_state *state );
 jedex_generic_value_iface *jedex_generic_map_class( jedex_schema *schema, memoize_state *state );
 jedex_generic_link_value_iface *jedex_generic_link_class( jedex_schema *schema );
+void jedex_generic_array_free( void );
+void jedex_generic_boolean_free( void );
+void jedex_generic_bytes_free( void );
+void jedex_generic_double_free( void );
+void jedex_generic_float_free( void );
+void jedex_generic_int_free( void );
+void jedex_generic_link_free( void );
+void jedex_generic_long_free( void );
+void jedex_generic_map_free( void );
+void jedex_generic_null_free( void );
+void jedex_generic_record_free( void );
+void jedex_generic_string_free( void );
+void jedex_generic_union_free( void );
 
 
 CLOSE_EXTERN

@@ -19,7 +19,7 @@
 #include "jedex.h"
 
 
-static pthread_key_t generic_double_key;
+static pthread_key_t generic_double_key = UINT_MAX;
 static pthread_once_t generic_double_key_once = PTHREAD_ONCE_INIT;
 
 
@@ -36,15 +36,6 @@ jedex_generic_double_reset( const jedex_value_iface *iface, void *vself ) {
   double *self = ( double * ) vself;
   *self = 0.0;
 
-  return 0;
-}
-
-
-static int
-jedex_generic_double_free( jedex_value_iface *iface, void *vself ) {
-  UNUSED( vself );
-
-  jedex_free( iface );
   return 0;
 }
 
@@ -115,6 +106,18 @@ jedex_generic_double_done( const jedex_value_iface *iface, void *vself ) {
 }
 
 
+void
+jedex_generic_double_free( void ) {
+  if ( generic_double_key == UINT_MAX ) {
+    return;
+  }
+  jedex_generic_value_iface *generic_double = ( jedex_generic_value_iface * ) pthread_getspecific( generic_double_key ); 
+  jedex_free( generic_double );
+  generic_double = NULL;
+  pthread_setspecific( generic_double_key, generic_double );
+}
+
+  
 jedex_generic_value_iface *
 jedex_generic_double_class( void ) {
   pthread_once( &generic_double_key_once, make_generic_double_key );
@@ -125,8 +128,9 @@ jedex_generic_double_class( void ) {
     pthread_setspecific( generic_double_key, generic_double );
 
     memset( &generic_double->parent, 0, sizeof( generic_double->parent ) );
+    generic_double->parent.incref = jedex_generic_value_incref;
+    generic_double->parent.decref = jedex_generic_value_decref;
     generic_double->parent.reset = jedex_generic_double_reset;
-    generic_double->parent.free = jedex_generic_double_free;
     generic_double->parent.get_type = jedex_generic_double_get_type;
     generic_double->parent.get_schema = jedex_generic_double_get_schema;
     generic_double->parent.get_double = jedex_generic_double_get;

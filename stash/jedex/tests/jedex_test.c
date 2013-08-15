@@ -479,11 +479,8 @@ main( int argc, char **argv ) {
       jedex_value_iface *string_class = jedex_generic_class_from_schema( sschema );
       jedex_value sval;
       jedex_generic_value_new( string_class, &sval );
-      jedex_value_reset( &sval );
       jedex_finalize( &sschema );
-      jedex_free( sval.self );
-      jedex_free( sval.iface );
-      exit( 1 );
+      jedex_value_decref( &sval );
 #endif
 #ifdef LEAK_CHECK
       jedex_schema *rschema = jedex_initialize( "schema/test_record" );
@@ -491,14 +488,9 @@ main( int argc, char **argv ) {
       jedex_value rval;
       jedex_generic_value_new( record_class, &rval );
 
-      jedex_value_reset( &rval );
       jedex_finalize( &rschema );
       
-      jedex_value_free( &rval );
-
-      jedex_free( rval.iface );
-      jedex_free( rval.self );
-      exit( 1 );
+      jedex_value_decref( &rval );
 #endif
 #ifdef LEAK_CHECK
       jedex_schema *rschema = jedex_initialize( "schema/test_record" );
@@ -528,11 +520,8 @@ main( int argc, char **argv ) {
       jedex_value_get_by_name( &element, "test_value", &field, &index );
       jedex_value_set_long( &field, 4455 );
 
-      jedex_value_reset( &aval );
-      jedex_value_free( &aval );
-
       jedex_finalize( &aschema );
-      exit( 1 );
+      jedex_value_decref( &aval );
 #endif
 
       jedex_schema *menu_schema = jedex_initialize( "schema/menu_record" );
@@ -547,6 +536,7 @@ main( int argc, char **argv ) {
       char *json;
       jedex_value_to_json( &aval, false, &json );
       printf( "json: %s\n", json );
+      jedex_value_decref( &aval );
 
       jedex_value *ret_val = json_to_jedex_value( array_schema, json );
       free( json );
@@ -554,7 +544,8 @@ main( int argc, char **argv ) {
 
       get_menu_array( ret_val );
 
-      jedex_value_reset( ret_val );
+      jedex_value_decref( ret_val );
+      jedex_free( ret_val );
       jedex_finalize( &array_schema );
     }
     if ( !strcmp( test_schema, "db_record" ) ) {
@@ -575,14 +566,17 @@ main( int argc, char **argv ) {
       char *json;
       jedex_value_to_json( val, false, &json );
       printf( "json: %s\n", json );
-      jedex_value_reset( val );
+
 
       jedex_value *ret_val = json_to_jedex_value( schema, json );
       free( json );
       
       get_db_record( ret_val );
 
-      jedex_value_reset( ret_val );
+      jedex_value_decref( val );
+      jedex_free( val );
+      jedex_value_decref( ret_val );
+      jedex_free( ret_val );
       jedex_finalize( &schema );
     }
     if ( !strcmp( test_schema, "simple_map_double" ) ) {
@@ -603,17 +597,17 @@ main( int argc, char **argv ) {
       char *json;
       jedex_value_to_json( val, false, &json );
       printf( "json: %s\n", json );
-      jedex_value_reset( val );
-      jedex_value_free( val );
+      jedex_value_decref( val );
+      jedex_free( val );
 
       jedex_value *ret_val = json_to_jedex_value( schema, json );
       free( json );
 
       get_simple_map_double( ret_val );
 
-      jedex_value_reset( ret_val );
-      jedex_value_free( ret_val );
+      jedex_value_decref( ret_val );
       jedex_finalize( &schema );
+      jedex_free( ret_val );
     }
     if ( !strcmp( test_schema, "simple_array" ) ) {
       jedex_schema *schema = jedex_initialize( "schema/simple_array" );
@@ -633,7 +627,9 @@ main( int argc, char **argv ) {
       char *json;
       jedex_value_to_json( val, false, &json );
       printf( "json: %s\n", json );
-      jedex_value_reset( val );
+      jedex_value_decref( val );
+      jedex_free( val );
+      
 
       jedex_value *ret_val = json_to_jedex_value( schema, json );
       free( json );
@@ -641,6 +637,8 @@ main( int argc, char **argv ) {
       get_simple_array( ret_val );
 
       jedex_value_reset( ret_val );
+      jedex_value_decref( ret_val );
+      jedex_free( ret_val );
       jedex_finalize( &schema );
     }
     else if ( !strcmp( test_schema, "ref_to_another" ) ) {
@@ -661,14 +659,16 @@ main( int argc, char **argv ) {
       char *json;
       jedex_value_to_json( val, false, &json );
       printf( "json: %s\n", json );
-      jedex_value_reset( val );
+      jedex_value_decref( val );
+      jedex_free( val );
 
       jedex_value *ret_val = json_to_jedex_value( schema, json );
       free( json );
 
       get_ref_to_another( ret_val );
 
-      jedex_value_reset( ret_val );
+      jedex_value_decref( ret_val );
+      jedex_free( ret_val );
       jedex_finalize( &schema );
     }
     else if ( !strcmp( test_schema, "groceries" ) ) {
@@ -690,7 +690,8 @@ main( int argc, char **argv ) {
       char *json;
       jedex_value_to_json( val, false, &json );
       printf( "json: %s\n", json );
-      jedex_value_reset( val );
+      jedex_value_decref( val );
+      jedex_free( val );
 
       jedex_value *ret_val = json_to_jedex_value( schema, json );
       free( json );
@@ -698,7 +699,8 @@ main( int argc, char **argv ) {
       get_union_vegetables( ret_val );
       get_union_meat( ret_val );
 
-      jedex_value_reset( ret_val );
+      jedex_value_decref( ret_val );
+      jedex_free( ret_val );
       jedex_finalize( &schema );
     }
     else if ( !strcmp( test_schema, "menu_array" ) ) {
@@ -719,13 +721,15 @@ main( int argc, char **argv ) {
       char *json;
       jedex_value_to_json( val, false, &json );
       printf( "json: %s\n", json );
-      jedex_value_reset( val );
+      jedex_value_decref( val );
+      jedex_free( val );
 
       jedex_value *ret_val = json_to_jedex_value( schema, json );
       free( json );
 
       get_menu_union_value( ret_val );
-      jedex_value_reset( ret_val );
+      jedex_value_decref( ret_val );
+      jedex_free( ret_val );
       jedex_finalize( &schema );
     }
     else if ( !strcmp( test_schema, "menu_record" ) ) {
@@ -746,14 +750,16 @@ main( int argc, char **argv ) {
       char *json;
       jedex_value_to_json( val, false, &json );
       printf( "json: %s\n", json );
-      jedex_value_reset( val );
+      jedex_value_decref( val );
+      jedex_free( val );
 
       jedex_value *ret_val = json_to_jedex_value( schema, json );
       free( json );
 
       get_menu_record_value( ret_val );
 
-      jedex_value_reset( ret_val );
+      jedex_value_decref( ret_val );
+      jedex_free( ret_val );
       jedex_finalize( &schema );
     }
     else if ( !strcmp( test_schema, "groceries_fruits" ) ) {
@@ -774,7 +780,9 @@ main( int argc, char **argv ) {
       char *json;
       jedex_value_to_json( val, false, &json );
       printf( "json: %s\n", json );
-      jedex_value_reset( val );
+      jedex_value_decref( val );
+      jedex_free( val );
+      
 
       jedex_schema *sub_schema = jedex_schema_get_subschema( schema, sub_schemas[ 0 ] );
       jedex_value *ret_val = json_to_jedex_value( sub_schema, json );
@@ -783,7 +791,8 @@ main( int argc, char **argv ) {
 
       get_fruits( ret_val );
 
-      jedex_value_reset( ret_val );
+      jedex_value_decref( ret_val );
+      jedex_free( ret_val );
       jedex_finalize( &schema );
     }
     else if ( !strcmp( test_schema, "groceries_fruits_meat" ) ) {
@@ -806,20 +815,25 @@ main( int argc, char **argv ) {
       jedex_schema *sub_schema = jedex_schema_get_subschema( schema, sub_schemas[ 0 ] );
       jedex_value *ret_val = json_to_jedex_value( sub_schema, json );
       assert( ret_val );
+      free( json );
 
       get_fruits( ret_val );
-      jedex_value_reset( ret_val );
 
-      val = jedex_parcel_value( parcel, sub_schemas[ 1 ] );
-      assert( val );
+      jedex_value *meat_val;
+      meat_val = jedex_parcel_value( parcel, sub_schemas[ 1 ] );
+      assert( meat_val );
+
+      jedex_value_decref( val );
+      jedex_free( val );
+      jedex_value_decref( ret_val );
+      jedex_free( ret_val );
 
       jedex_parcel_destroy( &parcel );
 
-      set_meat( val );
+      set_meat( meat_val );
 
-      jedex_value_to_json( val, false, &json );
+      jedex_value_to_json( meat_val, false, &json );
       printf( "json: %s\n", json );
-      jedex_value_reset( val );
 
       sub_schema = jedex_schema_get_subschema( schema, sub_schemas[ 1 ] );
       ret_val = json_to_jedex_value( sub_schema, json );
@@ -828,7 +842,10 @@ main( int argc, char **argv ) {
 
       get_meat( ret_val );
 
-      jedex_value_reset( ret_val );
+      jedex_value_decref( meat_val );
+      jedex_free( meat_val );
+      jedex_value_decref( ret_val );
+      jedex_free( ret_val );
       jedex_finalize( &schema );
     }
   }

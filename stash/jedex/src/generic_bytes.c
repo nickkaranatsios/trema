@@ -19,7 +19,7 @@
 #include "jedex.h"
 
 
-static pthread_key_t generic_bytes_key;
+static pthread_key_t generic_bytes_key = UINT_MAX;
 static pthread_once_t generic_bytes_key_once = PTHREAD_ONCE_INIT;
 
 
@@ -36,15 +36,6 @@ jedex_generic_bytes_reset( const jedex_value_iface *iface, void *vself ) {
   jedex_raw_string *self = ( jedex_raw_string * ) vself;
   jedex_raw_string_clear( self );
 
-  return 0;
-}
-
-
-static int
-jedex_generic_bytes_free( jedex_value_iface *iface, void *vself ) {
-  UNUSED( vself );
-
-  jedex_free( iface );
   return 0;
 }
 
@@ -144,6 +135,18 @@ jedex_generic_bytes_done( const jedex_value_iface *iface, void *vself ) {
 }
 
 
+void
+jedex_generic_bytes_free( void ) {
+  if ( generic_bytes_key == UINT_MAX ) {
+    return;
+  }
+  jedex_generic_value_iface *generic_bytes = ( jedex_generic_value_iface * ) pthread_getspecific( generic_bytes_key ); 
+  jedex_free( generic_bytes );
+  generic_bytes = NULL;
+  pthread_setspecific( generic_bytes_key, generic_bytes );
+}
+
+  
 jedex_generic_value_iface *
 jedex_generic_bytes_class( void ) {
   pthread_once( &generic_bytes_key_once, make_generic_bytes_key );
@@ -154,8 +157,9 @@ jedex_generic_bytes_class( void ) {
     pthread_setspecific( generic_bytes_key, generic_bytes );
 
     memset( &generic_bytes->parent, 0, sizeof( generic_bytes->parent ) );
+    generic_bytes->parent.incref = jedex_generic_value_incref;
+    generic_bytes->parent.decref = jedex_generic_value_decref;
     generic_bytes->parent.reset = jedex_generic_bytes_reset;
-    generic_bytes->parent.free = jedex_generic_bytes_free;
     generic_bytes->parent.get_type = jedex_generic_bytes_get_type;
     generic_bytes->parent.get_schema = jedex_generic_bytes_get_schema;
     generic_bytes->parent.get_bytes = jedex_generic_bytes_get;

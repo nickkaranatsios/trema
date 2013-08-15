@@ -3,6 +3,6 @@
   "fields": [ 
     { "name": "name", "type": "string" }, 
     { "name": "value", "type": "long" },
-    { "name": "test_value", "type": "long" }
+    { "name": "another_value", "type": "long" }
   ]
 }

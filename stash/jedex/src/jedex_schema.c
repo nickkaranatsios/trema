@@ -123,6 +123,10 @@ jedex_schema_union_free( jedex_schema *schema ) {
   struct jedex_union_schema *uschema = jedex_schema_to_union( schema );
 
   if ( uschema ) {
+    for ( int i = 0; i < uschema->branches->num_entries; i++ ) {
+      jedex_schema *branch_schema = jedex_schema_union_branch( schema, i );
+      jedex_schema_free( branch_schema );
+    }
     if ( uschema->branches ) {
       st_free_table( uschema->branches );
     }

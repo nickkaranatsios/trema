@@ -19,7 +19,7 @@
 #include "jedex.h"
 
 
-static pthread_key_t generic_long_key;
+static pthread_key_t generic_long_key = UINT_MAX;
 static pthread_once_t generic_long_key_once = PTHREAD_ONCE_INIT;
 
 
@@ -35,16 +35,6 @@ jedex_generic_long_reset( const jedex_value_iface *iface, void *vself ) {
 
   int64_t *self = ( int64_t * ) vself;
   *self = 0;
-
-  return 0;
-}
-
-
-static int
-jedex_generic_long_free( jedex_value_iface *iface, void *vself ) {
-  UNUSED( vself );
-
-  jedex_free( iface );
 
   return 0;
 }
@@ -116,6 +106,18 @@ jedex_generic_long_done( const jedex_value_iface *iface, void *vself ) {
 }
 
 
+void
+jedex_generic_long_free( void ) {
+  if ( generic_long_key == UINT_MAX ) {
+    return;
+  }
+  jedex_generic_value_iface *generic_long = ( jedex_generic_value_iface * ) pthread_getspecific( generic_long_key ); 
+  jedex_free( generic_long );
+  generic_long = NULL;
+  pthread_setspecific( generic_long_key, generic_long );
+}
+
+
 jedex_generic_value_iface *
 jedex_generic_long_class( void ) {
   pthread_once( &generic_long_key_once, make_generic_long_key );
@@ -126,8 +128,9 @@ jedex_generic_long_class( void ) {
     pthread_setspecific( generic_long_key, generic_long );
 
     memset( &generic_long->parent, 0, sizeof( generic_long->parent ) );
+    generic_long->parent.incref = jedex_generic_value_incref;
+    generic_long->parent.decref = jedex_generic_value_decref;
     generic_long->parent.reset = jedex_generic_long_reset;
-    generic_long->parent.free = jedex_generic_long_free;
     generic_long->parent.get_type = jedex_generic_long_get_type;
     generic_long->parent.get_schema = jedex_generic_long_get_schema;
     generic_long->parent.get_long = jedex_generic_long_get;

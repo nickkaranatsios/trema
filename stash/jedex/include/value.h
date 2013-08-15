@@ -48,7 +48,6 @@ struct jedex_value_iface {
   void ( *incref ) ( jedex_value *value );
   void ( *decref ) ( jedex_value *value );
   int ( *reset ) ( const jedex_value_iface *iface, void *self );
-  int ( *free ) ( jedex_value_iface *iface, void *self );
   jedex_type ( *get_type ) ( const jedex_value_iface *iface, const void *self );
   jedex_schema *( *get_schema ) ( const jedex_value_iface *iface, const void *self );
   bool ( *is_primary ) ( const jedex_value_iface *iface, void *self, const char *name );
@@ -131,6 +130,8 @@ struct jedex_value_iface {
 };
 
 
+void jedex_value_incref( jedex_value *value );
+void jedex_value_decref( jedex_value *value );
 int jedex_value_to_json( const jedex_value *value, bool one_line, char **json_str );
 jedex_value *jedex_value_from_iface( jedex_value_iface *val_iface );
 jedex_value *json_value_to_json( const void *schema, const char **sub_schema_names, const char *json );
@@ -145,6 +146,12 @@ json_t *jedex_decode_json( const char *json );
 #define jedex_value_call( value, method, dflt, ... ) \
     ( ( value )->iface->method == NULL ? ( dflt ) : \
      ( value )->iface->method( ( value )->iface, ( value )->self, __VA_ARGS__ ) )
+
+
+#define jedex_value_iface_incref( cls ) \
+    ( ( cls )->incref_iface == NULL? ( cls ): ( cls )->incref_iface( ( cls ) ) )
+#define jedex_value_iface_decref( cls ) \
+    ( ( cls )->decref_iface == NULL? ( void ) 0: ( cls )->decref_iface( ( cls ) ) )
 
 #define jedex_value_reset( value ) \
   jedex_value_call0( value, reset, EINVAL )

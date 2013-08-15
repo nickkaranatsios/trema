@@ -19,7 +19,7 @@
 #include "jedex.h"
 
 
-static pthread_key_t generic_union_key;
+static pthread_key_t generic_union_key = UINT_MAX;
 static pthread_once_t generic_union_key_once = PTHREAD_ONCE_INIT;
 
 
@@ -42,25 +42,6 @@ jedex_generic_union_reset( const jedex_value_iface *viface, void *vself ) {
       jedex_generic_union_branch( iface, self, i )
     };
     check( rval, jedex_value_reset( &value ) );
-  }
-
-  return 0;
-}
-
-
-static int
-jedex_generic_union_free( jedex_value_iface *viface, void *vself ) {
-  jedex_generic_union_value_iface *iface = container_non_const_of( viface, jedex_generic_union_value_iface, parent );
-  jedex_generic_union *self = ( jedex_generic_union * ) vself; 
-   
-
-  int rval;
-  for ( size_t i = 0; i < iface->branch_count; i++ ) {
-    jedex_value value = {
-      &iface->branch_ifaces[ i ]->parent,
-      jedex_generic_union_branch( iface, self, i )
-    };
-    check( rval, jedex_value_free( &value ) );
   }
 
   return 0;
@@ -131,7 +112,6 @@ jedex_generic_union_get_by_name( const jedex_value_iface *viface,
   }
 
   self->discriminant = index;
-  self->selected_branches[ index ] = index;
   branch->iface = &iface->branch_ifaces[ index ]->parent;
   branch->self = jedex_generic_union_branch( iface, self, index );
   if ( index_out != NULL ) {
@@ -156,7 +136,6 @@ jedex_generic_union_get_branch( const jedex_value_iface *viface,
   }
 
   self->discriminant = ( int ) index;
-  self->selected_branches[ index ] = ( int ) index;
   branch->iface = &iface->branch_ifaces[ index ]->parent;
   branch->self = jedex_generic_union_branch( iface, self, index );
 
@@ -177,13 +156,10 @@ jedex_generic_union_init( const jedex_value_iface *viface, void *vself ) {
   const jedex_generic_union_value_iface *iface = container_of( viface, jedex_generic_union_value_iface, parent );
   jedex_generic_union *self = ( jedex_generic_union * ) vself;
 
-  size_t selected_branches_size = sizeof( int ) * iface->branch_count;
-  self->selected_branches = ( int * ) jedex_malloc( selected_branches_size );
   size_t i;
   int rval;
   for ( i = 0; i < iface->branch_count; i++ ) {
     check( rval, jedex_value_init( iface->branch_ifaces[ i ], jedex_generic_union_branch( iface, self, i ) ) );
-    self->selected_branches[ i ] = -1;
   }
   self->discriminant = -1;
 
@@ -199,9 +175,40 @@ jedex_generic_union_done( const jedex_value_iface *viface, void *vself ) {
   size_t i;
   for ( i = 0; i < iface->branch_count; i++ ) {
     jedex_value_done( iface->branch_ifaces[ i ], jedex_generic_union_branch( iface, self, i ) );
-    self->selected_branches[ i ] = -1;
   }
   self->discriminant = -1;
+}
+
+
+static jedex_value_iface *
+jedex_generic_union_incref_iface( jedex_value_iface *viface ) {
+  jedex_generic_union_value_iface *iface = container_non_const_of( viface, jedex_generic_union_value_iface, parent );
+  jedex_refcount_inc( &iface->refcount );
+
+  return viface;
+}
+
+
+static void
+jedex_generic_union_decref_iface( jedex_value_iface *viface ) {
+  jedex_generic_union_value_iface *iface = container_non_const_of( viface, jedex_generic_union_value_iface, parent );
+
+  if ( jedex_refcount_dec( &iface->refcount ) ) {
+    size_t  i;
+    for ( i = 0; i < iface->branch_count; i++ ) {
+      jedex_value_iface_decref( &iface->branch_ifaces[ i ]->parent );
+    }
+    jedex_free( iface->branch_ifaces );
+    jedex_free( iface->branch_offsets );
+
+    jedex_generic_value_iface *generic_union = ( jedex_generic_value_iface * ) pthread_getspecific( generic_union_key ); 
+    if ( generic_union != NULL ) {
+      jedex_free( generic_union );
+      generic_union = NULL;
+      pthread_setspecific( generic_union_key, generic_union );
+    }
+    jedex_free( iface );
+  }
 }
 
 
@@ -215,8 +222,11 @@ generic_union_class( void ) {
     pthread_setspecific( generic_union_key, generic_union );
 
     memset( &generic_union->parent, 0, sizeof( generic_union->parent ) );
+    generic_union->parent.incref_iface = jedex_generic_union_incref_iface;
+    generic_union->parent.decref_iface = jedex_generic_union_decref_iface;
+    generic_union->parent.incref = jedex_generic_value_incref;
+    generic_union->parent.decref = jedex_generic_value_decref;
     generic_union->parent.reset = jedex_generic_union_reset;
-    generic_union->parent.free = jedex_generic_union_free;
     generic_union->parent.get_type = jedex_generic_union_get_type;
     generic_union->parent.get_size = jedex_generic_union_get_size;
     generic_union->parent.get_schema = jedex_generic_union_get_schema;
@@ -233,35 +243,15 @@ generic_union_class( void ) {
 }
 
 
-int
-jedex_generic_union_get_next_branch( const jedex_value_iface *viface,
-                                     void *vself,
-                                     size_t *index,
-                                     jedex_value *branch ) {
-  const jedex_generic_union_value_iface *iface = container_of( viface, jedex_generic_union_value_iface, parent );
-  jedex_generic_union *self = ( jedex_generic_union * ) vself;
-
-  size_t start;
-
-  if ( *index == UINT32_MAX ) {
-    start = 0;
+void
+jedex_generic_union_free( void ) {
+  if ( generic_union_key == UINT_MAX ) {
+    return;
   }
-  else {
-    start = *index;
-    start++;
-  }
-  
-  for ( size_t i = start; i < iface->branch_count; i++ ) {
-    if ( i == ( size_t ) self->selected_branches[ i ] ) {
-       branch->iface = &iface->branch_ifaces[ i ]->parent;
-       branch->self = jedex_generic_union_branch( iface, self, i );
-       *index = i;
-
-       return 0;
-    }
-  }
-
-  return EINVAL;
+  jedex_generic_value_iface *generic_union = ( jedex_generic_value_iface * ) pthread_getspecific( generic_union_key ); 
+  jedex_free( generic_union );
+  generic_union = NULL;
+  pthread_setspecific( generic_union_key, generic_union );
 }
 
 
@@ -275,6 +265,7 @@ jedex_generic_union_class( jedex_schema *schema, memoize_state *state )
 
   memset( iface, 0, sizeof( jedex_generic_union_value_iface ) );
   memcpy( &iface->parent, generic_union_class(), sizeof( iface->parent ) );
+  iface->refcount = 1;
   iface->schema = schema;
 
   iface->branch_count = jedex_schema_union_size( schema );

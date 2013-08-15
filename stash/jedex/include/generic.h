@@ -55,6 +55,8 @@ jedex_value_iface *jedex_generic_class_from_schema( jedex_schema *schema );
 int jedex_generic_value_new( jedex_value_iface *iface, jedex_value *dest );
 
 
+void jedex_refcount_inc( volatile int *refcount );
+int jedex_refcount_dec( volatile int *refcount );
 void jedex_generic_value_incref( jedex_value *value );
 void jedex_generic_value_decref( jedex_value *value );
 

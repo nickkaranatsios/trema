@@ -19,7 +19,7 @@
 #include "jedex.h"
 
 
-static pthread_key_t generic_boolean_key;
+static pthread_key_t generic_boolean_key = UINT_MAX;
 static pthread_once_t generic_boolean_key_once = PTHREAD_ONCE_INIT;
 
 
@@ -35,16 +35,6 @@ jedex_generic_boolean_reset( const jedex_value_iface *iface, void *vself ) {
 
   int *self = ( int * ) vself;
   *self = 0;
-
-  return 0;
-}
-
-
-static int
-jedex_generic_boolean_free( jedex_value_iface *iface, void *vself ) {
-  UNUSED( vself );
-
-  jedex_free( iface );
 
   return 0;
 }
@@ -116,6 +106,18 @@ jedex_generic_boolean_done( const jedex_value_iface *iface, void *vself ) {
 }
 
 
+void
+jedex_generic_boolean_free( void ) {
+  if ( generic_boolean_key == UINT_MAX ) {
+    return;
+  }
+  jedex_generic_value_iface *generic_boolean = ( jedex_generic_value_iface * ) pthread_getspecific( generic_boolean_key ); 
+  jedex_free( generic_boolean );
+  generic_boolean = NULL;
+  pthread_setspecific( generic_boolean_key, generic_boolean );
+}
+
+
 jedex_generic_value_iface *
 jedex_generic_boolean_class( void ) {
   pthread_once( &generic_boolean_key_once, make_generic_boolean_key );
@@ -129,7 +131,6 @@ jedex_generic_boolean_class( void ) {
     generic_boolean->parent.incref = jedex_generic_value_incref;
     generic_boolean->parent.decref = jedex_generic_value_decref;
     generic_boolean->parent.reset = jedex_generic_boolean_reset;
-    generic_boolean->parent.free = jedex_generic_boolean_free;
     generic_boolean->parent.get_type = jedex_generic_boolean_get_type;
     generic_boolean->parent.get_schema = jedex_generic_boolean_get_schema;
     generic_boolean->parent.get_boolean = jedex_generic_boolean_get;

@@ -19,7 +19,7 @@
 #include "jedex.h"
 
 
-static pthread_key_t generic_map_key;
+static pthread_key_t generic_map_key = UINT_MAX;
 static pthread_once_t generic_map_key_once = PTHREAD_ONCE_INIT;
 
 
@@ -31,7 +31,7 @@ make_generic_map_key( void ) {
 
 static void
 jedex_generic_map_free_elements( const jedex_generic_value_iface *child_giface, jedex_generic_map *self ) {
- size_t i;
+  size_t i;
 
   for ( i = 0; i < jedex_raw_map_size( &self->map ); i++ ) {
     void *child_self = jedex_raw_map_get_raw( &self->map, i );
@@ -46,15 +46,6 @@ jedex_generic_map_reset( const jedex_value_iface *viface, void *vself ) {
   jedex_generic_map *self = ( jedex_generic_map * ) vself;
   jedex_generic_map_free_elements( iface->child_giface, self );
   jedex_raw_map_clear( &self->map );
-
-  return 0;
-}
-
-
-static int
-jedex_generic_map_free( jedex_value_iface *viface, void *vself ) {
-  UNUSED( viface );
-  UNUSED( vself );
 
   return 0;
 }
@@ -186,6 +177,33 @@ jedex_generic_map_done( const jedex_value_iface *viface, void *vself ) {
 }
 
 
+static jedex_value_iface *
+jedex_generic_map_incref_iface( jedex_value_iface *viface ) {
+  jedex_generic_map_value_iface *iface = container_non_const_of( viface, jedex_generic_map_value_iface, parent );
+  jedex_refcount_inc( &iface->refcount );
+
+  return viface;
+}
+
+
+static void
+jedex_generic_map_decref_iface( jedex_value_iface *viface ) {
+  jedex_generic_map_value_iface *iface = container_non_const_of( viface, jedex_generic_map_value_iface, parent );
+
+  if ( jedex_refcount_dec( &iface->refcount ) ) {
+    jedex_value_iface_decref( &iface->child_giface->parent );
+
+    jedex_generic_value_iface *generic_map = ( jedex_generic_value_iface * ) pthread_getspecific( generic_map_key ); 
+    if ( generic_map != NULL ) {
+      jedex_free( generic_map );
+      generic_map = NULL;
+      pthread_setspecific( generic_map_key, generic_map );
+    }
+    jedex_free( iface );
+  }
+}
+
+
 static jedex_generic_value_iface *
 jedex_generic_map_get( void ) {
   pthread_once( &generic_map_key_once, make_generic_map_key );
@@ -195,8 +213,11 @@ jedex_generic_map_get( void ) {
     generic_map = ( jedex_generic_value_iface * ) jedex_new( jedex_generic_value_iface );
     pthread_setspecific( generic_map_key, generic_map );
     memset( &generic_map->parent, 0, sizeof( generic_map->parent ) );
+    generic_map->parent.incref_iface = jedex_generic_map_incref_iface;
+    generic_map->parent.decref_iface = jedex_generic_map_decref_iface;
+    generic_map->parent.incref = jedex_generic_value_incref;
+    generic_map->parent.decref = jedex_generic_value_decref;
     generic_map->parent.reset = jedex_generic_map_reset;
-    generic_map->parent.free = jedex_generic_map_free;
     generic_map->parent.get_type = jedex_generic_map_get_type;
     generic_map->parent.get_schema = jedex_generic_map_get_schema;
 
@@ -211,6 +232,18 @@ jedex_generic_map_get( void ) {
   }
 
   return generic_map;
+}
+
+
+void
+jedex_generic_map_free( void ) {
+  if ( generic_map_key == UINT_MAX ) {
+    return;
+  }
+  jedex_generic_value_iface *generic_map = ( jedex_generic_value_iface * ) pthread_getspecific( generic_map_key ); 
+  jedex_free( generic_map );
+  generic_map = NULL;
+  pthread_setspecific( generic_map_key, generic_map );
 }
 
 
@@ -239,6 +272,7 @@ jedex_generic_map_class( jedex_schema *schema, memoize_state *state ) {
    */
 
   memcpy( &iface->parent, jedex_generic_map_get(), sizeof( iface->parent ) );
+  iface->refcount = 1;
   iface->schema = schema;
   iface->child_giface = child_giface;
 

@@ -114,7 +114,7 @@ jedex_generic_class_from_schema( jedex_schema *schema ) {
 }
 
 
-static void
+void
 jedex_refcount_inc( volatile int *refcount ) {
   if ( *refcount != ( int ) -1 ) {
     *refcount += 1;
@@ -122,7 +122,7 @@ jedex_refcount_inc( volatile int *refcount ) {
 }
 
 
-static int
+int
 jedex_refcount_dec( volatile int *refcount ) {
   if ( *refcount != ( int ) -1 ) {
     *refcount -= 1;
@@ -137,6 +137,7 @@ static void
 jedex_generic_value_free( const jedex_value_iface *iface, void *self ) {
   if ( self != NULL ) {
     const jedex_generic_value_iface *giface = container_of( iface, jedex_generic_value_iface, parent );
+
     jedex_value_done( giface, self );
     self = ( char * ) self - sizeof( volatile int );
     jedex_free( self );

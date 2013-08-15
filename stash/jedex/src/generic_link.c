@@ -19,7 +19,7 @@
 #include "jedex.h"
 
 
-static pthread_key_t generic_link_key;
+static pthread_key_t generic_link_key = UINT_MAX;
 static pthread_once_t generic_link_key_once = PTHREAD_ONCE_INIT;
 
 
@@ -36,16 +36,6 @@ jedex_generic_link_reset( const jedex_value_iface *iface, void *vself ) {
   jedex_value *self = ( jedex_value * ) vself;
 
   return jedex_value_reset( self );
-}
-
-
-static int
-jedex_generic_link_free( jedex_value_iface *iface, void *vself ) {
-  UNUSED( iface );
-
-  jedex_value *self = ( jedex_value * ) vself;
-
-  return jedex_value_free( self );
 }
 
 
@@ -391,6 +381,29 @@ jedex_generic_link_done( const jedex_value_iface *iface, void *vself ) {
 }
 
 
+static jedex_value_iface *
+jedex_generic_link_incref_iface( jedex_value_iface *viface ) {
+  jedex_generic_link_value_iface *iface = container_non_const_of( viface, jedex_generic_link_value_iface, parent );
+  jedex_refcount_inc( &iface->refcount );
+
+  return viface;
+}
+
+
+static void
+jedex_generic_link_decref_iface( jedex_value_iface *viface ) {
+  jedex_generic_link_value_iface *iface = container_non_const_of( viface, jedex_generic_link_value_iface, parent.parent );
+
+  if ( jedex_refcount_dec( &iface->refcount ) ) {
+    /* We don't keep a reference to the target
+     * implementation, since that would give us a reference
+     * cycle.
+     */
+    jedex_free( iface );
+  }
+}
+
+
 static jedex_generic_value_iface *
 generic_link_class( void ) {
   pthread_once( &generic_link_key_once, make_generic_link_key );
@@ -400,8 +413,11 @@ generic_link_class( void ) {
     link = ( jedex_generic_value_iface * ) jedex_new( jedex_generic_value_iface );
     pthread_setspecific( generic_link_key, link );
     memset( &link->parent, 0, sizeof( link->parent ) );
+    link->parent.incref_iface = jedex_generic_link_incref_iface;
+    link->parent.decref_iface = jedex_generic_link_decref_iface;
+    link->parent.incref = jedex_generic_value_incref;
+    link->parent.decref = jedex_generic_value_decref;
     link->parent.reset = jedex_generic_link_reset;
-    link->parent.free = jedex_generic_link_free;
     link->parent.get_type = jedex_generic_link_get_type;
     link->parent.get_schema = jedex_generic_link_get_schema;
     link->parent.get_boolean = jedex_generic_link_get_boolean;
@@ -442,6 +458,18 @@ generic_link_class( void ) {
 }
 
 
+void
+jedex_generic_link_free( void ) {
+  if ( generic_link_key == UINT_MAX ) {
+    return;
+  }
+  jedex_generic_value_iface *link = ( jedex_generic_value_iface * ) pthread_getspecific( generic_link_key ); 
+  jedex_free( link );
+  link = NULL;
+  pthread_setspecific( generic_link_key, link );
+}
+
+
 jedex_generic_link_value_iface *
 jedex_generic_link_class( jedex_schema *schema ) {
   if ( !is_jedex_link( schema ) ) {
@@ -455,6 +483,7 @@ jedex_generic_link_class( jedex_schema *schema ) {
   }
 
   memcpy( &iface->parent, generic_link_class(), sizeof( iface->parent ) );
+  iface->refcount = 1;
   iface->schema = schema;
   iface->next = NULL;
 

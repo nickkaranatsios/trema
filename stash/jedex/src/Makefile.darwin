@@ -41,6 +41,7 @@ SRCS_LIB += raw_string.c
 SRCS_LIB += raw_array.c
 SRCS_LIB += raw_map.c
 SRCS_LIB += st.c
+SRCS_LIB += value.c
 SRCS_LIB += value_json.c
 SRCS_LIB += wrapped_buffer.c
 

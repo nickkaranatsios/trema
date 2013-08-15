@@ -19,7 +19,7 @@
 #include "jedex.h"
 
 
-static pthread_key_t generic_null_key;
+static pthread_key_t generic_null_key = UINT_MAX;
 static pthread_once_t generic_null_key_once = PTHREAD_ONCE_INIT;
 
 
@@ -35,16 +35,6 @@ jedex_generic_null_reset( const jedex_value_iface *iface, void *vself ) {
 
   int  *self = ( int * ) vself;
   *self = 0;
-
-  return 0;
-}
-
-
-static int
-jedex_generic_null_free( jedex_value_iface *iface, void *vself ) {
-  UNUSED( vself );
-
-  jedex_free( iface );
 
   return 0;
 }
@@ -112,6 +102,18 @@ jedex_generic_null_done( const jedex_value_iface *iface, void *vself ) {
 }
 
 
+void
+jedex_generic_null_free( void ) {
+  if ( generic_null_key == UINT_MAX ) {
+    return;
+  }
+  jedex_generic_value_iface *generic_null = ( jedex_generic_value_iface * ) pthread_getspecific( generic_null_key ); 
+  jedex_free( generic_null );
+  generic_null = NULL;
+  pthread_setspecific( generic_null_key, generic_null );
+}
+
+
 jedex_generic_value_iface *
 jedex_generic_null_class( void ) {
   pthread_once( &generic_null_key_once, make_generic_null_key );
@@ -122,8 +124,9 @@ jedex_generic_null_class( void ) {
     pthread_setspecific( generic_null_key, generic_null );
 
     memset( &generic_null->parent, 0, sizeof( generic_null->parent ) );
+    generic_null->parent.incref = jedex_generic_value_incref;
+    generic_null->parent.decref = jedex_generic_value_decref;
     generic_null->parent.reset = jedex_generic_null_reset;
-    generic_null->parent.free = jedex_generic_null_free;
     generic_null->parent.get_type = jedex_generic_null_get_type;
     generic_null->parent.get_schema = jedex_generic_null_get_schema;
     generic_null->parent.get_null = jedex_generic_null_get;

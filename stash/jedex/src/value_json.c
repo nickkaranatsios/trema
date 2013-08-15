@@ -294,7 +294,8 @@ jedex_value_to_json_t( const jedex_value *value ) {
 
       size_t i = UINT32_MAX;
       jedex_value branch;
-      while ( !jedex_generic_next_branch( value, &i, &branch ) ) {
+      for ( i = 0; i < branch_count; i++ ) {
+        jedex_value_get_branch( value, i, &branch );
         json_t *branch_json = jedex_value_to_json_t( &branch );
         if ( branch_json == NULL ) {
           json_decref( result );
@@ -674,6 +675,7 @@ json_to_jedex_value( void *schema, const char *json ) {
   }
   jedex_value_iface *val_iface = jedex_generic_class_from_schema( schema );
   if ( val_iface == NULL ) {
+    json_decref( root );
     return NULL;
   }
   jedex_value *val = jedex_value_from_iface( val_iface );
@@ -681,6 +683,7 @@ json_to_jedex_value( void *schema, const char *json ) {
   if ( rc && val != NULL ) {
     jedex_value_reset( val );
   }
+  json_decref( root );
 
   return rc == 0 ? val : NULL;
 }

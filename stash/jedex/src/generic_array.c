@@ -19,7 +19,7 @@
 #include "jedex.h"
 
 
-static pthread_key_t generic_array_key;
+static pthread_key_t generic_array_key = UINT_MAX;
 static pthread_once_t generic_array_key_once = PTHREAD_ONCE_INIT;
 static jedex_generic_value_iface *generic_array_class( void );
 
@@ -46,30 +46,6 @@ jedex_generic_array_reset( const jedex_value_iface *viface, void *vself ) {
   const jedex_generic_array_value_iface *iface = container_of( viface, jedex_generic_array_value_iface, parent );
   jedex_generic_array *self = ( jedex_generic_array * ) vself;
   jedex_generic_array_free_elements( iface->child_giface, self );
-
-  return 0;
-}
-
-
-static int
-jedex_generic_array_free( jedex_value_iface *viface, void *vself ) {
-  jedex_generic_array_value_iface *iface = container_non_const_of( viface, jedex_generic_array_value_iface, parent );
-  jedex_generic_array *self = ( jedex_generic_array * ) vself;
-
-  void *child_self = jedex_raw_array_get_raw( &self->array, 0 );
-  jedex_value value = {
-    &iface->child_giface->parent,
-    child_self
-  };
-  jedex_value_free( &value );
-  jedex_raw_array_done( &self->array );
-  jedex_free( iface->child_giface );
-  jedex_free( iface );
-  jedex_free( vself );
-  jedex_generic_value_iface *gviface = generic_array_class();
-  jedex_free( gviface );
-  gviface = NULL;
-  pthread_setspecific( generic_array_key, gviface );
 
   return 0;
 }
@@ -178,6 +154,39 @@ jedex_generic_array_done( const jedex_value_iface *viface, void *vself ) {
   const jedex_generic_array_value_iface *iface = container_of( viface, jedex_generic_array_value_iface, parent );
   jedex_generic_array *self = ( jedex_generic_array * ) vself;
   jedex_generic_array_free_elements( iface->child_giface, self );
+  jedex_raw_array_done( &self->array );
+}
+
+
+static jedex_value_iface *
+jedex_generic_array_incref_iface( jedex_value_iface *viface ) {
+  jedex_generic_array_value_iface *iface = container_non_const_of( viface, jedex_generic_array_value_iface, parent );
+  jedex_refcount_inc( &iface->refcount );
+
+  return viface;
+}
+
+
+static void
+jedex_generic_array_decref_iface( jedex_value_iface *viface ) {
+  jedex_generic_array_value_iface *iface = container_non_const_of( viface, jedex_generic_array_value_iface, parent );
+
+  if ( jedex_refcount_dec( &iface->refcount ) ) {
+    jedex_value_iface_decref( &iface->child_giface->parent );
+    jedex_free( iface );
+  }
+}
+
+
+void
+jedex_generic_array_free( void ) {
+  if ( generic_array_key == UINT_MAX ) {
+    return;
+  }
+  jedex_generic_value_iface *generic_array = ( jedex_generic_value_iface * ) pthread_getspecific( generic_array_key ); 
+  jedex_free( generic_array );
+  generic_array = NULL;
+  pthread_setspecific( generic_array_key, generic_array );
 }
 
 
@@ -191,8 +200,11 @@ generic_array_class( void ) {
     pthread_setspecific( generic_array_key, generic_array );
 
     memset( &generic_array->parent, 0, sizeof( generic_array->parent ) );
+    generic_array->parent.incref_iface = jedex_generic_array_incref_iface;
+    generic_array->parent.decref_iface = jedex_generic_array_decref_iface;
+    generic_array->parent.incref = jedex_generic_value_incref;
+    generic_array->parent.decref = jedex_generic_value_decref;
     generic_array->parent.reset = jedex_generic_array_reset;
-    generic_array->parent.free = jedex_generic_array_free;
     generic_array->parent.get_type = jedex_generic_array_get_type;
     generic_array->parent.get_schema = jedex_generic_array_get_schema;
     generic_array->parent.get_size = jedex_generic_array_get_size;
@@ -232,6 +244,7 @@ jedex_generic_array_class( jedex_schema *schema, memoize_state *state ) {
    * child_iface.get_schema?
    */
   memcpy( &iface->parent, generic_array_class(), sizeof( iface->parent ) );
+  iface->refcount = 1;
   iface->schema = schema;
   iface->child_giface = child_giface;
 

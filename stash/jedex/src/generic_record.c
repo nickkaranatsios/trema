@@ -19,7 +19,7 @@
 #include "jedex.h"
 
 
-static pthread_key_t generic_record_key;
+static pthread_key_t generic_record_key = UINT_MAX;
 static pthread_once_t generic_record_key_once = PTHREAD_ONCE_INIT;
 static jedex_generic_value_iface *generic_record_class( void );
 
@@ -44,56 +44,6 @@ jedex_generic_record_reset( const jedex_value_iface *viface, void *vself ) {
     };
     check( rval, jedex_value_reset( &value ) );
   }
-
-  return 0;
-}
-
-
-static int
-jedex_generic_record_free( jedex_value_iface *viface, void *vself ) {
-  jedex_generic_record_value_iface *iface = container_non_const_of( viface, jedex_generic_record_value_iface, parent );
-  int rval;
-  jedex_generic_record *self = ( jedex_generic_record * ) vself;
-
-  int all_types[ JEDEX_INVALID ];
-  memset( all_types, -1, sizeof( all_types ) );
-
-  for ( size_t i = 0; i < iface->field_count; i++ ) {
-    jedex_value value = {
-      &iface->field_ifaces[ i ]->parent,
-      jedex_generic_record_field( iface, self, i )
-    };
-    jedex_type field_type = jedex_value_get_type( &value );
-    if ( field_type == JEDEX_ARRAY ) {
-      size_t asize;
-      jedex_value_get_size( &value, &asize );
-      if ( asize > 0 ) {
-        jedex_value element;
-        size_t idx = 0;
-        jedex_value_get_by_index( &value, idx, &element, NULL );
-        field_type = jedex_value_get_type( &element );
-      }
-    }
-    if ( all_types[ field_type ] == -1 ) {
-      all_types[ field_type ] = ( int ) i;
-    }
-  }
-   
-  for ( size_t i = 0; i < sizeof( all_types ) / sizeof( all_types[ 0 ] ); i++ ) {
-    if ( all_types[ i ] != -1 ) {
-      jedex_value value = {
-        &iface->field_ifaces[ all_types[ i ] ]->parent,
-        jedex_generic_record_field( iface, self, all_types[ i ] )
-      };
-      check( rval, jedex_value_free( &value ) );
-    }
-  }
-  jedex_free( iface->field_offsets );
-  jedex_free( iface->field_ifaces );
-  jedex_generic_value_iface *gviface = generic_record_class();
-  jedex_free( gviface );
-  gviface = NULL;
-  pthread_setspecific( generic_record_key, gviface );
 
   return 0;
 }
@@ -236,6 +186,31 @@ jedex_generic_record_done( const jedex_value_iface *viface, void *vself ) {
 }
 
 
+static jedex_value_iface *
+jedex_generic_record_incref_iface( jedex_value_iface *viface ) {
+  jedex_generic_record_value_iface *iface = container_non_const_of( viface, jedex_generic_record_value_iface, parent );
+  jedex_refcount_inc( &iface->refcount );
+
+  return viface;
+}
+
+
+static void
+jedex_generic_record_decref_iface( jedex_value_iface *viface ) {
+  jedex_generic_record_value_iface *iface = container_non_const_of( viface, jedex_generic_record_value_iface, parent );
+
+  if ( jedex_refcount_dec( &iface->refcount ) ) {
+    size_t  i;
+    for ( i = 0; i < iface->field_count; i++ ) {
+      jedex_value_iface_decref( &iface->field_ifaces[ i ]->parent );
+    }
+    jedex_free( iface->field_offsets );
+    jedex_free( iface->field_ifaces );
+    jedex_free( iface );
+  }
+}
+
+
 static jedex_generic_value_iface *
 generic_record_class( void ) {
   pthread_once( &generic_record_key_once, make_generic_record_key );
@@ -245,8 +220,11 @@ generic_record_class( void ) {
     record = ( jedex_generic_value_iface * ) jedex_new( jedex_generic_value_iface );
     pthread_setspecific( generic_record_key, record );
     memset( &record->parent, 0, sizeof( record->parent ) );
+    record->parent.incref_iface = jedex_generic_record_incref_iface;
+    record->parent.decref_iface = jedex_generic_record_decref_iface;
+    record->parent.incref = jedex_generic_value_incref;
+    record->parent.decref = jedex_generic_value_decref;
     record->parent.reset = jedex_generic_record_reset;
-    record->parent.free = jedex_generic_record_free;
     record->parent.get_type = jedex_generic_record_get_type;
     record->parent.get_schema = jedex_generic_record_get_schema;
     record->parent.get_size = jedex_generic_record_get_size;
@@ -262,6 +240,18 @@ generic_record_class( void ) {
 }
 
 
+void
+jedex_generic_record_free( void ) {
+  if ( generic_record_key == UINT_MAX ) {
+    return;
+  }
+  jedex_generic_value_iface *record = ( jedex_generic_value_iface * ) pthread_getspecific( generic_record_key ); 
+  jedex_free( record );
+  record = NULL;
+  pthread_setspecific( generic_record_key, record );
+}
+
+
 jedex_generic_value_iface *
 jedex_generic_record_class( jedex_schema *schema, memoize_state *state ) {
   jedex_generic_record_value_iface *iface = ( jedex_generic_record_value_iface * ) jedex_new( jedex_generic_record_value_iface );
@@ -271,6 +261,7 @@ jedex_generic_record_class( jedex_schema *schema, memoize_state *state ) {
 
   memset( iface, 0, sizeof( jedex_generic_record_value_iface ) );
   memcpy( &iface->parent, generic_record_class(), sizeof( iface->parent ) );
+  iface->refcount = 1;
   iface->schema = schema;
 
   iface->field_count = jedex_schema_record_size( schema );

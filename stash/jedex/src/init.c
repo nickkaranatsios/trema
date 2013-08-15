@@ -215,6 +215,19 @@ jedex_finalize( jedex_schema **schema ) {
     jedex_schema_free( *schema );
     *schema = NULL;
   }
+  jedex_generic_array_free();
+  jedex_generic_boolean_free();
+  jedex_generic_bytes_free();
+  jedex_generic_double_free();
+  jedex_generic_float_free();
+  jedex_generic_int_free();
+  jedex_generic_link_free();
+  jedex_generic_long_free();
+  jedex_generic_map_free();
+  jedex_generic_null_free();
+  jedex_generic_record_free();
+  jedex_generic_string_free();
+  jedex_generic_union_free();
 }
 
 

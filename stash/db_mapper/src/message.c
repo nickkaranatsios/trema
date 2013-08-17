@@ -129,7 +129,7 @@ unpack_find_record( const char *tbl_name,
     return DB_REC_NOT_FOUND;
   }
 
-  db_mapper_error err = NO_ERROR;
+  db_mapper_error err = SUCCESS;
   query_info *qinfo = query_info_get( tinfo );
   if ( qinfo != NULL ) {
     if ( !query( db, qinfo, sb.buf ) ) {
@@ -174,7 +174,7 @@ unpack_find_all_records( const char *tbl_name,
   db_info *db = db_info_get( db_name, self );
   table_info *tinfo = table_info_get( tbl_name, db );
 
-  db_mapper_error err = NO_ERROR;
+  db_mapper_error err = SUCCESS;
   query_info *qinfo = query_info_get( tinfo );
   if ( qinfo != NULL ) {
     qinfo->row_count = 1;
@@ -212,7 +212,7 @@ unpack_find_next_record( const char *tbl_name,
                          mapper *self ) {
   UNUSED( json );
   UNUSED( val );
-  db_mapper_error err = NO_ERROR;
+  db_mapper_error err = SUCCESS;
   strbuf sb = STRBUF_INIT;
 
   const char *db_name = db_info_dbname( self, tbl_name );
@@ -312,7 +312,7 @@ unpack_update_record( const char *tbl_name,
   if ( qinfo != NULL ) {
     if ( !query( db, qinfo, sb.buf ) && query_affected_rows( db ) ) {
       cache_set( self->rcontext, tinfo, json, &ref, &sb );
-      err = NO_ERROR;
+      err = SUCCESS;
     }
   }
   strbuf_release( &sb );
@@ -354,7 +354,7 @@ unpack_delete_record( const char *tbl_name,
   if ( qinfo != NULL ) {
     if ( !query( db, qinfo, sb.buf ) && query_affected_rows( db ) ) {
       cache_del( self->rcontext, tinfo, &ref, &sb );
-      err = NO_ERROR;
+      err = SUCCESS;
     }
   }
   strbuf_release( &sb );
@@ -402,7 +402,7 @@ request_find_record_callback( jedex_value *val, const char *json, const char *cl
   mapper *self = user_data;
 
   db_mapper_error err = unpack_record( val, json, client_id, self, unpack_find_record );
-  if ( err != NO_ERROR ) {
+  if ( err != SUCCESS ) {
     self->emirates->send_reply_raw( self->emirates, "find_record", json );
   }
 }
@@ -414,7 +414,7 @@ request_find_all_records_callback( jedex_value *val, const char *json, const cha
   mapper *self = user_data;
 
   db_mapper_error err = unpack_record( val, json, client_id, self, unpack_find_all_records );
-  if ( err != NO_ERROR ) {
+  if ( err != SUCCESS ) {
     self->emirates->send_reply_raw( self->emirates, "find_all_records", json );
   }
 }
@@ -429,7 +429,7 @@ request_find_next_record_callback( jedex_value *val,
   mapper *self = user_data;
 
   db_mapper_error err = unpack_record( val, json, client_id, self, unpack_find_next_record );
-  if ( err != NO_ERROR ) {
+  if ( err != SUCCESS ) {
     self->emirates->send_reply_raw( self->emirates, "find_next_record", json );
   }
 }

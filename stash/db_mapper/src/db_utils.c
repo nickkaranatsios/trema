@@ -290,7 +290,7 @@ table_info_get( const char *name, db_info *db ) {
 /*
  * This is processing of the field "tables" of the save_topic message.
  * "tables" is an array of tables to be created corresponding to the given db.
- * Returns NO_ERROR(0) when no processing errors found.
+ * Returns SUCCESS(0) when no processing errors found.
  */
 db_mapper_error
 set_table_name( const char *db_name, jedex_value *val, mapper *self ) {
@@ -329,7 +329,7 @@ set_table_name( const char *db_name, jedex_value *val, mapper *self ) {
     check_ptr_return( tbl_schema, DB_TABLE_SCHEMA_NOT_FOUND, "Table schema not found" );
   }
 
-  return NO_ERROR;
+  return SUCCESS;
 }
 
 

@@ -5,7 +5,7 @@ CC = gcc
 AR = ar
 RANLIB = ranlib
 APILIB = -lczmq -lsodium -lzmq -ljansson -lmysqlclient -lhiredis -lm -lpthread
-APIPATH = -L. -L/usr/local/lib -L/usr/lib
+APIPATH = -L. -L../../jedex/src -L../../emirates/src -L/usr/local/lib -L/usr/lib
 
 CFLAGS += -I../include
 CFLAGS += -I../.. 

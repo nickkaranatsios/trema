@@ -29,7 +29,7 @@ extern "C" {
 
 
 typedef enum {
-  NO_ERROR,
+  SUCCESS,
   DB_NAME_NOT_FOUND,
   DB_TABLE_NOT_FOUND,
   DB_REC_NOT_FOUND,

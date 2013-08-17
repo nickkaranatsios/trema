@@ -31,6 +31,7 @@ extern "C" {
 #include <jansson.h>
 #include "schema.h"
 #include "value.h"
+#include "generic.h"
 #include "parcel.h"
 
 

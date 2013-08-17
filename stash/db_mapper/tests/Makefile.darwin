@@ -3,15 +3,17 @@ TREMA = ../../../../trema
 
 CC = gcc
 
-APILIB = -lczmq -lsodium -lzmq -ljansson -lm -lpthread
-APIPATH = -L. -L/usr/local/lib -L/usr/lib
+APILIB = -lczmq -lsodium -lzmq -ljansson -lhiredis -lm -lpthread
+APIPATH = -L. -L../../emirates/src -L../../jedex/src -L/usr/local/lib -L/usr/lib
 
-CFLAGS += -I ../../emirates/include
-CFLAGS += -I ../..
-CFLAGS += -I ../czmq/include
+CFLAGS += -I../src
+CFLAGS += -I../../emirates/include
+CFLAGS += -I../..
+CFLAGS += -I../czmq/include
 CFLAGS += -I../../jedex/include
 CFLAGS += $(shell $(TREMA)/trema-config --cflags)
-CFLAGS += -I../usr/local/include
+CFLAGS += -I/usr/include/mysql
+CFLAGS += -I/usr/local/include
 CFLAGS += -std=gnu99 -D_GNU_SOURCE -g -fno-strict-aliasing -Wall -Wextra -Wformat=2 -Wcast-qual -Wcast-align -Wwrite-strings -Wconversion -Wfloat-equal -Wpointer-arith -O0
 
 LDFLAGS += -lemirates
@@ -20,14 +22,23 @@ LDFLAGS += $(APILIB)
 LDFLAGS += $(shell $(TREMA)/trema-config --libs)
 
 TARGET_DB_REQUESTER = db_requester
-SRCS_DB_REQUESTER = db_requester.c
+SRCS_DB_REQUESTER = ../src/cache.c
+SRCS_DB_REQUESTER += db_requester.c
+
+TARGET_ANOTHER_REQUESTER = another_requester
+SRCS_ANOTHER_REQUESTER = ../src/cache.c
+SRCS_ANOTHER_REQUESTER += another_requester.c
 
 TARGETS = $(TARGET_DB_REQUESTER)
+TARGETS += $(TARGET_ANOTHER_REQUESTER)
 
 SRCS = $(SRCS_DB_REQUESTER)
+SRCS += $(SRCS_ANOTHER_REQUESTER)
 OBJS_DB_REQUESTER = $(SRCS_DB_REQUESTER:.c=.o)
+OBJS_ANOTHER_REQUESTER = $(SRCS_ANOTHER_REQUESTER:.c=.o)
 
 OBJS = $(OBJS_DB_REQUESTER)
+OBJS += $(OBJS_ANOTHER_REQUESTER)
 
 DEPENDS = .depends
 
@@ -39,6 +50,9 @@ all: depend $(TARGETS)
 
 $(TARGET_DB_REQUESTER): $(OBJS_DB_REQUESTER)
 	$(CC) $(OBJS_DB_REQUESTER) $(APIPATH) $(LDFLAGS) -o $@
+
+$(TARGET_ANOTHER_REQUESTER): $(OBJS_ANOTHER_REQUESTER)
+	$(CC) $(OBJS_ANOTHER_REQUESTER) $(APIPATH) $(LDFLAGS) -o $@
 
 .c.o:
 	$(CC) $(CFLAGS) -c $<

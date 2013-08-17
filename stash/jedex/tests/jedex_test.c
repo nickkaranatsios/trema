@@ -479,18 +479,16 @@ main( int argc, char **argv ) {
       jedex_value_iface *string_class = jedex_generic_class_from_schema( sschema );
       jedex_value sval;
       jedex_generic_value_new( string_class, &sval );
-      jedex_finalize( &sschema );
       jedex_value_decref( &sval );
+      jedex_finalize( &sschema );
 #endif
 #ifdef LEAK_CHECK
       jedex_schema *rschema = jedex_initialize( "schema/test_record" );
       jedex_value_iface *record_class = jedex_generic_class_from_schema( rschema );
       jedex_value rval;
       jedex_generic_value_new( record_class, &rval );
-
-      jedex_finalize( &rschema );
-      
       jedex_value_decref( &rval );
+      jedex_finalize( &rschema );
 #endif
 #ifdef LEAK_CHECK
       jedex_schema *rschema = jedex_initialize( "schema/test_record" );
@@ -520,8 +518,8 @@ main( int argc, char **argv ) {
       jedex_value_get_by_name( &element, "test_value", &field, &index );
       jedex_value_set_long( &field, 4455 );
 
-      jedex_finalize( &aschema );
       jedex_value_decref( &aval );
+      jedex_finalize( &aschema );
 #endif
 
       jedex_schema *menu_schema = jedex_initialize( "schema/menu_record" );

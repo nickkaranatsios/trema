@@ -121,7 +121,7 @@ typedef struct ref_data {
 
 
 typedef int ( *config_fn ) ( const char *key, const char *value, void *user_data );
-int read_config( config_fn fn, void *user_data, const char *filename );
+int read_config( const char *filename, config_fn fn, void *user_data );
 
 // message.c
 void request_save_topic_callback( jedex_value *val,

@@ -226,6 +226,7 @@ get_value( config_fn fn, void *user_data, char *name, int len ) {
       return -1;
     }
   }
+
   return fn( name, value, user_data );
 }
 
@@ -275,7 +276,7 @@ parse_file( config_fn fn, void *user_data ) {
 
 
 int
-read_config( config_fn fn, void *user_data, const char *filename ) {
+read_config( const char *filename, config_fn fn, void *user_data ) {
   FILE *fp = fopen( filename, "r" );
   int ret = -1;
 

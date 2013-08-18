@@ -77,7 +77,6 @@ handle_config( const char *key, const char *value, void *user_data ) {
     if ( subkey ) {
       assign_db_value( subkey, value, db );
     }
-    printf( "subkey %s name %s %d\n", subkey, name, ( int ) ( subkey - name ) );
   }
 
   return 0;
@@ -104,7 +103,7 @@ mapper_initialize( mapper **mptr, int argc, char **argv ) {
   }
 
   self = xcalloc( nitems, sizeof( mapper ) );
-  if ( read_config( handle_config, self, args->config_fn ) < 0 ) {
+  if ( read_config( args->config_fn, handle_config, self ) < 0 ) {
     log_debug( "Failed to parse config file %s", args->config_fn );
     printf( "Failed to parse config file %s\n", args->config_fn );
   }

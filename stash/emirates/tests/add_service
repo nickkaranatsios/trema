@@ -1,0 +1,18 @@
+[
+  {
+    "type": "record",
+    "name": "add_service",
+    "fields": [
+      { "name": "service", "type": "string" },
+      { "name": "bandwidth", "type": "double" },
+      { "name": "nr_subscribers", "type": "long" }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "add_service_reply",
+    "fields": [
+      { "name": "status", "type": "string" }
+    ]
+  }
+]

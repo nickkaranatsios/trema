@@ -16,7 +16,14 @@
  */
 
 
-#include "db_mapper.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <string.h>
+#include <inttypes.h>
+#include "log_writer.h"
+#include "array_util.h"
+#include "strbuf.h"
 
 
 static inline size_t
@@ -84,7 +91,7 @@ strbuf_split_buf( const char *str, size_t slen, int delim, int max ) {
   strbuf **ret;
   strbuf *t;
 
-  ret = xcalloc( ( size_t ) alloc, sizeof( strbuf * ) );
+  ret = calloc( ( size_t ) alloc, sizeof( strbuf * ) );
   p = n = str;
   while ( n < str + slen ) {
     int len;
@@ -102,7 +109,7 @@ strbuf_split_buf( const char *str, size_t slen, int delim, int max ) {
       n = str + slen - 1;
     }
     len = n - p + 1;
-    t = xmalloc( sizeof( strbuf ) );
+    t = malloc( sizeof( strbuf ) );
     size_t slen = ( size_t ) len;
     strbuf_init( t, slen );
     strbuf_add( t, p, slen );

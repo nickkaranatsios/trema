@@ -23,6 +23,7 @@
 #include "generic.h"
 #include "cache.h"
 #include "checks.h"
+#include "config.h"
 
 
 typedef struct db_requester {
@@ -298,7 +299,60 @@ set_topic( jedex_schema *schema ) {
   return val;
 }
 
+typedef struct service_profile {
+  char *key;
+  sm_add_service_profile_request profile_req;
+} service_profile;
 
+typedef struct srm_info {
+  service_profile **profiles;
+  uint32_t profiles_nr;
+  uint32_t profiles_alloc;
+} srm_info;
+
+static profile *
+make_profile( const char *name, size_t name_len, srm_info *self ) {
+  uint32_t i;
+  
+  for ( i = 0; i < self->profiles_nr; i++ ) {
+    if ( !strcmp( self->profiles[ i ]->key, name, name_len ) ) {
+      return self->profiles[ i ];
+    }
+  }
+  ALLOC_GROW( self->profiles, self->profiles_nr + 1, self->profiles_alloc );
+  size_t nitems = 1;
+  service_profile *profile = xcalloc( nitems, sizeof( *profile ) );
+  profile->key = strdup( name );
+  self->profiles[ self->profiles_nr++ ] = profile;
+}
+
+static void
+assign_service_profile( const char *subkey, const char *value, service_profile *profile ) {
+  if ( !prefixcmp( subkey, ".name" ) ) {
+    strncpy( profile->profile_req.name, value, sizeof( profile->name ) );
+  }
+  else if ( !prefixcmp( subkey, ".match_id" ) ) {
+    profile->profile_req.match_id = atoi( value );
+  }
+}
+ 
+static int
+handle_config( const char *key, const char *value, void *user_data ) {
+  if ( !prefixcmp( key, "profile_spec." ) ) {
+    srm_info *self = user_data;
+    const char *subkey;
+    const char *name;
+    name = key + 13;
+    subkey = strrchr( name, '.' );
+    service_profile *profile = make_profile( name, ( size_t ) ( subkey - name ),  self );
+    if ( profile && subkey ) {
+      assign_service_profile( subkey, value, profile );
+    }
+    //printf( "key(%s) value(%s) name(%s) subkey(%s)\n", key, value, name, subkey );
+  }
+
+  return 0;
+}
 /*
  * This test program is used in addition to db_requester test program
  * to ensure that db_mapper can handle more than one find_record service
@@ -306,6 +360,7 @@ set_topic( jedex_schema *schema ) {
  */
 int
 main( int argc, char **argv ) {
+  read_config( "service_manager.conf", handle_config, &srm_info );
   char schema_fn[ 2 ][ PATH_MAX ];
   strcpy( &schema_fn[ 0 ][ 0 ], "request_reply" );
   strcpy( &schema_fn[ 1 ][ 0 ], "sc_db" );

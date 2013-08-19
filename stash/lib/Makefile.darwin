@@ -1,0 +1,44 @@
+#
+# Copyright (C) 2011 NEC Corporation
+# NEC Confidential
+#
+# Makefile for carrier-edge system
+
+CC = gcc
+AR = ar
+RANLIB = ranlib
+
+CFLAGS = -std=gnu99 -D_GNU_SOURCE -Wall -g -fno-strict-aliasing -Wextra -Wformat=2 -Wcast-qual -Wcast-align -Wwrite-strings -Wconversion -Wfloat-equal -Wpointer-arith -O0
+
+TARGET = libces.a
+SRCS = daemon.c
+SRCS += doubly_linked_list.c
+SRCS += hash_table.c
+SRCS += config.c
+SRCS += strbuf.c
+
+OBJS = $(SRCS:.c=.o)
+
+DEPENDS = .depends
+
+.PHONY: all clean
+
+.SUFFIXES: .c .o
+
+all: depend $(TARGET)
+
+$(TARGET): $(OBJS)
+	$(AR) -cq $@ $(OBJS)
+	$(RANLIB) $@
+
+.c.o:
+	$(CC) $(CFLAGS) -c $<
+
+depend: 
+	$(CC) -MM $(CFLAGS) $(SRCS) > $(DEPENDS)
+
+clean:
+	@rm -rf $(DEPENDS) $(OBJS) $(TARGET) *~
+
+-include $(DEPENDS)
+

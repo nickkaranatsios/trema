@@ -16,8 +16,8 @@
  */
 
 
-#ifndef DB_MAPPER_H
-#define DB_MAPPER_H
+#ifndef CONFIG_H
+#define CONFIG_H
 
 
 #ifdef __cplusplus
@@ -28,42 +28,12 @@ extern "C" {
 #endif
 
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stddef.h>
-#include <string.h>
-#include <ctype.h>
-#include <assert.h>
-#include <getopt.h>
-#include <pthread.h>
-#include <poll.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#ifdef __linux__
-#include <sys/eventfd.h>
-#endif
-#include <limits.h>
-#include <mysql.h>
-#include <mysqld_error.h>
-#include <errmsg.h>
-#include <hiredis/hiredis.h>
-
-#include "checks.h"
-#include "wrapper.h"
-#include "log_writer.h"
-#include "jedex_iface.h"
-#include "generic.h"
-#include "emirates.h"
-#include "db_mapper_error.h"
-#include "parse_options.h"
-#include "array_util.h"
-#include "strbuf.h"
-#include "cache.h"
-#include "config.h"
+typedef int ( *config_fn ) ( const char *key, const char *value, void *user_data );
+int read_config( const char *filename, config_fn fn, void *user_data );
 
 
 CLOSE_EXTERN
-#endif // DB_MAPPER_H
+#endif // CONFIG_H
 
 
 /*

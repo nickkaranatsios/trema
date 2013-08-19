@@ -1,6 +1,4 @@
 /*
- * Copyright (C) 2013 NEC Corporation
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2, as
  * published by the Free Software Foundation.
@@ -16,8 +14,8 @@
  */
 
 
-#ifndef DB_MAPPER_H
-#define DB_MAPPER_H
+#ifndef ARRAY_UTIL_H
+#define ARRAY_UTIL_H
 
 
 #ifdef __cplusplus
@@ -28,42 +26,27 @@ extern "C" {
 #endif
 
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stddef.h>
-#include <string.h>
-#include <ctype.h>
-#include <assert.h>
-#include <getopt.h>
-#include <pthread.h>
-#include <poll.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#ifdef __linux__
-#include <sys/eventfd.h>
-#endif
-#include <limits.h>
-#include <mysql.h>
-#include <mysqld_error.h>
-#include <errmsg.h>
-#include <hiredis/hiredis.h>
+#define ARRAY_SIZE( x ) ( sizeof( x ) / sizeof( x[ 0 ] ) )
+#define ALLOC_NR( x ) ( ( ( x ) * 16 ) * 3 / 2 )
 
-#include "checks.h"
-#include "wrapper.h"
-#include "log_writer.h"
-#include "jedex_iface.h"
-#include "generic.h"
-#include "emirates.h"
-#include "db_mapper_error.h"
-#include "parse_options.h"
-#include "array_util.h"
-#include "strbuf.h"
-#include "cache.h"
-#include "config.h"
+
+// TODO change realloc to xrealloc in the trema wrapper library.
+#define ALLOC_GROW( x, nr, alloc ) \
+  do { \
+    if ( ( nr ) > alloc ) { \
+      if ( ( ALLOC_NR( alloc ) < ( nr ) ) ) { \
+        alloc = ( nr ); \
+      } \
+      else { \
+        alloc = ALLOC_NR( alloc ); \
+      } \
+      x = realloc( ( x ), alloc * sizeof( *( x ) ) ); \
+    } \
+   } while ( 0 )
 
 
 CLOSE_EXTERN
-#endif // DB_MAPPER_H
+#endif // ARRAY_UTIL_H
 
 
 /*

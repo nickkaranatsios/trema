@@ -5,7 +5,7 @@ CC = gcc
 AR = ar
 RANLIB = ranlib
 APILIB = -lczmq -lsodium -lzmq -ljansson -lmysqlclient -lhiredis -lm -lpthread
-APIPATH = -L. -L../../jedex/src -L../../emirates/src -L/usr/local/lib -L/usr/lib
+APIPATH = -L../../emirates/src -L../../jedex/src -L../.. -L/usr/local/lib -L/usr/lib/mysql -L/usr/lib
 
 CFLAGS += -I../include
 CFLAGS += -I../.. 
@@ -23,13 +23,10 @@ LDFLAGS += $(APILIB)
 LDFLAGS += $(shell $(TREMA)/trema-config --libs)
 
 TARGET_DB_MAPPER = db_mapper
-SRCS_DB_MAPPER += $(TREMA)/src/lib/wrapper.c
-SRCS_DB_MAPPER += $(TREMA)/src/lib/trema_wrapper.c
 SRCS_DB_MAPPER += db_mapper.c
 SRCS_DB_MAPPER += wrapper.c
 SRCS_DB_MAPPER += parse_options.c
 SRCS_DB_MAPPER += strbuf.c
-SRCS_DB_MAPPER += config.c
 SRCS_DB_MAPPER += init.c
 SRCS_DB_MAPPER += cache.c
 SRCS_DB_MAPPER += db_utils.c
@@ -42,6 +39,8 @@ TARGETS = $(TARGET_DB_MAPPER)
 SRCS = $(SRCS_DB_MAPPER)
 
 OBJS_DB_MAPPER = $(SRCS_DB_MAPPER:.c=.o)
+OBJS_DB_MAPPER += $(TREMA)/objects/lib/wrapper.o
+OBJS_DB_MAPPER += $(TREMA)/objects/lib/trema_wrapper.o
 
 OBJS = $(OBJS_DB_MAPPER)
 
@@ -54,7 +53,7 @@ DEPENDS = .depends
 all: depend $(TARGETS)
 
 $(TARGET_DB_MAPPER): $(OBJS_DB_MAPPER)
-	$(CC) $(OBJS_DB_MAPPER) $(LDFLAGS) $(APILIB) $(APIPATH) -o $@
+	$(CC) $(OBJS_DB_MAPPER) $(APIPATH) $(LDFLAGS) -o $@
 
 .c.o:
 	$(CC) $(CFLAGS) -c $<

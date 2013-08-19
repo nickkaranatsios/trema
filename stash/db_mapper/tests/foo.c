@@ -33,6 +33,8 @@
 #endif
 #include <limits.h>
 #include <hiredis/hiredis.h>
+#include "common_defs.h"
+#include "config.h"
 
 
 #define SERVICE_MAX 64
@@ -74,14 +76,28 @@ static sm_add_service_profile_request profile_spec[] = {
   init_phone_profile_spec
 };
 
+
+static int
+handle_config( const char *key, const char *value, void *user_data ) {
+}
+
+
 /*
  * Too many definitions of internet_service_name 
  */
 int
 main( int argc, char **argv ) {
+#ifdef TEST
   for ( size_t i = 0; i < sizeof( profile_spec ) / sizeof( profile_spec[ 0 ] ); i++ ) {
+#ifdef HAVE_CARRIER_EDGE
     printf( "service name %s\n", profile_spec[ i ].name );
+#endif
   }
+#endif
+  read_config( "service_manager.conf", handle_config, NULL );
+  printf( "internet service %s\n", INTERNET_ACCESS_SERVICE );
+  printf( "internet service %s\n", VIDEO_SERVICE );
+  printf( "phone service %s\n", PHONE_SERVICE );
 
   return 0;
 }

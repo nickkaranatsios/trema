@@ -299,23 +299,25 @@ set_topic( jedex_schema *schema ) {
   return val;
 }
 
+#include "nc_sm_message.h"
+#include "array_util.h"
 typedef struct service_profile {
   char *key;
   sm_add_service_profile_request profile_req;
 } service_profile;
 
-typedef struct srm_info {
+typedef struct profile_table {
   service_profile **profiles;
   uint32_t profiles_nr;
   uint32_t profiles_alloc;
-} srm_info;
+} profile_table;
 
-static profile *
-make_profile( const char *name, size_t name_len, srm_info *self ) {
+static service_profile *
+make_profile( const char *name, size_t name_len, profile_table *self ) {
   uint32_t i;
   
   for ( i = 0; i < self->profiles_nr; i++ ) {
-    if ( !strcmp( self->profiles[ i ]->key, name, name_len ) ) {
+    if ( !strncmp( self->profiles[ i ]->key, name, name_len ) ) {
       return self->profiles[ i ];
     }
   }
@@ -324,12 +326,14 @@ make_profile( const char *name, size_t name_len, srm_info *self ) {
   service_profile *profile = xcalloc( nitems, sizeof( *profile ) );
   profile->key = strdup( name );
   self->profiles[ self->profiles_nr++ ] = profile;
+
+  return profile;
 }
 
 static void
 assign_service_profile( const char *subkey, const char *value, service_profile *profile ) {
   if ( !prefixcmp( subkey, ".name" ) ) {
-    strncpy( profile->profile_req.name, value, sizeof( profile->name ) );
+    strncpy( profile->profile_req.name, value, sizeof( profile->profile_req.name ) );
   }
   else if ( !prefixcmp( subkey, ".match_id" ) ) {
     profile->profile_req.match_id = atoi( value );
@@ -339,7 +343,7 @@ assign_service_profile( const char *subkey, const char *value, service_profile *
 static int
 handle_config( const char *key, const char *value, void *user_data ) {
   if ( !prefixcmp( key, "profile_spec." ) ) {
-    srm_info *self = user_data;
+    profile_table *self = user_data;
     const char *subkey;
     const char *name;
     name = key + 13;
@@ -360,7 +364,8 @@ handle_config( const char *key, const char *value, void *user_data ) {
  */
 int
 main( int argc, char **argv ) {
-  read_config( "service_manager.conf", handle_config, &srm_info );
+  profile_table profile_tbl;
+  read_config( "service_manager.conf", handle_config, &profile_tbl );
   char schema_fn[ 2 ][ PATH_MAX ];
   strcpy( &schema_fn[ 0 ][ 0 ], "request_reply" );
   strcpy( &schema_fn[ 1 ][ 0 ], "sc_db" );

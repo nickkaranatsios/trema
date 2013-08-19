@@ -4,7 +4,7 @@ TREMA = ../../../../trema
 CC = gcc
 
 APILIB = -lczmq -lsodium -lzmq -ljansson -lhiredis -lm -lpthread
-APIPATH = -L. -L../../emirates/src -L../../jedex/src -L/usr/local/lib -L/usr/lib
+APIPATH = -L. -L../../emirates/src -L../../jedex/src -L../.. -L/usr/local/lib -L/usr/lib
 
 CFLAGS += -I../src
 CFLAGS += -I../../emirates/include
@@ -18,6 +18,7 @@ CFLAGS += -std=gnu99 -D_GNU_SOURCE -g -fno-strict-aliasing -Wall -Wextra -Wforma
 
 LDFLAGS += -lemirates
 LDFLAGS += -ljedex
+LDFLAGS += -lces
 LDFLAGS += $(APILIB)
 LDFLAGS += $(shell $(TREMA)/trema-config --libs)
 

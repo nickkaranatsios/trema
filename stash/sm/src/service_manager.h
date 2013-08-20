@@ -34,6 +34,7 @@ extern "C" {
 #include <assert.h>
 #include <signal.h>
 #include <getopt.h>
+#include <libgen.h>
 #include "wrapper.h"
 #include "checks.h"
 #include "log_writer.h"

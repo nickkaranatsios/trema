@@ -299,110 +299,6 @@ set_topic( jedex_schema *schema ) {
   return val;
 }
 
-#include "wrapper.h"
-#include "nc_sm_message.h"
-#include "array_util.h"
-#include "strbuf.h"
-typedef struct service_profile {
-  char key[ API_MAX_LEN_SERVICE_ID ];
-  sm_add_service_profile_request profile_req;
-} service_profile;
-
-typedef struct profile_table {
-  service_profile **profiles;
-  uint32_t profiles_nr;
-  uint32_t profiles_alloc;
-} profile_table;
-
-static service_profile *
-make_profile( const char *name, size_t name_len, profile_table *self ) {
-  uint32_t i;
-  
-  if ( name_len > API_MAX_LEN_SERVICE_ID ) {
-    name_len = API_MAX_LEN_SERVICE_ID - 1;
-  }
-  for ( i = 0; i < self->profiles_nr; i++ ) {
-    if ( !strncmp( self->profiles[ i ]->key, name, name_len ) ) {
-      return self->profiles[ i ];
-    }
-  }
-  ALLOC_GROW( self->profiles, self->profiles_nr + 1, self->profiles_alloc );
-  size_t nitems = 1;
-  service_profile *profile = xcalloc( nitems, sizeof( *profile ) );
-  strncpy( profile->key, name, name_len );
-  self->profiles[ self->profiles_nr++ ] = profile;
-
-  return profile;
-}
-
-static void
-assign_service_profile( const char *subkey, const char *value, service_profile *profile ) {
-  int base = 0;
-
-  if ( !prefixcmp( subkey, ".name" ) ) {
-    strncpy( profile->profile_req.name, value, sizeof( profile->profile_req.name ) - 1 );
-  }
-  else if ( !prefixcmp( subkey, ".match_id" ) ) {
-    profile->profile_req.match_id = ( uint16_t ) atoi( value );
-  }
-  else if ( !prefixcmp( subkey, ".wildcards" ) ) {
-    profile->profile_req.wildcards = ( uint32_t ) strtol( value, NULL, base );
-  }
-  else if ( !prefixcmp( subkey, ".dl_src" ) ) {
-    profile->profile_req.dl_src = ( uint64_t ) strtoll( value, NULL, base );
-  }
-  else if ( !prefixcmp( subkey, ".dl_dst" ) ) {
-    profile->profile_req.dl_dst = ( uint64_t ) strtoll( value, NULL, base );
-  }
-  else if ( !prefixcmp( subkey, ".dl_vlan" ) ) {
-    profile->profile_req.dl_vlan = ( uint16_t ) strtol( value, NULL, base );
-  }
-  else if ( !prefixcmp( subkey, ".dl_vlan_pcp" ) ) {
-    profile->profile_req.dl_vlan_pcp = ( uint8_t ) strtol( value, NULL, base );
-  }
-  else if ( !prefixcmp( subkey, ".dl_type" ) ) {
-    profile->profile_req.dl_type = ( uint16_t ) strtol( value, NULL, base );
-  }
-  else if ( !prefixcmp( subkey, ".nw_tos" ) ) {
-    profile->profile_req.nw_tos = ( uint8_t ) strtol( value, NULL, base );
-  }
-  else if ( !prefixcmp( subkey, ".nw_proto" ) ) {
-    profile->profile_req.nw_proto = ( uint8_t ) strtol( value, NULL, base );
-  }
-  else if ( !prefixcmp( subkey, ".nw_src" ) ) {
-    profile->profile_req.nw_src = ( uint32_t ) strtol( value, NULL, base );
-  }
-  else if ( !prefixcmp( subkey, ".nw_dst" ) ) {
-    profile->profile_req.nw_dst = ( uint32_t ) strtol( value, NULL, base );
-  }
-  else if ( !prefixcmp( subkey, ".tp_src" ) ) {
-    profile->profile_req.tp_src = ( uint16_t ) strtol( value, NULL, base );
-  }
-  else if ( !prefixcmp( subkey, ".tp_dst" ) ) {
-    profile->profile_req.tp_dst = ( uint16_t ) strtol( value, NULL, base );
-  }
-  else {
-    log_err( "Failed to assign subkey(%s) with value(%s)", subkey, value );
-  }
-}
- 
-static int
-handle_config( const char *key, const char *value, void *user_data ) {
-  if ( !prefixcmp( key, "profile_spec." ) ) {
-    profile_table *self = user_data;
-    const char *subkey;
-    const char *name;
-    name = key + 13;
-    subkey = strrchr( name, '.' );
-    service_profile *profile = make_profile( name, ( size_t ) ( subkey - name ),  self );
-    if ( profile && subkey ) {
-      assign_service_profile( subkey, value, profile );
-    }
-    //printf( "key(%s) value(%s) name(%s) subkey(%s)\n", key, value, name, subkey );
-  }
-
-  return 0;
-}
 /*
  * This test program is used in addition to db_requester test program
  * to ensure that db_mapper can handle more than one find_record service
@@ -410,8 +306,6 @@ handle_config( const char *key, const char *value, void *user_data ) {
  */
 int
 main( int argc, char **argv ) {
-  profile_table profile_tbl;
-  read_config( "service_manager.conf", handle_config, &profile_tbl );
   char schema_fn[ 2 ][ PATH_MAX ];
   strcpy( &schema_fn[ 0 ][ 0 ], "request_reply" );
   strcpy( &schema_fn[ 1 ][ 0 ], "sc_db" );

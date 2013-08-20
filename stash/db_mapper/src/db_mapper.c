@@ -244,7 +244,7 @@ set_delete_record( mapper *self ) {
 int
 main( int argc, char **argv ) {
   mapper *self = NULL;
-  self = mapper_initialize( &self, argc, argv );
+  self = mapper_initialize( argc, argv, &self );
   if ( self != NULL ) {
     // set_topic( self );
     // set_find_all_records( self );
@@ -257,7 +257,6 @@ main( int argc, char **argv ) {
   else {
     log_err( "Initialization failed exiting ..." );
   }
-
 
   return 0;
 }

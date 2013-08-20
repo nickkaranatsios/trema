@@ -156,7 +156,7 @@ typedef db_mapper_error ( *unpack_record_fn ) ( const char *tbl_name,
                                                 mapper *self );
 
 // init.c
-mapper *mapper_initialize( mapper **mptr, int argc, char **argv );
+mapper *mapper_initialize( int argc, char **argv, mapper **mptr );
 void db_init( mapper *mptr );
 int db_connect( mapper *mptr );
 int db_create( mapper *mptr, bool hint );

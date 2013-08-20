@@ -91,7 +91,7 @@ handle_config( const char *key, const char *value, void *user_data ) {
  * Finally initialize emirates
  */
 mapper *
-mapper_initialize( mapper **mptr, int argc, char **argv ) {
+mapper_initialize( int argc, char **argv, mapper **mptr ) {
   size_t nitems = 1;
 
   mapper *self = *mptr;

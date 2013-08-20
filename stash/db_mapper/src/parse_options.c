@@ -92,9 +92,9 @@ parse_options( int argc, char **argv, void *user_data ) {
     { "request_reply_schema", required_argument, 0, 'f' },
     { "create_db", no_argument, 0, 'r' },
     { "help", no_argument, 0, 'h' },
-    { 0, 0, 0, 0 },
+    { 0, 0, 0, 0 }
   };
-  const char *short_options = "l:dc:s:frh";
+  const char *short_options = "l:dc:s:f:rh";
 
   int c;
   int index = 0;

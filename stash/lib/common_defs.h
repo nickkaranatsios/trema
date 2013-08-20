@@ -27,6 +27,7 @@ extern "C" {
 #define CLOSE_EXTERN
 #endif
 
+
 enum service_idx {
   internet_service_idx,
   video_service_idx,

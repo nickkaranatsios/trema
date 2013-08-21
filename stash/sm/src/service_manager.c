@@ -114,12 +114,6 @@ finalize_service_manager() {
 
 int
 main( int argc, char *argv[] ) {
-#ifdef TEST
-  if ( geteuid() != 0 ) {
-    printf( "%s must be run with root privilege.\n", argv[ 0 ] );
-    exit( OTHER_ERROR );
-  }
-#endif
   service_manager *self = NULL;
   self = service_manager_initialize( argc, argv, &self ); 
   if ( self != NULL ) {
@@ -128,31 +122,6 @@ main( int argc, char *argv[] ) {
   else {
     log_err( "Initialization failed exiting ..." );
   }
-#ifdef TEST
-  args->progname = basename( argv[ 0 ] );
-  parse_options( argc, argv, args );
-
-  if ( pid_file_exists( args ) ) {
-    printf( "Another %s is running.\n", args->progname );
-    exit( ALREADY_RUNNING );
-  }
-
-  ret = initialize_service_manager( args );
-  if ( !ret ) {
-    status = OTHER_ERROR;
-    goto error;
-  }
-  xfree( args );
-
-  service_manager_start();
-
-  finalize_service_manager();
-  return status;
-error:
-  remove_pid_file( basename( argv[ 0 ] ) );
-  exit( status );
-#endif
-
 }
 
 /*

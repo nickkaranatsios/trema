@@ -33,8 +33,8 @@ print_usage( const char *progname, int exit_code ) {
   fprintf( stderr, "Usage: %s [options] \n", progname );
 
   int i = 0;
-  while ( sm_usage[ i ] ) {
-    fprintf( stderr, "%s\n", sm_usage[ i++ ] );
+  while ( srm_usage[ i ] ) {
+    fprintf( stderr, "%s\n", srm_usage[ i++ ] );
   }
 
   exit( exit_code );

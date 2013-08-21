@@ -28,6 +28,7 @@ extern "C" {
 
 typedef struct vm_spec {
   char *key;
+  uint32_t pm_ip_address;
   uint32_t ip_address;
   uint32_t user_count;
   uint16_t cpu_count;
@@ -35,7 +36,7 @@ typedef struct vm_spec {
 } vm_spec;
 
 
-typedef struct vm_table
+typedef struct vm_table {
   vm_spec **vm_specs;
   uint32_t vm_specs_nr;
   uint32_t vm_specs_alloc;
@@ -57,7 +58,7 @@ typedef struct pm_spec {
 } pm_spec;
 
 
-typedef struct pm_table
+typedef struct pm_table {
   pm_spec **pm_specs;
   uint32_t pm_specs_nr;
   uint32_t pm_specs_alloc;
@@ -73,6 +74,9 @@ typedef struct system_resource_manager {
 
 // init.c
 system_resource_manager *system_resource_manager_initialize( int argc, char **argv, system_resource_manager **srm_ptr ); 
+
+// parse_options.c
+void parse_options( int argc, char **argv, void *user_data );
 
 
 CLOSE_EXTERN

@@ -2,18 +2,36 @@
 # Copyright (C) 2011 NEC Corporation
 #
 
-LIB = ../../lib/src
+TREMA = ../../../trema
+MYSQL = /usr/local/mysql-connector-c-6.1.0-osx10.7-x86_64/bin
 CC = gcc
+
+APILIB = -lczmq -lsodium -lzmq -ljansson -lmysqlclient -lhiredis -lsqlite3 -lm -lpthread
+APIPATH = -L../../lib -L../../lib/emirates/src -L../../lib/jedex/src -L../.. -L/usr/local/lib -L/usr/lib
 
 TARGET = system_resource_manager
 
-SRCS = system_resource_manager.c srm_dmy_core.c srm_data_pool.c \
-       ob_transmission.c sc_transmission.c nc_transmission.c \
-       create_json_file.c read_properties.c send_json_file.c 
-OBJS = $(SRCS:.c=.o)
+SRCS = init.c
+SRCS += parse_options.c
+SRCS += system_resource_manager.c
 
-CFLAGS = -std=gnu99 -D_GNU_SOURCE -g -Wall -I. -I$(LIB)
-LDFLAGS = -L. -L/usr/local/lib -lipc -lmqx -lzmq -lpthread $(LIB)/daemon.a $(LIB)/linked_list.a
+OBJS = $(SRCS:.c=.o)
+OBJS += $(TREMA)/objects/lib/wrapper.o
+OBJS += $(TREMA)/objects/lib/linked_list.o
+
+CFLAGS += -I../../lib 
+CFLAGS += -I../../lib/jedex/include 
+CFLAGS += -I../../lib/emirates/include 
+CFLAGS += $(shell $(TREMA)/trema-config --cflags) 
+CFLAGS += -I/usr/include/mysql
+CFLAGS += -I/usr/local/include
+CFLAGS += -std=gnu99 -D_GNU_SOURCE -g -fno-strict-aliasing -Werror -Wall -Wextra -Wformat=2 -Wcast-qual -Wcast-align -Wwrite-strings -Wconversion -Wfloat-equal -Wpointer-arith -O0
+
+LDFLAGS += $(shell $(MYSQL)/mysql_config --libs)
+LDFLAGS += -lemirates
+LDFLAGS += -ljedex
+LDFLAGS += -lcesc
+LDFLAGS += $(APILIB)
 
 DEPENDS = .depends
 
@@ -24,7 +42,7 @@ DEPENDS = .depends
 all: depend $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CC) $(OBJS) $(LDFLAGS) -o $@
+	$(CC) $(OBJS) $(APIPATH) $(LDFLAGS) -o $@
 
 .c.o:
 	$(CC) $(CFLAGS) -c $<
@@ -36,3 +54,4 @@ clean:
 	@rm -rf $(DEPENDS) $(OBJS) $(TARGET) *~
 
 -include $(DEPENDS)
+

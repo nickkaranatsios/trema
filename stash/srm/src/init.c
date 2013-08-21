@@ -16,8 +16,8 @@
  */
 
 
-#include "system_manager.h"
-#include "system_manager_priv.h"
+#include "system_resource_manager.h"
+#include "system_resource_manager_priv.h"
 
 
 static void
@@ -129,9 +129,9 @@ handle_config( const char *key, const char *value, void *user_data ) {
     // find the corresponding pm_spec 
     pm_spec *spec = pm_spec_create( name, ( size_t ) ( subkey - name - 2 ), tbl );
     if ( spec && subkey ) {
-      vm_spec *vm_spec = vm_spec_create( name, ( size_t ) ( subkey - name ), spec );
+      vm_spec *vm_spec = vm_spec_create( name, ( size_t ) ( subkey - name ), &spec->vm_tbl );
       if ( vm_spec ) {
-        vm_spec_set( subkey, value, &sp_spec->spec_value );
+        vm_spec_set( subkey, value, vm_spec );
       }
     }
   }

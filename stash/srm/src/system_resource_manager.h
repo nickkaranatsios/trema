@@ -1,29 +1,54 @@
 /*
- * System Resource Manager
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License, version 2, as
+ * published by the Free Software Foundation.
  *
- * The main process of Service Manager
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * Copyright (C) 2013 NEC Corporation
- *
- * NEC Confidential
- *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifndef SYSTEM_RESOURCE_MANAGER_H
 #define SYSTEM_RESOURCE_MANAGER_H
 
-/******************************************************************************
- * Include files
- ******************************************************************************/
+#ifdef __cplusplus
+extern "C" {
+#define CLOSE_EXTERN }
+#else
+#define CLOSE_EXTERN
+#endif
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
 #include <assert.h>
+#include <signal.h>
+#include <getopt.h>
+#include <libgen.h>
+#include "wrapper.h"
+#include "checks.h"
+#include "log_writer.h"
+#include "daemon.h"
+#include "array_util.h"
+#include "strbuf.h"
+#include "config.h"
+#include "jedex_iface.h"
+#include "emirates.h"
+#include "parse_options.h"
+#include "system_resource_manager_priv.h"
 
 
+CLOSE_EXTERN
 #endif // SYSTEM_RESOURCE_MANAGER_H
+
 
 /*
  * Local variables:

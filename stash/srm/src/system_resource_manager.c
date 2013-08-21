@@ -1,111 +1,24 @@
 /*
- * System Resource Manager
- *
- * The main process of Service Manager
- *
  * Copyright (C) 2013 NEC Corporation
  *
- * NEC Confidential
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License, version 2, as
+ * published by the Free Software Foundation.
  *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 
-/******************************************************************************
- * Include files
- ******************************************************************************/
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <errno.h>
-#include <assert.h>
-#include <signal.h>
-#include <getopt.h>
-#include <libgen.h>
-#include "log_writer.h"
-#include "srm_data_pool.h"
-#include "ob_transmission.h"
-#include "sc_transmission.h"
-#include "nc_transmission.h"
-#include "daemon.h"
+#include "system_resource_manager.h"
 
-static int IsFinish = 0;
-
-
-struct {
-  bool daemonize;
-} config;
-
-static char *program_name = NULL;
-
-enum {
-  SUCCEEDED = 0,
-  INVALID_ARGUMENT = 1,
-  ALREADY_RUNNING = 2,
-  OTHER_ERROR = 255,
-};
-
-static char short_options[] = "dh";
-
-static struct option long_options[] = {
-  { "daemonize", no_argument, NULL, 'd' },
-  { "help", no_argument, NULL, 'h' },
-  { NULL, 0, NULL, 0  },
-};
-
-
-static void
-usage() {
-  printf( "Usage: system_resource_manager [OPTION]...\n"
-          "  OPTIONS:\n"
-          "    -d, --daemonize  Daemonize\n"
-          "    -h, --help       Display this help and exit\n"
-    );
-}
-
-
-static bool
-parse_arguments( int argc, char *argv[] ) {
-
-  config.daemonize = false;
-
-  bool ret = true;
-  int c;
-  while ( ( c = getopt_long( argc, argv, short_options, long_options, NULL ) ) != -1 ) {
-    switch ( c ) {
-      case 'd':
-        config.daemonize = true;
-        break;
-
-      case 'h':
-        usage();
-        exit( SUCCEEDED );
-        break;
-
-      default:
-        ret &= false;
-        break;
-    }
-  }
-  return ret;
-}
-
-
-/**
- * Service Manager main loop
- */
-static void
-loc_start() {
-  while( IsFinish == 0 ) {
-    // no need to do anyting here
-    usleep(1);
-  }
-}
-
-
+#ifdef TEST
 /**
  * Service Manager process at stop
  */
@@ -197,42 +110,20 @@ finalize_system_resource_manager() {
   return true;
 }
 
+#endif
 
 int
 main( int argc, char *argv[] ) {
-
-  int status = SUCCEEDED;
-
-  if ( geteuid() != 0 ) {
-    printf( "%s must be run with root privilege.\n", argv[ 0 ] );
-    exit( OTHER_ERROR );
+  system_resource_manager *self = NULL;
+  self = system_resource_manager_initialize( argc, argv, &self ); 
+  if ( self != NULL ) {
+    emirates_loop( self->emirates );
   }
-
-  bool ret = parse_arguments( argc, argv );
-  if ( !ret ) {
-    usage();
-    exit( INVALID_ARGUMENT );
+  else {
+    log_err( "Initialization failed exiting ..." );
   }
-
-  if ( pid_file_exists( basename( argv[ 0 ] ) ) ) {
-    printf( "Another %s is running.\n", basename( argv[ 0 ] ) );
-    exit( ALREADY_RUNNING );
-  }
-
-  ret = initialize_system_resource_manager( basename( argv[ 0 ] ) );
-  if ( !ret ) {
-    status = OTHER_ERROR;
-    goto error;
-  }
-
-  loc_start();
-
-  finalize_system_resource_manager();
-  return status;
-error:
-  remove_pid_file( basename( argv[ 0 ] ) );
-  exit( status );
 }
+
 
 /*
  * Local variables:

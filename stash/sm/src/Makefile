@@ -13,6 +13,7 @@ TARGET = service_manager
 SRCS = init.c
 SRCS += parse_options.c
 SRCS += message.c
+SRCS += jedex_utils.c
 SRCS += service_manager.c
 
 OBJS = $(SRCS:.c=.o)

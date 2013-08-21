@@ -47,6 +47,7 @@ extern "C" {
 #include "jedex_iface.h"
 #include "emirates.h"
 #include "parse_options.h"
+#include "jedex_utils.h"
 #include "service_manager_priv.h"
 
 

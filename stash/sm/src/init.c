@@ -164,68 +164,6 @@ service_manager_load_config( const char *config_fn, service_profile_table *tbl )
 }
 
 
-#ifdef LATER
-typedef struct service_profile_spec {
-  char *key;
-  service_profile_spec_value spec_value;
-} service_profile_spec;
-
-typedef struct service_spec {
-  char *key;
-  char *name;
-  char *service_module;
-  char *chef_recipe;
-  service_profile_spec **service_profile_specs;
-  uint32_t service_profile_specs_nr;
-  uint32_t service_profile_specs_alloc;
-} service_spec;
-
-
-typedef struct service_profile_table {
-  service_spec **service_specs;
-  uint32_t service_specs_nr;
-  uint32_t service_specs_alloc;
-} service_profile_table;
-
-
-typedef struct service_manager {
-  emirates_iface *emirates;
-  service_profile_table service_profile_tbl;
-} service_manager;
-#endif
-
-static service_spec *
-lookup_service_spec( const char *service, service_profile_table *tbl ) {
-  for ( uint32_t i = 0; i < tbl->service_specs_nr; i++ ) { 
-    if ( !strncmp( service, tbl->service_specs[ i ]->name, strlen( service ) ) ) {
-      return tbl->service_specs[ i ];
-    }
-  }
-
-  return NULL;
-}
-
-static void
-sc_add_service_request( const char *service, service_manager *self ) {
-  service_spec *spec = lookup_service_spec( service, &self->service_profile_tbl );
-  if ( spec != NULL ) {
-    //TODO send a add_service_request
-  }
-}
-
-
-static jedex_schema *
-sub_schema_find( const char *name, size_t tbl_size, jedex_schema *sub_schemas[] ) {
-  for ( size_t i = 0; i < tbl_size; i++ ) {
-    if ( !strcmp( name, jedex_schema_type_name( sub_schemas[ i ] ) ) ) {
-      return sub_schemas[ i ];
-    } 
-  }
-
-  return NULL;
-}
-
-
 service_manager *
 service_manager_initialize( int argc, char **argv, service_manager **sm_ptr ) {
 
@@ -263,19 +201,32 @@ service_manager_initialize( int argc, char **argv, service_manager **sm_ptr ) {
   self = xcalloc( nitems, sizeof( *self ) );
   // load the service manager configuration file.
   service_manager_load_config( args->config_fn, &self->service_profile_tbl );
-  const char *service = "Video_Service";
-  sc_add_service_request( service, self );
   /*
    * read in all the schema information that the service manager would use.
    * start off with the main schema.
    */
   self->schema = jedex_initialize( args->schema_fn );
+  const char *sc_names[] = {
+    "common_reply",
+    "ob_add_service_request",
+    "ob_del_service_request",
+    "service_module_regist_request",
+    "service_remove_request",
+    "add_service_profile_request",
+    "del_service_profile_request",
+    "ignite_ssnc_request",
+    "shutdown_ssnc_request"
+  };
 
-  int i = 0;
-  self->sub_schema[ i++ ] = jedex_schema_get_subschema( self->schema, "common_reply" );
-  self->sub_schema[ i++ ] = jedex_schema_get_subschema( self->schema, "ob_add_service_request" );
-  self->sub_schema[ i ] = jedex_schema_get_subschema( self->schema, "ob_del_service_request" );
+  for ( uint32_t i = 0; i < ARRAY_SIZE( sc_names ); i++ ) {
+    self->sub_schema[ i ] = jedex_schema_get_subschema( self->schema, sc_names[ i ] );
+    jedex_value_iface *record_class = jedex_generic_class_from_schema( self->sub_schema[ i ] );
+    self->rval[ i ] = ( jedex_value * ) xmalloc( sizeof( jedex_value ) );
+    jedex_generic_value_new( record_class, self->rval[ i ] );
+  }
+  
   // TODO: add check_ptr_return 
+
   /*
    * initialize the emirates library. Service manager acts as responder/worker
    * to oss/bss and as a requester/client to service controller and network
@@ -284,10 +235,10 @@ service_manager_initialize( int argc, char **argv, service_manager **sm_ptr ) {
   int flag = 0;
   self->emirates = emirates_initialize_only( ENTITY_SET( flag, RESPONDER | REQUESTER ) );
  
-  jedex_schema *tmp_schema = sub_schema_find( "ob_add_service_request", ARRAY_SIZE( self->sub_schema ), self->sub_schema );
+  jedex_schema *tmp_schema = sub_schema_find( "ob_add_service_request", self->sub_schema );
   self->emirates->set_service_request( self->emirates, OSS_BSS_ADD_SERVICE, tmp_schema, self, oss_bss_add_service_handler );
 
-  tmp_schema = sub_schema_find( "ob_del_service_request", ARRAY_SIZE( self->sub_schema ), self->sub_schema );
+  tmp_schema = sub_schema_find( "ob_del_service_request", self->sub_schema );
   self->emirates->set_service_request( self->emirates, OSS_BSS_DEL_SERVICE, tmp_schema, self, oss_bss_del_service_handler );
 
   self->emirates->set_service_reply( self->emirates, SM_SERVICE_MODULE_REGIST, self, service_module_registration_handler );

@@ -57,7 +57,8 @@ typedef struct service_manager {
   // a pointer to the main schema
   jedex_schema *schema;
   // pointers to the sub_schemas
-  jedex_schema *sub_schema[ 3 ];
+  jedex_schema *sub_schema[ 9 ];
+  jedex_value *rval[ 9 ];
 } service_manager;
 
 
@@ -68,6 +69,7 @@ service_manager *service_manager_initialize( int argc, char **argv, service_mana
 void parse_options( int argc, char **argv, void *user_data );
 
 // message.c
+
 void service_module_registration_handler( const uint32_t tx_id,
                                           jedex_value *val,
                                           const char *json,

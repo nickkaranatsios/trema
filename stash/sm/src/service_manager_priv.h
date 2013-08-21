@@ -58,6 +58,7 @@ typedef struct service_manager {
   jedex_schema *schema;
   // pointers to the sub_schemas
   jedex_schema *sub_schema[ 9 ];
+  // pointers to the translated values for all sub-schemas
   jedex_value *rval[ 9 ];
 } service_manager;
 

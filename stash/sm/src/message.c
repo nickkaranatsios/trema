@@ -75,46 +75,46 @@ dispatch_add_service_profile_to_nc( service_spec *spec, service_manager *self ) 
     jedex_value field;
     size_t index;
     jedex_value_get_by_name( rval, "name", &field, &index );
-    jedex_value_set_string( &field, sp_spec->spec_value.name );
+    jedex_value_set_string( &field, spec->name );
 
     jedex_value_get_by_name( rval, "match_id", &field, &index );
-    jedex_value_set_int( rval, ( int ) sp_spec->spec_value.match_id );
+    jedex_value_set_int( &field, ( int ) sp_spec->spec_value.match_id );
 
     jedex_value_get_by_name( rval, "wildcards", &field, &index );
-    jedex_value_set_int( rval, ( int ) sp_spec->spec_value.wildcards );
+    jedex_value_set_int( &field, ( int ) sp_spec->spec_value.wildcards );
 
     jedex_value_get_by_name( rval, "dl_src", &field, &index );
-    jedex_value_set_long( rval, ( int ) sp_spec->spec_value.dl_src );
+    jedex_value_set_long( &field, ( int ) sp_spec->spec_value.dl_src );
 
     jedex_value_get_by_name( rval, "dl_dst", &field, &index );
-    jedex_value_set_long( rval, ( int64_t ) sp_spec->spec_value.dl_dst );
+    jedex_value_set_long( &field, ( int64_t ) sp_spec->spec_value.dl_dst );
 
     jedex_value_get_by_name( rval, "dl_vlan", &field, &index );
-    jedex_value_set_int( rval, sp_spec->spec_value.dl_vlan );
+    jedex_value_set_int( &field, sp_spec->spec_value.dl_vlan );
 
     jedex_value_get_by_name( rval, "dl_vlan_pcp", &field, &index );
-    jedex_value_set_int( rval, sp_spec->spec_value.dl_vlan_pcp );
+    jedex_value_set_int( &field, sp_spec->spec_value.dl_vlan_pcp );
 
     jedex_value_get_by_name( rval, "dl_type", &field, &index );
-    jedex_value_set_int( rval, sp_spec->spec_value.dl_type );
+    jedex_value_set_int( &field, sp_spec->spec_value.dl_type );
 
     jedex_value_get_by_name( rval, "nw_tos", &field, &index );
-    jedex_value_set_int( rval, sp_spec->spec_value.nw_tos );
+    jedex_value_set_int( &field, sp_spec->spec_value.nw_tos );
 
     jedex_value_get_by_name( rval, "nw_proto", &field, &index );
-    jedex_value_set_int( rval, sp_spec->spec_value.nw_proto );
+    jedex_value_set_int( &field, sp_spec->spec_value.nw_proto );
 
     jedex_value_get_by_name( rval, "nw_src", &field, &index );
-    jedex_value_set_int( rval, ( int ) sp_spec->spec_value.nw_src );
+    jedex_value_set_int( &field, ( int ) sp_spec->spec_value.nw_src );
 
     jedex_value_get_by_name( rval, "nw_dst", &field, &index );
-    jedex_value_set_int( rval, ( int ) sp_spec->spec_value.nw_dst );
+    jedex_value_set_int( &field, ( int ) sp_spec->spec_value.nw_dst );
 
     jedex_value_get_by_name( rval, "tp_src", &field, &index );
-    jedex_value_set_int( rval, sp_spec->spec_value.tp_src );
+    jedex_value_set_int( &field, sp_spec->spec_value.tp_src );
 
     jedex_value_get_by_name( rval, "tp_src", &field, &index );
-    jedex_value_set_int( rval, sp_spec->spec_value.tp_dst );
+    jedex_value_set_int( &field, sp_spec->spec_value.tp_dst );
 
     self->emirates->send_request( self->emirates, SM_ADD_SERVICE_PROFILE, rval, sub_schema_find( "common_reply", self->sub_schema ) );
   }

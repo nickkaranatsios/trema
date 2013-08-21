@@ -156,36 +156,10 @@ handle_config( const char *key, const char *value, void *user_data ) {
 }
 
 
-static int
-service_manager_load_config( const char *config_fn, service_profile_table *tbl ) {
-  read_config( config_fn, handle_config, tbl );
-  
-  return 0;
-}
-
-
 service_manager *
 service_manager_initialize( int argc, char **argv, service_manager **sm_ptr ) {
-
-#ifdef LATER
-  char *progname = basename( argv[ 0 ] );
-  if ( geteuid() != 0 ) {
-    printf( "%s must be run with root privilege.\n", progname );
-    return NULL;
-  }
-  if ( pid_file_exists( progname ) ) {
-    log_err( "Another %s is running", progname );
-    return NULL;
-  }
-// we don't wish to run as sudo at the moment
-  bool ret = create_pid_file( progname );
-  if ( !ret ) {
-    log_err( "Failed to create a pid file." );
-    return NULL;
-  }
-#endif
-  
   size_t nitems = 1;
+
   service_manager_args *args = xcalloc( nitems, sizeof( *args ) );
   args->progname = basename( argv[ 0 ] );
   parse_options( argc, argv, args );
@@ -196,14 +170,30 @@ service_manager_initialize( int argc, char **argv, service_manager **sm_ptr ) {
   if ( args->schema_fn == NULL || !strlen( args->schema_fn ) ) {
     args->schema_fn = "ipc";
   }
+  if ( args->daemonize ) {
+    // only check for root priviledges if daemonize
+    if ( geteuid() != 0 ) {
+      printf( "%s must be run with root privilege.\n", args->progname );
+      return NULL;
+    }
+    if ( pid_file_exists( args->progname ) ) {
+      log_err( "Another %s is running", args->progname );
+      return NULL;
+    }
+    bool ret = create_pid_file( args->progname );
+    if ( !ret ) {
+      log_err( "Failed to create a pid file." );
+      return NULL;
+    }
+  }
 
   service_manager *self = *sm_ptr;
   self = xcalloc( nitems, sizeof( *self ) );
-  // load the service manager configuration file.
-  service_manager_load_config( args->config_fn, &self->service_profile_tbl );
+  // load/parse the service manager configuration file.
+  read_config( args->config_fn, handle_config, &self->service_profile_tbl );
   /*
    * read in all the schema information that the service manager would use.
-   * start off with the main schema.
+   * Start off with the main schema and proceed to sub schemas.
    */
   self->schema = jedex_initialize( args->schema_fn );
   const char *sc_names[] = {

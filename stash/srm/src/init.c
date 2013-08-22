@@ -93,6 +93,15 @@ service_spec_set( const char *subkey, const char *value, service_spec *spec ) {
   }
 }
 
+static void
+pm_create( uint32_t ip_address, pm_table *tbl ) {
+  ALLOC_GROW( tbl->pms, tbl->pms_nr + 1, tbl->pms_alloc );
+  pm *self = xmalloc( sizeof( *self ) );
+  self->ip_address = ip_address;
+  self->status = 0;
+  self->cpu_count = 0;
+}
+
 
 static pm_spec *
 pm_spec_create( const char *key, size_t key_len, pm_table *tbl ) {
@@ -109,6 +118,7 @@ pm_spec_create( const char *key, size_t key_len, pm_table *tbl ) {
   spec->key[ key_len ] = '\0';
   spec->ip_address = ip_address_to_i( spec->key );
   tbl->pm_specs[ tbl->pm_specs_nr++ ] = spec;
+  pm_create( spec->ip_address, tbl );
 
   return spec;
 }
@@ -206,7 +216,7 @@ system_resource_manager_initialize( int argc, char **argv, system_resource_manag
   // load/read the system resource manager configuration file.
   read_config( args->config_fn, handle_config, &self->pm_tbl );
   // reset the cur_selected_pm to undefine value.
-  self->pm_tbl->cur_selected_pm = -1;
+  self->pm_tbl.cur_selected_pm = -1;
 
   /*
    * read in all the schema information that the system resource manager
@@ -214,6 +224,9 @@ system_resource_manager_initialize( int argc, char **argv, system_resource_manag
    */
   self->schema = jedex_initialize( args->schema_fn );
   const char *sc_names[] = {
+    "physical_machine_info",
+    "port_info",
+    "virtual_machine_info",
     "virtual_machine_allocate_request",
     "service_delete_request",
     "virtual_machine_migrate_request",
@@ -228,7 +241,8 @@ system_resource_manager_initialize( int argc, char **argv, system_resource_manag
   }
 
   int flag = 0;
-  self->emirates = emirates_initialize_only( ENTITY_SET( flag, PUBLISHER | REQUESTER ) );
+  self->emirates = emirates_initialize_only( ENTITY_SET( flag, PUBLISHER ) );
+  self->emirates->set_periodic_timer( self->emirates, 5000, periodic_timer_handler, self );
 
 #ifdef LATER
   jedex_schema *tmp_schema = sub_schema_find( "ob_add_service_request", self->sub_schema );
@@ -239,7 +253,7 @@ system_resource_manager_initialize( int argc, char **argv, system_resource_manag
   self->emirates->set_service_reply( self->emirates, SRM_STATISTICS_STATUS_SERVICE, self, statistics_status_handler );
 #endif
 
-  set_ready( self->emirates );
+  //set_ready( self->emirates );
  
   return self;
 }

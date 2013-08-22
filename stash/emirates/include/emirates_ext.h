@@ -60,6 +60,9 @@ typedef void ( *reply_handler ) ( const uint32_t tx_id,
                                   jedex_value *val,
                                   const char *json,
                                   void *user_data );
+/*
+ * This is what a subscriber would receive if subscribed to a topic.
+ */
 typedef void ( *subscription_handler ) ( jedex_value *val,
                                          const char *json,
                                          void *user_data );

@@ -57,11 +57,32 @@ typedef struct pm_spec {
 } pm_spec;
 
 
+typedef struct vm {
+  uint32_t ip_address;
+  uint32_t pm_ip_address;
+  uint16_t status;
+} vm;
+
+
+typedef struct pm {
+  // at initialization copy the ip address as defined in the config. file.
+  uint32_t ip_address;
+  uint16_t status;
+  uint16_t cpu_count;
+} pm;
+
+
 typedef struct pm_table {
   pm_spec **pm_specs;
-  int cur_selected_pm;
   uint32_t pm_specs_nr;
   uint32_t pm_specs_alloc;
+  int cur_selected_pm;
+  pm **pms;
+  uint32_t pms_nr;
+  uint32_t pms_alloc;
+  vm **vms;
+  uint32_t vms_nr;
+  uint32_t vms_alloc;
 } pm_table;
   
   
@@ -71,6 +92,8 @@ typedef struct system_resource_manager {
   jedex_schema *schema;
   jedex_schema *sub_schema[ 10 ];
   jedex_value *rval[ 10 ];
+  // a flag that indicates if srm should publish pm info to service controller.
+  uint32_t should_publish;
 } system_resource_manager;
 
 
@@ -79,6 +102,9 @@ system_resource_manager *system_resource_manager_initialize( int argc, char **ar
 
 // parse_options.c
 void parse_options( int argc, char **argv, void *user_data );
+
+// message.c
+void periodic_timer_handler( void *user_data );
 
 
 CLOSE_EXTERN

@@ -84,7 +84,7 @@ dispatch_add_service_profile_to_nc( service_spec *spec, service_manager *self ) 
     jedex_value_set_int( &field, ( int ) sp_spec->spec_value.wildcards );
 
     jedex_value_get_by_name( rval, "dl_src", &field, &index );
-    jedex_value_set_long( &field, ( int ) sp_spec->spec_value.dl_src );
+    jedex_value_set_long( &field, ( int64_t ) sp_spec->spec_value.dl_src );
 
     jedex_value_get_by_name( rval, "dl_dst", &field, &index );
     jedex_value_set_long( &field, ( int64_t ) sp_spec->spec_value.dl_dst );

@@ -20,9 +20,27 @@
 #include "system_resource_manager_priv.h"
 
 
+
+static void
+publish_pm_info( system_resource_manager *self ) {
+  pm_table *tbl = &self->pm_tbl;
+  jedex_value *rval = jedex_value_find( "physical_machine_info", self->rval );
+
+  jedex_value field;
+  size_t index;
+  jedex_value_get_by_name( rval, "ip_address", &field, &index );
+
+  for ( uint32_t i = 0; i < tbl->pm_specs_nr; i++ ) {
+    jedex_value_set_int( rval, ( int32_t ) tbl->pm_specs[ i ]->ip_address ); 
+    self->emirates->publish_value( self->emirates, SM_PHYSICAL_MACHINE_INFO, rval );
+  }
+}
+
+
+#ifdef LATER
 void
 dispatch_service_to_sc( int operation, jedex_value *val, system_resource_manager *self ) {
-  if ( val & val->iface ) {
+  if ( val && val->iface ) {
     jedex_value field;
     size_t index;
 
@@ -37,9 +55,10 @@ dispatch_service_to_sc( int operation, jedex_value *val, system_resource_manager
 
     uint64_t subscribers;
     jedex_value_get_by_name( val, "subscribers", &field, &index );
-    jedex_value_get_long( &field, &subscribers );
+    jedex_value_set_long( &field, ( int64_t ) &subscribers );
   }
 }
+#endif
 
 
 void
@@ -50,9 +69,26 @@ oss_bss_add_service_handler( jedex_value *val,
 
   UNUSED( json );
   UNUSED( client_id );
+  UNUSED( val );
+  UNUSED( user_data );
+#ifdef LATER
   system_resource_manager *self = user_data;
   dispatch_service_to_sc( ADD, val, self );
+#endif
 }
+
+
+void
+periodic_timer_handler( void *user_data ) {
+  system_resource_manager *self = user_data;
+  // assert( self != NULL );
+
+  if ( !self->should_publish ) {
+    publish_pm_info( self );
+    self->should_publish = 1;
+  }
+}
+
 
 /*
  * Local variables:

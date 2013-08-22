@@ -39,7 +39,7 @@ service_profile_spec_set( const char *subkey, const char *value, service_profile
   int base = 0;
 
   if ( !prefixcmp( subkey, ".match_id" ) ) {
-    sp_spec_value->match_id = ( uint16_t ) atoi( value );
+    sp_spec_value->match_id = ( uint16_t ) strtol( value, NULL, base );
   }
   else if ( !prefixcmp( subkey, ".wildcards" ) ) {
     sp_spec_value->wildcards = ( uint32_t ) strtol( value, NULL, base );

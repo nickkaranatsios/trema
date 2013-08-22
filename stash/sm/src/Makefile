@@ -3,6 +3,7 @@
 #
 
 TREMA = ../../network_controller/trema
+CESC_LIB = ../../lib
 CC = gcc
 
 APILIB = -lczmq -lsodium -lzmq -ljansson -lmysqlclient -lhiredis -lsqlite3 -lm -lpthread
@@ -13,7 +14,6 @@ TARGET = service_manager
 SRCS = init.c
 SRCS += parse_options.c
 SRCS += message.c
-SRCS += jedex_utils.c
 SRCS += service_manager.c
 
 OBJS = $(SRCS:.c=.o)

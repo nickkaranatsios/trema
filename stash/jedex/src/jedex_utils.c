@@ -16,8 +16,7 @@
  */
 
 
-#include "service_manager.h"
-#include "service_manager_priv.h"
+#include "jedex.h"
 
 
 jedex_schema *

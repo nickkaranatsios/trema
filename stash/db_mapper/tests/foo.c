@@ -89,7 +89,7 @@ int
 main( int argc, char **argv ) {
 #ifdef TEST
   for ( size_t i = 0; i < sizeof( profile_spec ) / sizeof( profile_spec[ 0 ] ); i++ ) {
-#ifdef HAVE_CARRIER_EDGE
+#ifdef CARRIER_EDGE
     printf( "service name %s\n", profile_spec[ i ].name );
 #endif
   }

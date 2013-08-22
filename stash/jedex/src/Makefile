@@ -15,11 +15,10 @@ CFLAGS += -I../include
 CFLAGS += $(shell $(TREMA)/trema-config --cflags)
 CFLAGS += -I../..
 CFLAGS += -I../usr/local/include
-CFLAGS += -std=gnu99 -D_GNU_SOURCE -g -fno-strict-aliasing -Wall -Wextra -Wformat=2 -Wcast-qual -Wcast-align -Wwrite-strings -Wconversion -Wfloat-equal -Wpointer-arith -O0
+CFLAGS += -std=gnu99 -D_GNU_SOURCE -DCARRIER_EDGE -g -fno-strict-aliasing -Wall -Wextra -Wformat=2 -Wcast-qual -Wcast-align -Wwrite-strings -Wconversion -Wfloat-equal -Wpointer-arith -O0
 
 TARGET_LIB = libjedex.a
-SRCS_LIB = $(TREMA)/src/lib/linked_list.c
-SRCS_LIB += init.c
+SRCS_LIB = init.c
 SRCS_LIB += allocation.c
 SRCS_LIB += generic.c
 SRCS_LIB += generic_array.c
@@ -41,11 +40,14 @@ SRCS_LIB += raw_string.c
 SRCS_LIB += raw_array.c
 SRCS_LIB += raw_map.c
 SRCS_LIB += st.c
+SRCS_LIB += value.c
 SRCS_LIB += value_json.c
 SRCS_LIB += schema_equal.c
+SRCS_LIB += jedex_utils.c
 SRCS_LIB += wrapped_buffer.c
 
 OBJS_LIB = $(SRCS_LIB:.c=.o)
+OBJS_LIB += $(TREMA)/objects/lib/linked_list.o
 OBJS = $(OBJS_LIB)
 
 TARGETS = $(TARGET_LIB)

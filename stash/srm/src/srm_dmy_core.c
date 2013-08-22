@@ -33,6 +33,47 @@
 
 static int top_pm_ip_index;
 
+// another parameter could be the algorithm used 
+static pm_spec *
+pm_spec_select( system_resource_manager *self ) {
+  pm_table *pm_tbl = &self->pm_tbl;
+  if ( pm_tbl->cur_selected_pm == -1 ) {
+    pm_tbl->cur_selected_pm = 0;
+  }
+  for ( uint32_t i = 0; i < pm_tbl->pm_specs_nr; i++ ) {
+    if ( ( int ) i == pm_tbl->cur_selected_pm ) {
+      pm_tbl->cur_selected_pm = ( pm_tbl->cur_selected_pm + 1 ) % pm_tbl->pm_specs_nr;
+      return pm_tbl->pm_specs[ i ];
+    } 
+  }
+
+  return NULL;
+}
+
+
+static service_spec *
+service_spec_select( const char *service_name, pm_spec *spec ) {
+  service_class_table *service_cls_tbl = &spec->service_class_tbl;
+  for ( uint32_t i = 0; i < service_cls_tbl->service_specs_nr; i++ ) {
+    if ( !strncmp( service_name, service_cls_tbl->service_specs[ i ], strlen( service_cls_tbl->service_specs[ i ] ) ) ) {
+      return service_cls_tbl->service_specs[ i ];
+    }
+  }
+
+  return NULL;
+}
+
+
+compute_n_vms(  const char *service_name, uint64_t bandwidth, uint64_t n_subscribers ) {
+  UNUSED( bandwidth );
+
+  pm_spec *spec = pm_spec_select( self );
+  service_spec *spec = service_spec_select( service_name, spec );
+  if ( spec->user_count <= n_subscribers ) {
+  }
+}
+
+
 /******************************************************************************
  * Functions
  ******************************************************************************/

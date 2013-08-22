@@ -2,8 +2,7 @@
 # Copyright (C) 2011 NEC Corporation
 #
 
-TREMA = ../../../trema
-MYSQL = /usr/local/mysql-connector-c-6.1.0-osx10.7-x86_64/bin
+TREMA = ../../network_controller/trema
 CC = gcc
 
 APILIB = -lczmq -lsodium -lzmq -ljansson -lmysqlclient -lhiredis -lsqlite3 -lm -lpthread
@@ -27,7 +26,6 @@ CFLAGS += -I/usr/include/mysql
 CFLAGS += -I/usr/local/include
 CFLAGS += -std=gnu99 -D_GNU_SOURCE -g -fno-strict-aliasing -Werror -Wall -Wextra -Wformat=2 -Wcast-qual -Wcast-align -Wwrite-strings -Wconversion -Wfloat-equal -Wpointer-arith -O0
 
-LDFLAGS += $(shell $(MYSQL)/mysql_config --libs)
 LDFLAGS += -lemirates
 LDFLAGS += -ljedex
 LDFLAGS += -lcesc

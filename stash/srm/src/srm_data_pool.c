@@ -54,12 +54,12 @@ uint32_t                        group_address_list[ IGMP_GROUP_MAX_COUNT ];
  * Get IP address value form ip address string.
  */
 uint32_t
-get_ip_address_int( const char* ip_address_string ) {
-  struct in_addr ip_address_struct;
-  uint32_t       ip_address;
+ip_address_to_i( const char *ip_address_s ) {
+  struct in_addr in_addr;
+  uint32_t ip_address;
   
-  if ( inet_aton( ip_address_string, &ip_address_struct ) != 0 ) {
-    ip_address = ntohl( ip_address_struct.s_addr );
+  if ( inet_aton( ip_address_s, &in_addr ) != 0 ) {
+    ip_address = ntohl( in_addr.s_addr );
   }
   else {
     ip_address = 0;
@@ -73,12 +73,12 @@ get_ip_address_int( const char* ip_address_string ) {
  * Get IP address string form ip address value.
  */
 char*
-get_ip_address_string( uint32_t ip_address_int ) {
-  struct in_addr ip_address_struct;
+ip_address_to_s( uint32_t ip_address_i ) {
+  struct in_addr in_addr;
   
-  ip_address_struct.s_addr = htonl( ip_address_int );
+  in_addr.s_addr = htonl( ip_address_i );
   
-  return inet_ntoa( ip_address_struct );
+  return inet_ntoa( in_addr );
 }
 
 

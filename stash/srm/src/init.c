@@ -20,45 +20,73 @@
 #include "system_resource_manager_priv.h"
 
 
+static uint32_t
+ip_address_to_i( const char *ip_address_s ) {
+  struct in_addr in_addr;
+  uint32_t ip_address;
+  
+  if ( inet_aton( ip_address_s, &in_addr ) != 0 ) {
+    ip_address = ntohl( in_addr.s_addr );
+  }
+  else {
+    ip_address = 0;
+  }
+  
+  return ip_address;
+}
+
+
+#ifdef LATER
+static char *
+ip_address_to_s( uint32_t ip_address_i ) {
+  struct in_addr in_addr;
+  
+  in_addr.s_addr = htonl( ip_address_i );
+  
+  return inet_ntoa( in_addr );
+}
+#endif
+
+
 static void
 pm_spec_set( const char *subkey, const char *value, pm_spec *spec ) {
+  int base = 0;
   if ( !prefixcmp( subkey, ".igmp_group_address_format" ) ) {
     spec->igmp_group_address_format = strdup( value );
   }
   else if ( !prefixcmp( subkey, ".igmp_group_address_start" ) ) {
-    spec->igmp_group_address_start = ( uint16_t ) atoi( value );
+    spec->igmp_group_address_start = ( uint16_t ) strtol( value, NULL, base );
   }
-  else if ( !prefixcmp( subkey, ".igmp_group_address_end " ) ) {
-    spec->igmp_group_address_end = ( uint16_t ) atoi( value );
+  else if ( !prefixcmp( subkey, ".igmp_group_address_end" ) ) {
+    spec->igmp_group_address_end = ( uint16_t ) strtol( value, NULL, base );
   }
   else if ( !prefixcmp( subkey, ".vm_ip_address_format" ) ) {
     spec->vm_ip_address_format = strdup( value ); 
   }
   else if ( !prefixcmp( subkey, ".vm_ip_address_start" ) ) {
-    spec->vm_ip_address_start = ( uint16_t ) atoi( value );
+    spec->vm_ip_address_start = ( uint16_t ) strtol( value, NULL, base );
   }
   else if ( !prefixcmp( subkey, ".vm_ip_address_end" ) ) {
-    spec->vm_ip_address_end = ( uint16_t ) atoi( value );
+    spec->vm_ip_address_end = ( uint16_t ) strtol( value, NULL, base );
   }
   else if ( !prefixcmp( subkey, ".data_plane_ip_address_format" ) ) {
     spec->data_plane_ip_address_format = strdup( value ); 
   }
   else if ( !prefixcmp( subkey, ".data_plane_mac_address" ) ) {
-    int base = 0;
     spec->data_plane_mac_address = ( uint64_t ) strtoll( value, NULL, base );
   }
 }
 
 
 static void
-vm_spec_set( const char *subkey, const char *value, vm_spec *spec ) {
-  int base;
+service_spec_set( const char *subkey, const char *value, service_spec *spec ) {
+  int base = 0;
 
   if ( !prefixcmp( subkey, ".cpu_count" ) ) {
-    spec->cpu_count = ( uint16_t ) atoi( value );
+    spec->cpu_count = ( uint16_t ) strtol( value, NULL, base );
   }
   else if ( !prefixcmp( subkey, ".memory_size" ) ) {
-    spec->memory_size = ( uint32_t ) atoi( value );
+    spec->memory_size = ( uint16_t ) strtol( value, NULL, base );
   }
   else if ( !prefixcmp( subkey, ".user_count" ) ) {
     spec->user_count = ( uint32_t ) strtol( value, NULL, base );
@@ -73,35 +101,37 @@ pm_spec_create( const char *key, size_t key_len, pm_table *tbl ) {
       return tbl->pm_specs[ i ];
     }
   }
-
   ALLOC_GROW( tbl->pm_specs, tbl->pm_specs_nr + 1, tbl->pm_specs_alloc );
   size_t nitems = 1;
   pm_spec *spec = xcalloc( nitems, sizeof( *spec ) );
+  tbl->cur_selected_pm = ( int ) tbl->pm_specs_nr;
   spec->key = strdup( key );
   spec->key[ key_len ] = '\0';
+  spec->ip_address = ip_address_to_i( spec->key );
   tbl->pm_specs[ tbl->pm_specs_nr++ ] = spec;
 
   return spec;
 }
 
 
-static vm_spec *
-vm_spec_create( const char *key, size_t key_len, vm_table *tbl ) {
-  for ( uint32_t i = 0; i < tbl->vm_specs_nr; i++ ) {
-    if ( !strncmp( tbl->vm_specs[ i ]->key, key, key_len ) ) {
-      return tbl->vm_specs[ i ];
+static service_spec *
+service_spec_create( const char *key, size_t key_len, service_class_table *tbl ) {
+  for ( uint32_t i = 0; i < tbl->service_specs_nr; i++ ) {
+    if ( !strncmp( tbl->service_specs[ i ]->key, key, key_len ) ) {
+      return tbl->service_specs[ i ];
     }
   }
 
-  ALLOC_GROW( tbl->vm_specs, tbl->vm_specs_nr + 1, tbl->vm_specs_alloc );
+  ALLOC_GROW( tbl->service_specs, tbl->service_specs_nr + 1, tbl->service_specs_alloc );
   size_t nitems = 1;
-  vm_spec *spec = xcalloc( nitems, sizeof( *spec ) );
+  service_spec *spec = xcalloc( nitems, sizeof( *spec ) );
   spec->key = strdup( key );
   spec->key[ key_len ] = '\0';
-  tbl->vm_specs[ tbl->vm_specs_nr++ ] = spec;
+  tbl->service_specs[ tbl->service_specs_nr++ ] = spec;
 
   return spec;
 }
+
 
 static int
 handle_config( const char *key, const char *value, void *user_data ) {
@@ -121,17 +151,16 @@ handle_config( const char *key, const char *value, void *user_data ) {
       pm_spec_set( subkey, value, spec );
     }
   }
-  keyword = "virtual_machine_spec.";
-  // [virtual_machine_spec "172.16.4.2"]
+  keyword = "class_of_service.";
   if ( !prefixcmp( key, keyword ) ) {
     name = key + strlen( keyword );
     subkey = strrchr( name, '.' );
-    // find the corresponding pm_spec 
-    pm_spec *spec = pm_spec_create( name, ( size_t ) ( subkey - name - 2 ), tbl );
+    // select the previous created pm_spec 
+    pm_spec *spec = tbl->pm_specs[ tbl->cur_selected_pm ];
     if ( spec && subkey ) {
-      vm_spec *vm_spec = vm_spec_create( name, ( size_t ) ( subkey - name ), &spec->vm_tbl );
-      if ( vm_spec ) {
-        vm_spec_set( subkey, value, vm_spec );
+      service_spec *service_spec = service_spec_create( name, ( size_t ) ( subkey - name ), &spec->service_class_tbl );
+      if ( service_spec ) {
+        service_spec_set( subkey, value, service_spec );
       }
     }
   }
@@ -176,13 +205,42 @@ system_resource_manager_initialize( int argc, char **argv, system_resource_manag
   
   // load/read the system resource manager configuration file.
   read_config( args->config_fn, handle_config, &self->pm_tbl );
+  // reset the cur_selected_pm to undefine value.
+  self->pm_tbl->cur_selected_pm = -1;
 
   /*
    * read in all the schema information that the system resource manager
    * would use. Start off with the main schema and proceed to sub schemas.
    */
   self->schema = jedex_initialize( args->schema_fn );
+  const char *sc_names[] = {
+    "virtual_machine_allocate_request",
+    "service_delete_request",
+    "virtual_machine_migrate_request",
+    "statistics_status_reply"
+  };
 
+  for ( uint32_t i = 0; i < ARRAY_SIZE( sc_names ); i++ ) {
+    self->sub_schema[ i ] = jedex_schema_get_subschema( self->schema, sc_names[ i ] );
+    jedex_value_iface *record_class = jedex_generic_class_from_schema( self->sub_schema[ i ] );
+    self->rval[ i ] = ( jedex_value * ) xmalloc( sizeof( jedex_value ) );
+    jedex_generic_value_new( record_class, self->rval[ i ] );
+  }
+
+  int flag = 0;
+  self->emirates = emirates_initialize_only( ENTITY_SET( flag, PUBLISHER | REQUESTER ) );
+
+#ifdef LATER
+  jedex_schema *tmp_schema = sub_schema_find( "ob_add_service_request", self->sub_schema );
+  self->emirates->set_service_request( self->emirates, OSS_BSS_ADD_SERVICE, tmp_schema, self, oss_bss_add_service_handler );
+
+  self->emirates->set_service_reply( self->emirates, SRM_VIRTUAL_MACHINE_ALLOCATE, self, virtual_machine_allocate_handler );
+  self->emirates->set_service_reply( self->emirates, SRM_SERVICE_DELETE, self, service_delete_handler );
+  self->emirates->set_service_reply( self->emirates, SRM_STATISTICS_STATUS_SERVICE, self, statistics_status_handler );
+#endif
+
+  set_ready( self->emirates );
+ 
   return self;
 }
 

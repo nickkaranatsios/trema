@@ -33,6 +33,7 @@ extern "C" {
 #include "value.h"
 #include "generic.h"
 #include "parcel.h"
+#include "jedex_utils.h"
 
 
 jedex_schema *jedex_initialize( const char *schema_name );

@@ -26,21 +26,20 @@ extern "C" {
 #endif
 
 
-typedef struct vm_spec {
+typedef struct service_spec {
   char *key;
-  uint32_t pm_ip_address;
-  uint32_t ip_address;
   uint32_t user_count;
   uint16_t cpu_count;
   uint16_t memory_size;
-} vm_spec;
+} service_spec;
 
 
-typedef struct vm_table {
-  vm_spec **vm_specs;
-  uint32_t vm_specs_nr;
-  uint32_t vm_specs_alloc;
-} vm_table;
+// For each class of service there is a service specification block
+typedef struct service_class_table {
+  service_spec **service_specs;
+  uint32_t service_specs_nr;
+  uint32_t service_specs_alloc;
+} service_class_table;
 
 
 typedef struct pm_spec {
@@ -54,12 +53,13 @@ typedef struct pm_spec {
   uint16_t vm_ip_address_end;
   char *data_plane_ip_address_format;
   uint64_t data_plane_mac_address;
-  vm_table vm_tbl;
+  service_class_table service_class_tbl;
 } pm_spec;
 
 
 typedef struct pm_table {
   pm_spec **pm_specs;
+  int cur_selected_pm;
   uint32_t pm_specs_nr;
   uint32_t pm_specs_alloc;
 } pm_table;
@@ -69,6 +69,8 @@ typedef struct system_resource_manager {
   emirates_iface *emirates;
   pm_table pm_tbl;
   jedex_schema *schema;
+  jedex_schema *sub_schema[ 10 ];
+  jedex_value *rval[ 10 ];
 } system_resource_manager;
 
 

@@ -225,23 +225,24 @@ system_resource_manager_initialize( int argc, char **argv, system_resource_manag
   self->schema = jedex_initialize( args->schema_fn );
   const char *sc_names[] = {
     "physical_machine_info",
-    "port_info",
-    "virtual_machine_info",
-    "virtual_machine_allocate_request",
+    "nc_statistics_status_request",
     "service_delete_request",
     "virtual_machine_migrate_request",
     "statistics_status_reply"
   };
 
+  jedex_value_iface *union_class = jedex_generic_class_from_schema( self->schema );
+  self->uval = ( jedex_value * ) xmalloc( sizeof( jedex_value ) );
+  jedex_generic_value_new( union_class, self->uval );
+
   for ( uint32_t i = 0; i < ARRAY_SIZE( sc_names ); i++ ) {
-    self->sub_schema[ i ] = jedex_schema_get_subschema( self->schema, sc_names[ i ] );
-    jedex_value_iface *record_class = jedex_generic_class_from_schema( self->sub_schema[ i ] );
     self->rval[ i ] = ( jedex_value * ) xmalloc( sizeof( jedex_value ) );
-    jedex_generic_value_new( record_class, self->rval[ i ] );
+    size_t index;
+    jedex_value_get_by_name( self->uval, sc_names[ i ], self->rval[ i ], &index );
   }
 
   int flag = 0;
-  self->emirates = emirates_initialize_only( ENTITY_SET( flag, PUBLISHER ) );
+  self->emirates = emirates_initialize_only( ENTITY_SET( flag, PUBLISHER | REQUESTER | RESPONDER ) );
   self->emirates->set_periodic_timer( self->emirates, 5000, periodic_timer_handler, self );
 
 #ifdef LATER

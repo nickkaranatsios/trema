@@ -451,11 +451,104 @@ get_simple_map_double( jedex_value *val ) {
 }
 
 
+static void
+set_pm_status( jedex_value *array ) {
+  jedex_value element;
+  jedex_value_append( array, &element, NULL );
+
+  jedex_value field;
+  size_t index;
+  jedex_value_get_by_name( &element, "pm_ip_address", &field, &index );
+  jedex_value_set_int( &field, ( int32_t ) 2886730754 );
+
+  jedex_value_get_by_name( &element, "port_count", &field, &index );
+  jedex_value_set_int( &field, 2 );
+
+  jedex_value_get_by_name( &element, "cpu_count", &field, &index );
+  jedex_value_set_int( &field, 8 );
+
+  jedex_value_get_by_name( &element, "virtual_machine_count", &field, &index );
+  jedex_value_set_int( &field, 0 );
+  
+  jedex_value_get_by_name( &element, "memory_size", &field, &index );
+  jedex_value_set_int( &field, 33554432 );
+
+  jedex_value_get_by_name( &element, "available_memory", &field, &index );
+  jedex_value_set_int( &field, 31457280 );
+}
+
+
+static void
+set_pm_cpu_status( jedex_value *array ) {
+  jedex_value element;
+  jedex_value_append( array, &element, NULL );
+
+  jedex_value field;
+  size_t index;
+  jedex_value_get_by_name( &element, "pm_ip_address", &field, &index );
+  jedex_value_set_int( &field, ( int32_t ) 2886730754 );
+
+  jedex_value_get_by_name( &element, "id", &field, &index );
+  jedex_value_set_int( &field, 1 );
+
+  jedex_value_get_by_name( &element, "load", &field, &index );
+  double cpu_load = 100.0 / 8.0;
+  jedex_value_set_double( &field, cpu_load );
+
+  jedex_value_append( array, &element, NULL );
+
+  jedex_value_get_by_name( &element, "pm_ip_address", &field, &index );
+  jedex_value_set_int( &field, ( int32_t ) 2886730754 );
+
+  jedex_value_get_by_name( &element, "id", &field, &index );
+  jedex_value_set_int( &field, 2 );
+
+  jedex_value_get_by_name( &element, "load", &field, &index );
+  cpu_load = 100.0 / ( 8.0 * 2 );
+  jedex_value_set_double( &field, cpu_load );
+}
+  
+
+static void
+get_pm_status( jedex_value *array ) {
+  jedex_value element;
+  size_t array_size;
+
+  jedex_value_get_size( array, &array_size );
+  jedex_value_get_by_index( array, 0, &element, NULL );
+
+  jedex_value field;
+  jedex_value_get_by_name( &element, "pm_ip_address", &field, NULL );
+  int pm_ip_address;
+  jedex_value_get_int( &field, &pm_ip_address );
+  printf( "pm_ip_address(%u)\n", ( uint32_t ) pm_ip_address );
+}
+
+
+static void
+set_pm_port_status( jedex_value *array ) {
+  jedex_value element;
+  jedex_value_append( array, &element, NULL );
+
+  jedex_value field;
+  size_t index;
+  jedex_value_get_by_name( &element, "pm_ip_address", &field, &index );
+  jedex_value_set_int( &field, ( int32_t ) 2886730754 );
+
+  jedex_value_get_by_name( &element, "if_index", &field, &index );
+  jedex_value_set_int( &field, 1 );
+
+  jedex_value_get_by_name( &element, "tx_bytes", &field, &index );
+  jedex_value_set_long( &field, 344775858 );
+}
+
+
 int
 main( int argc, char **argv ) {
   UNUSED( argc );
   UNUSED( argv );
   const char *test_schemas[] =  { 
+    "complex",
     "simple_menu_array",
     "db_record",
     "simple_map_double",
@@ -473,6 +566,60 @@ main( int argc, char **argv ) {
   for ( iter = test_schemas; *iter; iter++ ) {
     const char *test_schema = *iter;
     
+    if ( !strcmp( test_schema, "complex" ) ) {
+      jedex_schema *complex_schema = jedex_initialize( "schema/complex" );
+      jedex_value_iface *union_class = jedex_generic_class_from_schema( complex_schema );
+      jedex_value uval;
+      jedex_generic_value_new( union_class, &uval );
+      
+      jedex_value top;
+      size_t index;
+      jedex_value_get_by_name( &uval, "statistics_status_reply", &top, &index );
+
+      jedex_value array_0;
+      jedex_value_get_by_name( &top, "pm_statuses", &array_0, &index );
+      set_pm_status( &array_0 );
+
+      jedex_value array_1;
+      jedex_value_get_by_name( &top, "pm_cpu_statuses", &array_1, &index );
+      set_pm_cpu_status( &array_1 );
+
+      jedex_value array_2;
+      jedex_value_get_by_name( &top, "pm_port_statuses", &array_2, &index );
+      set_pm_port_status( &array_2 );
+
+      jedex_value array_3;
+      jedex_value_get_by_name( &top, "vm_statuses", &array_3, &index );
+
+      jedex_value array_4;
+      jedex_value_get_by_name( &top, "vm_port_statuses", &array_4, &index );
+
+      jedex_value array_5;
+      jedex_value_get_by_name( &top, "vm_cpu_statuses", &array_5, &index );
+
+      jedex_value array_6;
+      jedex_value_get_by_name( &top, "service_statuses", &array_6, &index );
+
+      
+
+      char *json;
+      jedex_value_to_json( &top, false, &json );
+      printf( "json: %s\n", json );
+
+      jedex_value *ret_val = json_to_jedex_value( complex_schema, json );
+      free( json );
+
+      jedex_value_get_by_name( &uval, "statistics_status_reply", &top, &index );
+
+      jedex_value_get_by_name( &top, "pm_statuses", &array_0, &index );
+      get_pm_status( &array_0 );
+      assert( ret_val );
+
+      jedex_value_decref( &uval );
+      jedex_value_decref( ret_val );
+      jedex_free( ret_val );
+      jedex_finalize( &complex_schema );
+    }
     if ( !strcmp( test_schema, "simple_menu_array" ) ) {
 #ifdef LEAK_CHECK
       jedex_schema *sschema = jedex_schema_string();

@@ -31,11 +31,18 @@ publish_pm_info( system_resource_manager *self ) {
   jedex_value_get_by_name( rval, "ip_address", &field, &index );
 
   for ( uint32_t i = 0; i < tbl->pm_specs_nr; i++ ) {
-    jedex_value_set_int( rval, ( int32_t ) tbl->pm_specs[ i ]->ip_address ); 
+    jedex_value_set_int( &field, ( int32_t ) tbl->pm_specs[ i ]->ip_address ); 
     self->emirates->publish_value( self->emirates, SM_PHYSICAL_MACHINE_INFO, rval );
   }
 }
 
+
+static void
+stats_request_to_sc( system_resource_manager *self ) {
+  jedex_value *rval = jedex_value_find( "nc_statistics_status_request", self->rval );
+  self->emirates->send_request( self->emirates, SRM_STATISTICS_STATUS_SERVICE, rval, self->schema );
+}
+  
 
 #ifdef LATER
 void
@@ -86,6 +93,10 @@ periodic_timer_handler( void *user_data ) {
   if ( !self->should_publish ) {
     publish_pm_info( self );
     self->should_publish = 1;
+  }
+  else {
+    // send statistics request to service_controller
+    stats_request_to_sc( self );
   }
 }
 

@@ -89,7 +89,10 @@ typedef struct pm_table {
 typedef struct system_resource_manager {
   emirates_iface *emirates;
   pm_table pm_tbl;
+  // pointer to the main schema
   jedex_schema *schema;
+  // pointer to a union value that represents the entire schema.
+  jedex_value *uval;
   jedex_schema *sub_schema[ 10 ];
   jedex_value *rval[ 10 ];
   // a flag that indicates if srm should publish pm info to service controller.

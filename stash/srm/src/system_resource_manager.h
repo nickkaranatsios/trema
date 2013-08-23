@@ -40,6 +40,7 @@ extern "C" {
 #include "array_util.h"
 #include "strbuf.h"
 #include "config.h"
+#include "common_defs.h"
 #include "service_name.h"
 #include "jedex_iface.h"
 #include "emirates.h"

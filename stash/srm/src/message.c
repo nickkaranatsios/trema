@@ -39,8 +39,8 @@ publish_pm_info( system_resource_manager *self ) {
 
 static void
 stats_request_to_sc( system_resource_manager *self ) {
-  jedex_value *rval = jedex_value_find( "nc_statistics_status_request", self->rval );
-  self->emirates->send_request( self->emirates, SRM_STATISTICS_STATUS_SERVICE, rval, self->schema );
+  jedex_value *rval = jedex_value_find( STR( nc_statistics_status_request ), self->rval );
+  self->emirates->send_request( self->emirates, STR( srm_sc_statistics_status_request ), rval, self->schema );
 }
   
 

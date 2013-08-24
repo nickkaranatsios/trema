@@ -104,6 +104,35 @@ pm_select( jedex_value *stats, pm_table *tbl ) {
 }
 
 
+static vm *
+vm_select( jedex_value *stats, pm_table *tbl ) {
+  pm *pm = pm_select( stats, tbl );
+
+  if ( pm != NULL ) {
+    jedex_value field;
+
+    jedex_value_get_by_name( stats, "vm_ip_address", &field, NULL );
+    int tmp;
+    jedex_value_get_int( &field, &tmp );
+    uint32_t ip_address = ( uint32_t ) tmp;
+   
+    for ( uint32_t i = 0; i < pm->vms_nr; i++ ) {
+      if ( pm->vms[ i ]->ip_address == ip_address ) {
+        return pm->vms[ i ];
+      }
+    }
+    ALLOC_GROW( pm->vms, pm->vms_nr + 1, pm->vms_alloc );
+    size_t nitems = 1;
+    vm *self = xcalloc( nitems, sizeof( *self ) );
+    self->ip_address = ip_address;
+    pm->vms[ pm->vms_nr++ ] = self;
+    return self;
+  }
+
+  return NULL;
+}
+
+
 static port *
 port_create( int if_index, uint32_t ip_address, uint64_t mac_address, pm *pm ) {
   for ( uint32_t i = 0; i < pm->ports_nr; i++ ) {
@@ -268,6 +297,36 @@ pm_stats_create( jedex_value *stats, pm_table *tbl ) {
   }
 }
 
+static void
+vm_stats_create( jedex_value *stats, pm_table *tbl ) {
+  vm *self = vm_select( stats, tbl );
+  if ( self != NULL ) {
+    jedex_value field;
+    jedex_value_get_by_name( stats, "port_count", &field, NULL );
+
+    int tmp;
+    jedex_value_get_int( &field, &tmp );
+    self->port_count = ( uint16_t ) tmp;
+
+    jedex_value_get_by_name( stats, "cpu_count", &field, NULL );
+    jedex_value_get_int( &field, &tmp );
+    self->cpu_count = ( uint16_t ) tmp;
+
+    int64_t tmp_long;
+    jedex_value_get_by_name( stats, "total_memory", &field, NULL );
+    jedex_value_get_long( &field, &tmp_long );
+    self->total_memory = ( uint64_t ) tmp_long;
+
+    jedex_value_get_by_name( stats, "available_memory", &field, NULL );
+    jedex_value_get_long( &field, &tmp_long );
+    self->avail_memory = ( uint64_t ) tmp_long;
+
+    jedex_value_get_by_name( stats, "service_count", &field, NULL );
+    jedex_value_get_int( &field, &tmp );
+    self->service_count = ( uint32_t ) tmp;
+  }
+}
+
 
 void
 foreach_stats( jedex_value *stats, stats_fn stats_fn, pm_table *tbl ) {
@@ -327,8 +386,8 @@ stats_collect_handler( const uint32_t tx_id,
   pm_port_stats_reset( &self->pm_tbl );
   foreach_stats( &pm_port_stats_ary, pm_port_stats_create, &self->pm_tbl );
 
-#ifdef LATER
   foreach_stats( &vm_stats_ary, vm_stats_create, &self->pm_tbl );
+#ifdef LATER
   foreach_stats( &vm_port_stats_ary, vm_port_stats_create, &self->pm_tbl );
   foreach_stats( &vm_cpu_stats_ary, vm_cpu_stats_create, &self->pm_tbl );
   foreach_stats( &service_stats_ary, service_stats_create, &self->pm_tbl );

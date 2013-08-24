@@ -60,6 +60,11 @@ typedef struct pm_spec {
 typedef struct vm {
   uint32_t ip_address;
   uint32_t pm_ip_address;
+  uint64_t total_memory;
+  uint64_t avail_memory;
+  uint32_t service_count;
+  uint16_t port_count;
+  uint16_t cpu_count;
   uint16_t status;
 } vm;
 
@@ -97,6 +102,9 @@ typedef struct pm {
   port **ports;
   uint32_t ports_nr;
   uint32_t ports_alloc;
+  vm **vms;
+  uint32_t vms_nr;
+  uint32_t vms_alloc;
 } pm;
 
 
@@ -108,9 +116,6 @@ typedef struct pm_table {
   pm **pms;
   uint32_t pms_nr;
   uint32_t pms_alloc;
-  vm **vms;
-  uint32_t vms_nr;
-  uint32_t vms_alloc;
 } pm_table;
   
   

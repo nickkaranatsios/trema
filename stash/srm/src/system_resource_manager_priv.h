@@ -64,11 +64,39 @@ typedef struct vm {
 } vm;
 
 
+typedef struct cpu {
+  double load;
+  uint32_t id;
+  uint16_t status;
+} cpu;
+
+
+typedef struct port {
+  int if_index;
+  uint32_t ip_address;
+  uint64_t mac_address;
+  int if_speed;
+  uint64_t tx_byte;
+  uint64_t rx_byte;
+  uint16_t status;
+} port;
+
+
 typedef struct pm {
   // at initialization copy the ip address as defined in the config. file.
   uint32_t ip_address;
+  uint32_t vm_count;
+  uint64_t memory_size;
+  uint64_t avail_memory;
+  uint16_t port_count;
   uint16_t status;
   uint16_t cpu_count;
+  cpu **cpus;
+  uint32_t cpus_nr;
+  uint32_t cpus_alloc;
+  port **ports;
+  uint32_t ports_nr;
+  uint32_t ports_alloc;
 } pm;
 
 
@@ -107,7 +135,24 @@ system_resource_manager *system_resource_manager_initialize( int argc, char **ar
 void parse_options( int argc, char **argv, void *user_data );
 
 // message.c
+typedef void ( *stats_fn ) ( jedex_value *stats, pm_table *tbl );
 void periodic_timer_handler( void *user_data );
+void oss_bss_add_service_handler( jedex_value *val,
+                             const char *json,
+                             const char *client_id,
+                             void *user_data );
+void stats_collect_handler( const uint32_t tx_id,
+                            jedex_value *val,
+                            const char *json,
+                            void *user_data );
+void vm_allocate_handler( const uint32_t tx_id,
+                          jedex_value *val,
+                          const char *json,
+                          void *user_data );
+void service_delete_handler( const uint32_t tx_id,
+                             jedex_value *val,
+                             const char *json,
+                             void *user_data );
 
 
 CLOSE_EXTERN

@@ -41,7 +41,7 @@ extern "C" {
 #include "strbuf.h"
 #include "config.h"
 #include "common_defs.h"
-#include "service_name.h"
+#include "service_names.h"
 #include "jedex_iface.h"
 #include "emirates.h"
 #include "parse_options.h"

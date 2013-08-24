@@ -133,9 +133,9 @@ static void
 rfds_check( const emirates_priv *priv, struct pollfd rfds[] ) {
   int idx = 0;
 
-  // the order of checking should be exactly as the order of setting
+  // the order of checking should be exactly as the order of setting above
   if ( priv->responder && responder_notify_in( priv->responder ) ) {
-    if ( rfds[ idx ].revents & POLLIN ) {
+    if ( rfds[ idx++ ].revents & POLLIN ) {
       responder_invoke( priv );
     }
   }

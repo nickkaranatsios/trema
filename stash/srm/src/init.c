@@ -224,6 +224,7 @@ system_resource_manager_initialize( int argc, char **argv, system_resource_manag
    */
   self->schema = jedex_initialize( args->schema_fn );
   const char *sc_names[] = {
+    "oss_bss_add_service_request",
     "physical_machine_info",
     "nc_statistics_status_request",
     "service_delete_request",
@@ -239,22 +240,23 @@ system_resource_manager_initialize( int argc, char **argv, system_resource_manag
     self->rval[ i ] = ( jedex_value * ) xmalloc( sizeof( jedex_value ) );
     size_t index;
     jedex_value_get_by_name( self->uval, sc_names[ i ], self->rval[ i ], &index );
+    self->sub_schema[ i ] = jedex_value_get_schema( self->rval[ i ] );
   }
 
   int flag = 0;
-  self->emirates = emirates_initialize_only( ENTITY_SET( flag, PUBLISHER | REQUESTER | RESPONDER ) );
+  self->emirates = emirates_initialize_only( ENTITY_SET( flag, REQUESTER | RESPONDER | PUBLISHER ) );
   self->emirates->set_periodic_timer( self->emirates, 5000, periodic_timer_handler, self );
 
 #ifdef LATER
-  jedex_schema *tmp_schema = sub_schema_find( "ob_add_service_request", self->sub_schema );
+#endif
+  jedex_schema *tmp_schema = sub_schema_find( "oss_bss_add_service_request", self->sub_schema );
   self->emirates->set_service_request( self->emirates, OSS_BSS_ADD_SERVICE, tmp_schema, self, oss_bss_add_service_handler );
 
-  self->emirates->set_service_reply( self->emirates, SRM_VIRTUAL_MACHINE_ALLOCATE, self, virtual_machine_allocate_handler );
-  self->emirates->set_service_reply( self->emirates, SRM_SERVICE_DELETE, self, service_delete_handler );
-  self->emirates->set_service_reply( self->emirates, SRM_STATISTICS_STATUS_SERVICE, self, statistics_status_handler );
-#endif
+  self->emirates->set_service_reply( self->emirates, VM_ALLOCATE, self, vm_allocate_handler );
+  self->emirates->set_service_reply( self->emirates, SERVICE_DELETE, self, service_delete_handler );
+  self->emirates->set_service_reply( self->emirates, STATS_COLLECT, self, stats_collect_handler );
 
-  //set_ready( self->emirates );
+  set_ready( self->emirates );
  
   return self;
 }

@@ -21,6 +21,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <inttypes.h>
+#include "wrapper.h"
 #include "log_writer.h"
 #include "array_util.h"
 #include "strbuf.h"
@@ -91,7 +92,7 @@ strbuf_split_buf( const char *str, size_t slen, int delim, int max ) {
   strbuf **ret;
   strbuf *t;
 
-  ret = calloc( ( size_t ) alloc, sizeof( strbuf * ) );
+  ret = xcalloc( ( size_t ) alloc, sizeof( strbuf * ) );
   p = n = str;
   while ( n < str + slen ) {
     int len;
@@ -109,7 +110,7 @@ strbuf_split_buf( const char *str, size_t slen, int delim, int max ) {
       n = str + slen - 1;
     }
     len = n - p + 1;
-    t = malloc( sizeof( strbuf ) );
+    t = xmalloc( sizeof( strbuf ) );
     size_t slen = ( size_t ) len;
     strbuf_init( t, slen );
     strbuf_add( t, p, slen );

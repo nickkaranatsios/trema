@@ -2,17 +2,17 @@
 
 {
   "type": "record",
-  "name": "ob_add_service_request",
+  "name": "oss_bss_add_service_request",
   "fields": [
     { "name": "service_name", "type": "string" },
-    { "name": "band_width", "type": "double" },
-    { "name": "subscriber", "type": "long" }
+    { "name": "bandwidth", "type": "double" },
+    { "name": "nr_subscribers", "type": "long" }
   ]
 },
 
 {
   "type": "record",
-  "name": "ob_del_service_request",
+  "name": "oss_bss_del_service_request",
   "fields": [
     { "name": "service_name", "type": "string" }
   ]
@@ -37,7 +37,7 @@
 
 {
   "type": "record",
-  "name": "ignite_ssnc_request",
+  "name": "start_ssnc_request",
   "fields": [
     { "name": "name", "type": "string" }
   ]
@@ -66,7 +66,7 @@
 
 {
   "type": "record",
-  "name": "shutdown_ssnc_request",
+  "name": "stop_ssnc_request",
   "fields": [
     { "name": "name", "type": "string" }
   ]
@@ -91,7 +91,7 @@
 
 {
   "type": "record",
-  "name": "service_module_regist_request",
+  "name": "service_module_reg_request",
   "fields": [
     { "name": "service_name", "type": "string" },
     { "name": "service_module", "type": "string" },
@@ -106,8 +106,6 @@
     { "name": "service_name", "type": "string" }
   ]
 },
-
-
 
 {
   "type": "record",
@@ -146,6 +144,14 @@
     { "name": "name", "type": "string" },
     { "name": "bandwidth", "type": "long" },
     { "name": "subscribers", "type": "long" }
+  ]
+},
+
+{
+  "type": "record",
+  "name": "nc_statistics_status_request",
+  "fields": [
+    { "name": "dummy", "type": "string" }
   ]
 },
 
@@ -197,7 +203,6 @@
   ]
 },
 
-
 {
   "type": "record",
   "name": "port_info",
@@ -247,8 +252,10 @@
 
 {
   "type": "record",
-  "name": "port_status",
+  "name": "vm_port_stat",
   "fields": [
+    { "name": "pm_ip_address", "type": "int" },
+    { "name": "vm_ip_address", "type": "int" },
     { "name": "if_index", "type": "int" },
     { "name": "ip_address", "type": "int" },
     { "name": "mac_address", "type": "long" },
@@ -260,8 +267,24 @@
 
 {
   "type": "record",
-  "name": "cpu_status",
+  "name": "pm_port_stat",
   "fields": [
+    { "name": "pm_ip_address", "type": "int" },
+    { "name": "if_index", "type": "int" },
+    { "name": "ip_address", "type": "int" },
+    { "name": "mac_address", "type": "long" },
+    { "name": "if_speed", "type": "int" },
+    { "name": "tx_byte", "type": "long" },
+    { "name": "rx_byte", "type": "long" }
+  ]
+},
+
+{
+  "type": "record",
+  "name": "vm_cpu_stat",
+  "fields": [
+    { "name": "pm_ip_address", "type": "int" },
+    { "name": "vm_ip_address", "type": "int" },
     { "name": "id", "type": "int" },
     { "name": "load", "type": "double" }
   ]
@@ -269,7 +292,17 @@
 
 {
   "type": "record",
-  "name": "param_status",
+  "name": "pm_cpu_stat",
+  "fields": [
+    { "name": "pm_ip_address", "type": "int" },
+    { "name": "id", "type": "int" },
+    { "name": "load", "type": "double" }
+  ]
+},
+
+{
+  "type": "record",
+  "name": "param_stat",
   "fields": [
     { "name": "param_name", "type": "string" },
     { "name": "param_value", "type": "long" }
@@ -278,43 +311,39 @@
 
 {
   "type": "record",
-  "name": "service_status",
+  "name": "service_stat",
   "fields": [
+    { "name": "pm_ip_address", "type": "int" },
+    { "name": "vm_ip_address", "type": "int" },
     { "name": "service_name", "type": "string" },
-    { "name": "param_count", "type": "int" },
-    { "name": "param_status", "type": { "type": "array", "items": "param_status" }}
+    { "name": "param_stats", "type": { "type": "array", "items": "param_stat" }}
   ]
 },
 
 {
   "type": "record",
-  "name": "vm_status",
+  "name": "vm_stat",
   "fields": [
-    { "name": "ip_address", "type": "int" },
+    { "name": "pm_ip_address", "type": "int" },
+    { "name": "vm_ip_address", "type": "int" },
     { "name": "port_count", "type": "int" },
-    { "name": "port_status", "type": { "type": "array", "items": "port_status" }},
     { "name": "cpu_count", "type": "int" },
-    { "name": "cpu_status", "type": { "type": "array", "items": "cpu_status" }},
-    { "name": "total_memory", "type": "int" },
-    { "name": "available_memory", "type": "int" },
-    { "name": "service_count", "type": "int" },
-    { "name": "service_status", "type": { "type": "array", "items": "service_status" }}
+    { "name": "total_memory", "type": "long" },
+    { "name": "available_memory", "type": "long" },
+    { "name": "service_count", "type": "int" }
   ]
 },
 
 {
   "type": "record",
-  "name": "pm_status",
+  "name": "pm_stat",
   "fields": [
-    { "name": "ip_address", "type": "int" },
+    { "name": "pm_ip_address", "type": "int" },
     { "name": "port_count", "type": "int" },
-    { "name": "port_status", "type": { "type": "array", "items": "port_status" }},
     { "name": "cpu_count", "type": "int" },
-    { "name": "cpu_status", "type": { "type": "array", "items": "cpu_status" }},
-    { "name": "virtual_machine_count", "type": "int" },
-    { "name": "virtual_machine_status", "type": { "type": "array", "items": "vm_status" }},
-    { "name": "memory_size", "type": "int" },
-    { "name": "available_memory", "type": "int" }
+    { "name": "vm_count", "type": "int" },
+    { "name": "memory_size", "type": "long" },
+    { "name": "available_memory", "type": "long" }
   ]
 },
 
@@ -323,42 +352,13 @@
   "name": "statistics_status_reply",
   "fields": [
     { "name": "result", "type": "int" },
-    { "name": "physical_machine_count", "type": "int" },
-    { "name": "physical_machine_status", "type": { "type": "array", "items": "pm_status" }}
-  ]
-},
-
-
-
-{
-  "type": "record",
-  "name": "service_specific",
-  "fields": [
-    { "name": "service_name", "type": "string" },
-    { "name": "code", "type": "int" }
-  ]
-},
-
-{
-  "type": "record",
-  "name": "service_profile",
-  "fields": [
-    { "name": "name", "type": "string" },
-    { "name": "match_id", "type": "int" },
-    { "name": "param_count", "type": "int" },
-    { "name": "param_sp", "type": { "type": "array", "items": "parameter" }},
-    { "name": "wildcards", "type": "int" },
-    { "name": "dl_src", "type": "long" },
-    { "name": "dl_dst", "type": "long" },
-    { "name": "dl_vlan", "type": "int" },
-    { "name": "dl_vlan_pcp", "type": "int" },
-    { "name": "dl_type", "type": "int" },
-    { "name": "nw_tos", "type": "int" },
-    { "name": "nw_proto", "type": "int" },
-    { "name": "nw_src", "type": "int" },
-    { "name": "nw_dst", "type": "int" },
-    { "name": "tp_src", "type": "int" },
-    { "name": "tp_dst", "type": "int" }
+    { "name": "pm_stats", "type": { "type": "array", "items": "pm_stat" }},
+    { "name": "pm_cpu_stats", "type": { "type": "array", "items": "pm_cpu_stat" }},
+    { "name": "pm_port_stats", "type": { "type": "array", "items": "pm_port_stat" }},
+    { "name": "vm_stats", "type": { "type": "array", "items": "vm_stat" }},
+    { "name": "vm_port_stats", "type": { "type": "array", "items": "vm_port_stat" }},
+    { "name": "vm_cpu_stats", "type": { "type": "array", "items": "vm_cpu_stat" }},
+    { "name": "service_stats", "type": { "type": "array", "items": "service_stat" }}
   ]
 },
 

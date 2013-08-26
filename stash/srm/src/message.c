@@ -80,27 +80,21 @@ pm_select( jedex_value *stats, pm_table *tbl ) {
        return tbl->pms[ i ];
      }
    }
-   bool found = false;
-   /* 
-    * first time we receive stats for this pm check if the ip address matches
-    * the ip address of the configuration file.
-   */
-   for ( uint32_t i = 0; i < tbl->pm_specs_nr && found == false; i++ ) {
-     if ( tbl->pm_specs[ i ]->ip_address == ip_address ) {
-       found = true; 
-     }
-   }
-   if ( found == false ) {
-     log_err( "Failed to locate pm ip address in local db %u\n", ip_address );
-     return NULL;
-   }
-   ALLOC_GROW( tbl->pms, tbl->pms_nr + 1, tbl->pms_alloc );
-   size_t nitems = 1;
-   pm *self = xcalloc( nitems, sizeof( *self ) );
-   self->ip_address = ip_address;
-   tbl->pms[ tbl->pms_nr++ ] = self;
+   log_err( "Failed to locate pm ip address in local db %u\n", ip_address );
 
-   return self;
+   return NULL;
+}
+
+
+static vm *
+vm_create( uint32_t ip_address, vm_table *tbl ) {
+  for( uint32_t i = 0; i < tbl->vms_nr; i++ ) {
+    if ( tbl->vms[ i ]->ip_address == ip_address ) {
+      return tbl->vms[ i ];
+    }
+  }
+
+  return NULL;
 }
 
 
@@ -116,17 +110,7 @@ vm_select( jedex_value *stats, pm_table *tbl ) {
     jedex_value_get_int( &field, &tmp );
     uint32_t ip_address = ( uint32_t ) tmp;
    
-    for ( uint32_t i = 0; i < pm->vms_nr; i++ ) {
-      if ( pm->vms[ i ]->ip_address == ip_address ) {
-        return pm->vms[ i ];
-      }
-    }
-    ALLOC_GROW( pm->vms, pm->vms_nr + 1, pm->vms_alloc );
-    size_t nitems = 1;
-    vm *self = xcalloc( nitems, sizeof( *self ) );
-    self->ip_address = ip_address;
-    pm->vms[ pm->vms_nr++ ] = self;
-    return self;
+    return vm_create( ip_address, &pm->vm_tbl );
   }
 
   return NULL;
@@ -134,38 +118,39 @@ vm_select( jedex_value *stats, pm_table *tbl ) {
 
 
 static port *
-port_create( int if_index, uint32_t ip_address, uint64_t mac_address, pm *pm ) {
-  for ( uint32_t i = 0; i < pm->ports_nr; i++ ) {
-    if ( pm->ports[ i ]->if_index == if_index &&
-         pm->ports[ i ]->ip_address == ip_address &&
-         pm->ports[ i ]->mac_address == mac_address ) {
-      return pm->ports[ i ];
+port_create( int if_index, uint32_t ip_address, uint64_t mac_address, port_table *tbl ) {
+  for ( uint32_t i = 0; i < tbl->ports_nr; i++ ) {
+    if ( tbl->ports[ i ]->if_index == if_index &&
+         tbl->ports[ i ]->ip_address == ip_address &&
+         tbl->ports[ i ]->mac_address == mac_address ) {
+      return tbl->ports[ i ];
     }
   }
-  ALLOC_GROW( pm->ports, pm->ports_nr + 1, pm->ports_alloc );
+  ALLOC_GROW( tbl->ports, tbl->ports_nr + 1, tbl->ports_alloc );
   size_t nitems = 1;
   port *p = xcalloc( nitems, sizeof( *p ) );
   p->if_index = if_index;
   p->ip_address = ip_address;
   p->mac_address = mac_address;
-  pm->ports[ pm->ports_nr++ ] = p;
+  tbl->ports[ tbl->ports_nr++ ] = p;
 
   return p;
 }
 
 
+
 static cpu *
-cpu_create( uint32_t id, pm *pm ) {
-  for ( uint32_t i = 0; i < pm->cpus_nr; i++ ) {
-    if ( pm->cpus[ i ]->id == id ) {
-      return pm->cpus[ i ];
+cpu_create( uint32_t id, cpu_table *tbl ) {
+  for ( uint32_t i = 0; i < tbl->cpus_nr; i++ ) {
+    if ( tbl->cpus[ i ]->id == id ) {
+      return tbl->cpus[ i ];
     }
   }
-  ALLOC_GROW( pm->cpus, pm->cpus_nr + 1, pm->cpus_alloc );
+  ALLOC_GROW( tbl->cpus, tbl->cpus_nr + 1, tbl->cpus_alloc );
   size_t nitems = 1;
   cpu *c = xcalloc( nitems, sizeof( *c ) );
   c->id = id;
-  pm->cpus[ pm->cpus_nr++ ] = c;
+  tbl->cpus[ tbl->cpus_nr++ ] = c;
 
   return c;
 }
@@ -179,8 +164,9 @@ pm_port_stats_reset( pm_table *tbl ) {
    */
   for ( uint32_t i = 0; i < tbl->pms_nr; i++ ) {
     pm *pm = tbl->pms[ i ];
-    for ( uint32_t j = 0; j < pm->ports_nr; j++ ) {
-      pm->ports[ j ]->status = 0;
+    port_table *tbl = &pm->port_tbl;
+    for ( uint32_t j = 0; j < tbl->ports_nr; j++ ) {
+      tbl->ports[ j ]->status = 0;
     }
   }
 }
@@ -208,7 +194,7 @@ pm_port_stats_create( jedex_value *stats, pm_table *tbl ) {
     jedex_value_get_long( &field, &tmp_long );
     uint64_t mac_address = ( uint64_t ) tmp_long;
 
-    port *p = port_create( if_index, ip_address, mac_address, self );
+    port *p = port_create( if_index, ip_address, mac_address, &self->port_tbl );
     if ( p ) {
        p->status = 1;
       jedex_value_get_by_name( stats, "if_speed", &field, NULL );
@@ -230,8 +216,9 @@ static void
 pm_cpu_stats_reset( pm_table *tbl ) {
   for ( uint32_t i = 0; i < tbl->pms_nr; i++ ) {
     pm *pm = tbl->pms[ i ];
-    for ( uint32_t j = 0; j < pm->cpus_nr; j++ ) {
-      pm->cpus[ j ]->status = 0;
+    cpu_table *tbl = &pm->cpu_tbl;
+    for ( uint32_t j = 0; j < tbl->cpus_nr; j++ ) {
+      tbl->cpus[ j ]->status = 0;
     }
   }
 }
@@ -248,7 +235,27 @@ pm_cpu_stats_create( jedex_value *stats, pm_table *tbl ) {
     jedex_value_get_int( &field, &tmp );
     // first reported cpu load starts from 1 hence subtract 1 to index.
     uint32_t id = ( uint32_t ) ( tmp - 1 );
-    cpu *c = cpu_create( id, self );
+    cpu *c = cpu_create( id, &self->cpu_tbl );
+    if ( c ) {
+      jedex_value_get_by_name( stats, "load", &field, NULL );
+      jedex_value_get_double( &field, &c->load );
+      c->status = 1;
+    }
+  }
+}
+
+
+static void
+vm_cpu_stats_create( jedex_value *stats, pm_table *tbl ) {
+  vm *self = vm_select( stats, tbl );
+  if ( self != NULL ) {
+    jedex_value field;
+    jedex_value_get_by_name( stats, "id", &field, NULL );
+    int tmp;
+    jedex_value_get_int( &field, &tmp );
+    // first reported cpu load starts from 1 hence subtract 1 to index.
+    uint32_t id = ( uint32_t ) ( tmp - 1 );
+    cpu *c = cpu_create( id, &self->cpu_tbl );
     if ( c ) {
       jedex_value_get_by_name( stats, "load", &field, NULL );
       jedex_value_get_double( &field, &c->load );
@@ -265,7 +272,59 @@ pm_stats_reset( pm_table *tbl ) {
   }
 }
 
+static char *
+format_routine( const char *format, va_list params ) {
+  char *buf;
+  size_t bufsize = 32;
 
+  buf = xmalloc( bufsize );
+  vsnprintf( buf, bufsize, format, params );
+
+  return buf;
+}
+
+
+static char *
+format_ip( const char *format, ... ) {
+  va_list params;
+  char *buf;
+
+  va_start( params, format );
+  buf = format_routine( format, params );
+  va_end( params );
+
+  return buf;
+}
+
+
+static void
+vms_create( uint32_t pm_ip_address, pm_table *tbl, pm *pm ) {
+  // check with config if the max_vm_count is within limits
+  pm_spec *spec = pm_spec_select( pm_ip_address, tbl );
+  if ( spec ) {
+    if ( pm->max_vm_count > ( spec->vm_ip_address_end - spec->vm_ip_address_start ) ) {
+      log_err( "Max vm count exceeded allowed limit %u", pm->max_vm_count );
+      return;
+    }
+    vm_table *vm_tbl = &pm->vm_tbl;
+    for ( uint32_t i = 0; i < pm->max_vm_count; i++ ) {
+      ALLOC_GROW( vm_tbl->vms, vm_tbl->vms_nr + 1, vm_tbl->vms_alloc );
+      size_t nitems = 1;
+      vm *self = xcalloc( nitems, sizeof( *self ) );
+      self->pm_ip_address = pm_ip_address;
+      char *buf;
+      buf = format_ip( spec->vm_ip_address_format, spec->vm_ip_address_start + i );
+      self->ip_address = ip_address_to_i( buf );
+      free( buf );
+      vm_tbl->vms[ vm_tbl->vms_nr++ ] = self;
+    }
+  }
+}
+
+
+/*
+ * Here we need to create the vms for calculated from the pm->cpu_count field.
+ */
 static void
 pm_stats_create( jedex_value *stats, pm_table *tbl ) {
   pm *self = pm_select( stats, tbl );
@@ -281,9 +340,22 @@ pm_stats_create( jedex_value *stats, pm_table *tbl ) {
     jedex_value_get_int( &field, &tmp );
     self->cpu_count = ( uint16_t ) tmp;
 
+    // this is the first time we receive stats for this pm
+    if ( !self->max_vm_count ) {
+      // calculate the max allowed vms for this pm.
+      self->max_vm_count = ( uint16_t ) ( self->cpu_count - 1 );
+
+      jedex_value_get_by_name( stats, "pm_ip_address", &field, NULL );
+      jedex_value_get_int( &field, &tmp );
+      uint32_t pm_ip_address = ( uint32_t ) tmp;
+
+      // create max_mv_count vms
+      vms_create( pm_ip_address, tbl, self );
+    }
+
     jedex_value_get_by_name( stats, "vm_count", &field, NULL );
     jedex_value_get_int( &field, &tmp );
-    self->vm_count = ( uint32_t ) tmp;
+    self->active_vm_count = ( uint32_t ) tmp;
 
     int64_t tmp_long;
     jedex_value_get_by_name( stats, "memory_size", &field, NULL );
@@ -296,6 +368,7 @@ pm_stats_create( jedex_value *stats, pm_table *tbl ) {
     self->status = 1;
   }
 }
+
 
 static void
 vm_stats_create( jedex_value *stats, pm_table *tbl ) {
@@ -324,6 +397,106 @@ vm_stats_create( jedex_value *stats, pm_table *tbl ) {
     jedex_value_get_by_name( stats, "service_count", &field, NULL );
     jedex_value_get_int( &field, &tmp );
     self->service_count = ( uint32_t ) tmp;
+  }
+}
+
+
+static void
+vm_port_stats_create( jedex_value *stats, pm_table *tbl ) {
+  vm *self = vm_select( stats, tbl );
+  if ( self != NULL ) {
+    jedex_value field;
+    jedex_value_get_by_name( stats, "if_index", &field, NULL );
+    int if_index;
+    jedex_value_get_int( &field, &if_index );
+
+    jedex_value_get_by_name( stats, "ip_address", &field, NULL );
+    int tmp;
+    jedex_value_get_int( &field, &tmp );
+    uint32_t ip_address = ( uint32_t ) tmp;
+
+    jedex_value_get_by_name( stats, "mac_address", &field, NULL );
+    int64_t tmp_long;
+    jedex_value_get_long( &field, &tmp_long );
+    uint64_t mac_address = ( uint64_t ) tmp_long;
+
+    port *p = port_create( if_index, ip_address, mac_address, &self->port_tbl );
+    if ( p ) {
+       p->status = 1;
+      jedex_value_get_by_name( stats, "if_speed", &field, NULL );
+      jedex_value_get_int( &field, &p->if_speed );
+
+      jedex_value_get_by_name( stats, "tx_byte", &field, NULL );
+      jedex_value_get_long( &field, &tmp_long );
+      p->tx_byte = ( uint64_t ) tmp_long;
+
+      jedex_value_get_by_name( stats, "rx_byte", &field, NULL );
+      jedex_value_get_long( &field, &tmp_long );
+      p->rx_byte = ( uint64_t ) tmp_long;
+    }
+  }
+}
+
+static service *
+service_create( const char *name, service_table *tbl ) {
+  for ( uint32_t i = 0; i < tbl->services_nr; i++ ) {
+    if ( !strncmp( name, tbl->services[ i ]->name, strlen( tbl->services[ i ]->name ) ) ) {
+      return tbl->services[ i ];
+    }
+  }
+  ALLOC_GROW( tbl->services, tbl->services_nr + 1, tbl->services_alloc );
+  service *self = xmalloc( sizeof( *self ) );
+  self->name = strdup( name );
+  tbl->services[ tbl->services_nr++ ] = self;
+
+  return self;
+}
+ 
+
+static param_stat *
+param_stats_create( const char *name, param_stats_table *tbl ) {
+  for ( uint32_t i = 0; i < tbl->param_stats_nr; i++ ) {
+    if ( !strncmp( name, tbl->param_stats[ i ]->name, strlen( tbl->param_stats[ i ]->name ) ) ) {
+      return tbl->param_stats[ i ];
+    }
+  }
+  ALLOC_GROW( tbl->param_stats, tbl->param_stats_nr + 1, tbl->param_stats_alloc );
+  param_stat *stat = xmalloc( sizeof( *stat ) );
+  stat->name = strdup( name );
+  tbl->param_stats[ tbl->param_stats_nr++ ] = stat;
+  
+  return stat;
+}
+
+
+static void
+vm_service_stats_create( jedex_value *stats, pm_table *tbl ) {
+  vm *self = vm_select( stats, tbl );
+  if ( self ) {
+    service_table *service_tbl = &self->service_tbl;
+    jedex_value field;
+
+    jedex_value_get_by_name( stats, "service_name", &field, NULL );
+    const char *name;
+    size_t size;
+    jedex_value_get_string( &field, &name, &size );
+    service *s = service_create( name, service_tbl );
+
+    jedex_value_get_by_name( stats, "param_stats", &field, NULL );
+
+    size_t array_size;
+    jedex_value_get_size( &field, &array_size );
+    for ( size_t i = 0; i < array_size; i++ ) {
+      jedex_value element;
+      jedex_value_get_by_index( &field, i, &element, NULL );
+      jedex_value ary_field;
+      jedex_value_get_by_name( &element, "param_name", &ary_field, NULL );
+      const char *param_name;
+      jedex_value_get_string( &ary_field, &param_name, &size );
+      param_stat *ps = param_stats_create( param_name, &s->param_stats_tbl );
+
+      jedex_value_get_long( &ary_field, &ps->value );
+    }
   }
 }
 
@@ -387,10 +560,14 @@ stats_collect_handler( const uint32_t tx_id,
   foreach_stats( &pm_port_stats_ary, pm_port_stats_create, &self->pm_tbl );
 
   foreach_stats( &vm_stats_ary, vm_stats_create, &self->pm_tbl );
-#ifdef LATER
   foreach_stats( &vm_port_stats_ary, vm_port_stats_create, &self->pm_tbl );
   foreach_stats( &vm_cpu_stats_ary, vm_cpu_stats_create, &self->pm_tbl );
-  foreach_stats( &service_stats_ary, service_stats_create, &self->pm_tbl );
+  foreach_stats( &service_stats_ary, vm_service_stats_create, &self->pm_tbl );
+  
+#ifdef TEST
+  uint32_t n_vms = compute_n_vms( INTERNET_ACCESS_SERVICE, 0, 250, &self->pm_tbl );
+  uint32_t n_vms = compute_n_vms( VIDEO_SERVICE, 0, 100, &self->pm_tbl );
+  assert( n_vms == 0 );
 #endif
 }
 

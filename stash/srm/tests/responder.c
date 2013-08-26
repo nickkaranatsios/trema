@@ -61,6 +61,25 @@ set_pm_status( jedex_value *array ) {
 
   jedex_value_get_by_name( &element, "available_memory", &field, &index );
   jedex_value_set_long( &field, 31457280 );
+
+  jedex_value_append( array, &element, NULL );
+  jedex_value_get_by_name( &element, "pm_ip_address", &field, &index );
+  jedex_value_set_int( &field, ( int32_t ) 2886730755 );
+  
+  jedex_value_get_by_name( &element, "port_count", &field, &index );
+  jedex_value_set_int( &field, 2 );
+
+  jedex_value_get_by_name( &element, "cpu_count", &field, &index );
+  jedex_value_set_int( &field, 4 );
+
+  jedex_value_get_by_name( &element, "vm_count", &field, &index );
+  jedex_value_set_int( &field, 0 );
+
+  jedex_value_get_by_name( &element, "memory_size", &field, &index );
+  jedex_value_set_long( &field, 6634864640 );
+
+  jedex_value_get_by_name( &element, "available_memory", &field, &index );
+  jedex_value_set_long( &field, 64424509440 );
 }
 
 

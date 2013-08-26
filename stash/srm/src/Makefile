@@ -13,6 +13,8 @@ TARGET = system_resource_manager
 SRCS = init.c
 SRCS += parse_options.c
 SRCS += message.c
+SRCS += pm_table.c
+SRCS += algorithm.c
 SRCS += system_resource_manager.c
 
 OBJS = $(SRCS:.c=.o)

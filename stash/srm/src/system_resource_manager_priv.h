@@ -57,18 +57,6 @@ typedef struct pm_spec {
 } pm_spec;
 
 
-typedef struct vm {
-  uint32_t ip_address;
-  uint32_t pm_ip_address;
-  uint64_t total_memory;
-  uint64_t avail_memory;
-  uint32_t service_count;
-  uint16_t port_count;
-  uint16_t cpu_count;
-  uint16_t status;
-} vm;
-
-
 typedef struct cpu {
   double load;
   uint32_t id;
@@ -87,24 +75,82 @@ typedef struct port {
 } port;
 
 
+typedef struct cpu_table {
+  cpu **cpus;
+  uint32_t cpus_nr;
+  uint32_t cpus_alloc;
+} cpu_table;
+
+
+typedef struct port_table {
+  port **ports;
+  uint32_t ports_nr;
+  uint32_t ports_alloc;
+} port_table;
+
+
+typedef struct param_stat {
+  char *name;
+  int64_t value;
+} param_stat;
+
+
+typedef struct param_stats_table {
+  param_stat **param_stats;
+  uint32_t param_stats_nr;
+  uint32_t param_stats_alloc;
+} param_stats_table;
+  
+
+typedef struct service {
+  char *name;
+  param_stats_table param_stats_tbl;
+} service;
+  
+
+typedef struct service_table {
+  service **services;
+  uint32_t services_nr;
+  uint32_t services_alloc;
+} service_table;
+
+
+typedef struct vm {
+  uint32_t ip_address;
+  uint32_t pm_ip_address;
+  uint64_t total_memory;
+  uint64_t avail_memory;
+  uint32_t service_count;
+  uint16_t port_count;
+  uint16_t cpu_count;
+  uint16_t status;
+  cpu_table cpu_tbl;
+  port_table port_tbl;
+  service_table service_tbl;
+} vm;
+
+
+typedef struct vm_table {
+  vm **vms;
+  uint32_t vms_nr;
+  uint32_t vms_alloc;
+  uint32_t selected_vm;
+} vm_table;
+
+
 typedef struct pm {
   // at initialization copy the ip address as defined in the config. file.
   uint32_t ip_address;
-  uint32_t vm_count;
+  uint32_t active_vm_count;
+  uint16_t max_vm_count;
   uint64_t memory_size;
   uint64_t avail_memory;
   uint16_t port_count;
   uint16_t status;
   uint16_t cpu_count;
-  cpu **cpus;
-  uint32_t cpus_nr;
-  uint32_t cpus_alloc;
-  port **ports;
-  uint32_t ports_nr;
-  uint32_t ports_alloc;
-  vm **vms;
-  uint32_t vms_nr;
-  uint32_t vms_alloc;
+  cpu_table cpu_tbl;
+  port_table port_tbl;
+  vm_table vm_tbl;
 } pm;
 
 
@@ -112,7 +158,7 @@ typedef struct pm_table {
   pm_spec **pm_specs;
   uint32_t pm_specs_nr;
   uint32_t pm_specs_alloc;
-  int cur_selected_pm;
+  uint32_t selected_pm;
   pm **pms;
   uint32_t pms_nr;
   uint32_t pms_alloc;
@@ -158,6 +204,26 @@ void service_delete_handler( const uint32_t tx_id,
                              jedex_value *val,
                              const char *json,
                              void *user_data );
+
+// pm_table.c
+uint32_t ip_address_to_i( const char *ip_address_s );
+
+pm_spec *pm_spec_create( const char *key, size_t key_len, pm_table *tbl );
+
+pm_spec *pm_spec_select( const uint32_t ip_adress, pm_table *tbl );
+
+void pm_spec_set( const char *subkey, const char *value, pm_spec *spec );
+
+service_spec *service_spec_create( const char *key, size_t key_len, service_class_table *tbl );
+
+void service_spec_set( const char *subkey, const char *value, service_spec *spec );
+
+service_spec *service_spec_select( const char *key, service_class_table *tbl );
+
+service_spec *service_spec_create( const char *key, size_t key_len, service_class_table *tbl );
+
+// algorithm.c
+uint32_t compute_n_vms( const char *service_name, uint64_t bandwidth, uint64_t n_subscribers, pm_table *tbl );
 
 
 CLOSE_EXTERN

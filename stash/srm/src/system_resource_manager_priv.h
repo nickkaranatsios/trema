@@ -26,6 +26,13 @@ extern "C" {
 #endif
 
 
+typedef enum allocation_status {
+  resource_free,
+  about_to_reserve,
+  reserved
+} allocation_status;
+
+
 typedef struct service_spec {
   char *key;
   uint32_t user_count;
@@ -118,6 +125,8 @@ typedef struct service_table {
 typedef struct vm {
   uint32_t ip_address;
   uint32_t pm_ip_address;
+  uint32_t data_plane_ip_address;
+  uint64_t data_plane_mac_address;
   uint64_t total_memory;
   uint64_t avail_memory;
   uint32_t service_count;
@@ -225,6 +234,12 @@ service_spec *service_spec_create( const char *key, size_t key_len, service_clas
 // algorithm.c
 uint32_t compute_n_vms( const char *service_name, uint64_t bandwidth, uint64_t n_subscribers, pm_table *tbl );
 
+uint32_t compute_vm_cpus( const char *service, pm_table *tbl );
+
+uint32_t compute_vm_memory( const char *service, pm_table *tbl );
+
+list_element *compute_vm_locations( pm_table *tbl );
+ 
 
 CLOSE_EXTERN
 #endif // SYSTEM_RESOURCE_MANAGER_PRIV_H

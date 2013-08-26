@@ -315,7 +315,10 @@ vms_create( uint32_t pm_ip_address, pm_table *tbl, pm *pm ) {
       char *buf;
       buf = format_ip( spec->vm_ip_address_format, spec->vm_ip_address_start + i );
       self->ip_address = ip_address_to_i( buf );
+      buf = format_ip( spec->data_plane_ip_address_format, spec->vm_ip_address_start + i );
+      self->data_plane_ip_address = ip_address_to_i( buf );
       free( buf );
+      self->data_plane_mac_address = spec->data_plane_mac_address | ( uint8_t ) ( i & 0xff );
       vm_tbl->vms[ vm_tbl->vms_nr++ ] = self;
     }
   }

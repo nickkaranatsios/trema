@@ -20,6 +20,9 @@
 #include "system_resource_manager_priv.h"
 
 
+/*
+ * Publishes all pm's configured ip addresses one by one.
+ */
 static void
 pm_info_publish( system_resource_manager *self ) {
   pm_table *tbl = &self->pm_tbl;
@@ -36,6 +39,10 @@ pm_info_publish( system_resource_manager *self ) {
 }
 
 
+/*
+ * Forwards a statistics collection request to service controller. There is
+ * no body with this request.
+ */
 static void
 stats_collect_request_to_sc( system_resource_manager *self ) {
   jedex_value *rval = jedex_value_find( "nc_statistics_status_request", self->rval );
@@ -106,6 +113,10 @@ dispatch_add_service_to_sc( jedex_value *val, system_resource_manager *self ) {
     jedex_value_get_by_name( val, "nr_subscribers", &field, &index );
     jedex_value_get_long( &field, &tmp_long );
     nr_subscribers = ( uint64_t ) tmp_long;
+    /*
+    if ( validate_store_add_service_request( service, bandwidth, nr_subscribers, self ) ) {
+    }
+    */
 
     pm_table *tbl = &self->pm_tbl;
     uint32_t n_vms = compute_n_vms( service, nr_subscribers, tbl ); 
@@ -621,6 +632,84 @@ stats_collect_handler( const uint32_t tx_id,
 }
 
 
+#ifdef LATER
+void
+vm_in_service_handler( const uint32_t tx_id,
+                     jedex_value *val,
+                     const char *json,
+                     void *user_data ) {
+  UNUSED( tx_id );
+  UNUSED( json );
+
+  system_resource_manager *self = user_data;
+  // here we need to send a service
+}
+
+void
+upd_service_profile_request_to_nc( system_resource_manager *self ) {
+}
+void
+vm_in_service_request_to_nc( vm *vm, system_resource_manager *self ) {
+  jedex_value *rval = jedex_value_find( "add_service_vm_request", self->rval );
+
+  jedex_value field;
+  size_t index;
+
+  jedex_value_get_by_name( rval, "data_mac", &field, &index );
+  jedex_value_set_long( &field, ( int64_t ) vm->data_plane_mac_address );
+
+  jedex_value_get_by_name( rval, "data_ip", &field, &index );
+  jedex_value_set_int( rval, ( int32_t ) vm->data_plane_ip_address );
+
+  jedex_value_get_by_name( rval, "control_ip", &field, &index );
+  jedex_value_set_int( rval, ( int32_t ) vm->ip_address );
+
+  jedex_value_get_by_name( rval, "param_count", &field, &index );
+  jedex_value_set_int( rval, 2 );
+
+  jedex_value array_field;
+  jedex_value_get_by_name( rval, "param_asp", &array_field, &index );
+
+  jedex_value element;
+  jedex_value_append( &array_field, &element, NULL );
+
+  jedex_value_get_by_name( &element, "name", &field, &index );
+  jedex_value_set_string( &field, "User_count" );
+
+  jedex_value_get_by_name( &element, "value", &field, &index );
+  jedex_value_set_long( &field, ( int64_t ) vm->s_spec->user_count );
+
+  jedex_value_append( &array_field, &element, NULL );
+
+  jedex_value_get_by_name( &element, "name", &field, &index );
+  jedex_value_set_string( &field, "User_count" );
+
+  jedex_value_get_by_name( &element, "value", &field, &index );
+  jedex_value_set_long( &field, ( int64_t ) vm->igmp_group_address );
+
+  jedex_schema *tmp_schema = sub_schema_find( "common_reply", self->sub_schema );
+  self->emirates->send_request( self->emirates, ADD_SERVICE_VM, rval, tmp_schema );
+}  
+
+static void
+dispatch_add_service_request_to_nc( system_resource_manager *self ) {
+  pm_table *tbl = &self->pm_tbl;
+
+  for ( uint32_t i = 0; i < tbl->pms_nr; i++ ) {
+    pm *pm = tbl->pms[ i ];
+    vm_table *vm_tbl = &pm->vm_tbl;
+    for ( uint32_t j = 0; j < vm_tbl->vms_nr; j++ ) {
+      vm *vm = vm_tbl->vms[ j ];
+      if ( vm->status == sc_reserved ) {
+        vm->status = wait_for_confirmation;
+        vm_into_service_request_to_nc( vm->s_spec->key, rval, self );
+      }
+    }
+  }
+}
+#endif
+
+
 /*
  * A reply to vm_allocate request received. Depending on the result code
  * either set the vm state to reserved or resource_free. If a negative reply
@@ -668,7 +757,7 @@ vm_allocate_handler( const uint32_t tx_id,
       for ( uint32_t j = 0; j < vm_tbl->vms_nr; j++ ) {
         vm *vm = vm_tbl->vms[ j ];
         if ( vm->status == wait_for_confirmation ) {
-          vm->status = reserved;
+          vm->status = sc_reserved;
         }
       }
     } 
@@ -687,6 +776,7 @@ vm_allocate_handler( const uint32_t tx_id,
       }
     } 
     if ( !dispatch ) {
+      // dispatch_add_service_request_to_nc( self );
       self->emirates->send_reply( self->emirates, OSS_BSS_ADD_SERVICE, val );
     }
   }

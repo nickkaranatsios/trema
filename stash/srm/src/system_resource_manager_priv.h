@@ -30,6 +30,8 @@ typedef enum allocation_status {
   resource_free,
   booked,
   wait_for_confirmation,
+  sc_reserved,
+  nc_reserved,
   reserved
 } allocation_status;
 
@@ -182,8 +184,8 @@ typedef struct system_resource_manager {
   jedex_schema *schema;
   // pointer to a union value that represents the entire schema.
   jedex_value *uval;
-  jedex_schema *sub_schema[ 12 ];
-  jedex_value *rval[ 12 ];
+  jedex_schema *sub_schema[ 13 ];
+  jedex_value *rval[ 13 ];
   // a flag that indicates if srm should publish pm info to service controller.
   uint32_t should_publish;
 } system_resource_manager;

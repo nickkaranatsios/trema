@@ -117,6 +117,8 @@ system_resource_manager_initialize( int argc, char **argv, system_resource_manag
     "oss_bss_del_service_request",
     "physical_machine_info",
     "vm_allocate_request",
+    "add_service_vm_request",
+    "upd_service_profile_request",
     "service_delete_request",
     "nc_statistics_status_request",
     "service_delete_request",
@@ -148,6 +150,7 @@ system_resource_manager_initialize( int argc, char **argv, system_resource_manag
   self->emirates->set_service_reply( self->emirates, VM_ALLOCATE, self, vm_allocate_handler );
   self->emirates->set_service_reply( self->emirates, SERVICE_DELETE, self, service_delete_handler );
   self->emirates->set_service_reply( self->emirates, STATS_COLLECT, self, stats_collect_handler );
+  // self->emirates->set_service_reply( self->emirates, VM_IN_SERVICE, self, vm_into_service_handler );
 
   set_ready( self->emirates );
  

@@ -20,8 +20,6 @@
 #include "system_resource_manager_priv.h"
 
 
-
-
 #ifdef LATER
 static char *
 ip_address_to_s( uint32_t ip_address_i ) {
@@ -116,11 +114,15 @@ system_resource_manager_initialize( int argc, char **argv, system_resource_manag
   self->schema = jedex_initialize( args->schema_fn );
   const char *sc_names[] = {
     "oss_bss_add_service_request",
+    "oss_bss_del_service_request",
     "physical_machine_info",
+    "vm_allocate_request",
+    "service_delete_request",
     "nc_statistics_status_request",
     "service_delete_request",
     "virtual_machine_migrate_request",
-    "statistics_status_reply"
+    "statistics_status_reply",
+    "common_reply"
   };
 
   jedex_value_iface *union_class = jedex_generic_class_from_schema( self->schema );
@@ -138,10 +140,10 @@ system_resource_manager_initialize( int argc, char **argv, system_resource_manag
   self->emirates = emirates_initialize_only( ENTITY_SET( flag, REQUESTER | RESPONDER | PUBLISHER ) );
   self->emirates->set_periodic_timer( self->emirates, 5000, periodic_timer_handler, self );
 
-#ifdef LATER
-#endif
   jedex_schema *tmp_schema = sub_schema_find( "oss_bss_add_service_request", self->sub_schema );
   self->emirates->set_service_request( self->emirates, OSS_BSS_ADD_SERVICE, tmp_schema, self, oss_bss_add_service_handler );
+  tmp_schema = sub_schema_find( "oss_bss_del_service_request", self->sub_schema );
+  self->emirates->set_service_request( self->emirates, OSS_BSS_DEL_SERVICE, tmp_schema, self, oss_bss_del_service_handler );
 
   self->emirates->set_service_reply( self->emirates, VM_ALLOCATE, self, vm_allocate_handler );
   self->emirates->set_service_reply( self->emirates, SERVICE_DELETE, self, service_delete_handler );

@@ -28,7 +28,8 @@ extern "C" {
 
 typedef enum allocation_status {
   resource_free,
-  about_to_reserve,
+  booked,
+  wait_for_confirmation,
   reserved
 } allocation_status;
 
@@ -67,7 +68,6 @@ typedef struct pm_spec {
 typedef struct cpu {
   double load;
   uint32_t id;
-  uint16_t status;
 } cpu;
 
 
@@ -78,7 +78,6 @@ typedef struct port {
   int if_speed;
   uint64_t tx_byte;
   uint64_t rx_byte;
-  uint16_t status;
 } port;
 
 
@@ -126,6 +125,7 @@ typedef struct vm {
   uint32_t ip_address;
   uint32_t pm_ip_address;
   uint32_t data_plane_ip_address;
+  uint32_t igmp_group_address;
   uint64_t data_plane_mac_address;
   uint64_t total_memory;
   uint64_t avail_memory;
@@ -136,6 +136,8 @@ typedef struct vm {
   cpu_table cpu_tbl;
   port_table port_tbl;
   service_table service_tbl;
+  // pointer to the service spec that this vm is being allocated
+  service_spec *s_spec;
 } vm;
 
 
@@ -155,7 +157,6 @@ typedef struct pm {
   uint64_t memory_size;
   uint64_t avail_memory;
   uint16_t port_count;
-  uint16_t status;
   uint16_t cpu_count;
   cpu_table cpu_tbl;
   port_table port_tbl;
@@ -181,8 +182,8 @@ typedef struct system_resource_manager {
   jedex_schema *schema;
   // pointer to a union value that represents the entire schema.
   jedex_value *uval;
-  jedex_schema *sub_schema[ 10 ];
-  jedex_value *rval[ 10 ];
+  jedex_schema *sub_schema[ 12 ];
+  jedex_value *rval[ 12 ];
   // a flag that indicates if srm should publish pm info to service controller.
   uint32_t should_publish;
 } system_resource_manager;
@@ -196,19 +197,29 @@ void parse_options( int argc, char **argv, void *user_data );
 
 // message.c
 typedef void ( *stats_fn ) ( jedex_value *stats, pm_table *tbl );
+
 void periodic_timer_handler( void *user_data );
+
 void oss_bss_add_service_handler( jedex_value *val,
-                             const char *json,
-                             const char *client_id,
-                             void *user_data );
+                                  const char *json,
+                                  const char *client_id,
+                                  void *user_data );
+
+void oss_bss_del_service_handler( jedex_value *val,
+                                  const char *json,
+                                  const char *client_id,
+                                  void *user_data );
+
 void stats_collect_handler( const uint32_t tx_id,
                             jedex_value *val,
                             const char *json,
                             void *user_data );
+
 void vm_allocate_handler( const uint32_t tx_id,
                           jedex_value *val,
                           const char *json,
                           void *user_data );
+
 void service_delete_handler( const uint32_t tx_id,
                              jedex_value *val,
                              const char *json,
@@ -232,14 +243,10 @@ service_spec *service_spec_select( const char *key, service_class_table *tbl );
 service_spec *service_spec_create( const char *key, size_t key_len, service_class_table *tbl );
 
 // algorithm.c
-uint32_t compute_n_vms( const char *service_name, uint64_t bandwidth, uint64_t n_subscribers, pm_table *tbl );
+uint32_t compute_n_vms( const char *service_name, uint64_t n_subscribers, pm_table *tbl );
 
-uint32_t compute_vm_cpus( const char *service, pm_table *tbl );
+void vms_release( const char *service_name, pm_table *tbl );
 
-uint32_t compute_vm_memory( const char *service, pm_table *tbl );
-
-list_element *compute_vm_locations( pm_table *tbl );
- 
 
 CLOSE_EXTERN
 #endif // SYSTEM_RESOURCE_MANAGER_PRIV_H

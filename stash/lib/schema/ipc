@@ -205,31 +205,15 @@
 
 {
   "type": "record",
-  "name": "port_info",
-  "fields": [
-    { "name": "ip_address", "type": "int" },
-    { "name": "mac_address", "type": "long" }
-  ]
-},
-
-{
-  "type": "record",
-  "name": "virtual_machine_info",
-  "fields": [
-    { "name": "ip_address", "type": "int" },
-    { "name": "port", "type": "port_info" },
-    { "name": "cpu_count", "type": "int" },
-    { "name": "memory_size", "type": "int" }
-  ]
-},
-
-{
-  "type": "record",
-  "name": "virtual_machine_allocate_request",
+  "name": "vm_allocate_request",
   "fields": [
     { "name": "service_name", "type": "string" },
-    { "name": "physical_machine_ip_address", "type": "int" },
-    { "name": "virtual_machine", "type": "virtual_machine_info" }
+    { "name": "pm_ip_address", "type": "int" },
+    { "name": "vm_ip_address", "type": "int" },
+    { "name": "vm_cpu_count", "type": "int" },
+    { "name": "vm_memory_size", "type": "int" },
+    { "name": "data_plane_ip_address", "type": "int" },
+    { "name": "data_plane_mac_address", "type": "long" }
   ]
 },
 

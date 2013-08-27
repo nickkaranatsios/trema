@@ -133,6 +133,46 @@ set_pm_port_status( jedex_value *array ) {
 
 
 static void
+vm_allocate_callback( jedex_value *val, const char *json, const char *client_id, void *user_data ) {
+  UNUSED( val );
+  UNUSED( json );
+  UNUSED( client_id );
+
+  responder *self = user_data; 
+  jedex_schema *reply_schema = jedex_schema_get_subschema( self->schema, "common_reply" );
+
+  jedex_value_iface *record_class = jedex_generic_class_from_schema( reply_schema );
+  jedex_value rval;
+  jedex_generic_value_new( record_class, &rval );
+  jedex_value field;
+  size_t index;
+  jedex_value_get_by_name( &rval, "result", &field, &index );
+  jedex_value_set_int( &field, 0 );
+  self->emirates->send_reply( self->emirates, VM_ALLOCATE, &rval );
+}
+
+
+static void
+service_delete_callback( jedex_value *val, const char *json, const char *client_id, void *user_data ) {
+  UNUSED( val );
+  UNUSED( json );
+  UNUSED( client_id );
+
+  responder *self = user_data; 
+  jedex_schema *reply_schema = jedex_schema_get_subschema( self->schema, "common_reply" );
+
+  jedex_value_iface *record_class = jedex_generic_class_from_schema( reply_schema );
+  jedex_value rval;
+  jedex_generic_value_new( record_class, &rval );
+  jedex_value field;
+  size_t index;
+  jedex_value_get_by_name( &rval, "result", &field, &index );
+  jedex_value_set_int( &field, 0 );
+  self->emirates->send_reply( self->emirates, SERVICE_DELETE, &rval );
+}
+
+
+static void
 stats_collect_callback( jedex_value *val, const char *json, const char *client_id, void *user_data ) {
   UNUSED( val );
   UNUSED( client_id );
@@ -191,6 +231,8 @@ main( int argc, char **argv ) {
   self->emirates = emirates_initialize_only( ENTITY_SET( flag, RESPONDER ) );
   if ( self->emirates != NULL ) {
     self->emirates->set_service_request( self->emirates, STATS_COLLECT, self->request_schema, self, stats_collect_callback );
+    self->emirates->set_service_request( self->emirates, VM_ALLOCATE, jedex_schema_get_subschema( self->schema, "vm_allocate_request" ), self, vm_allocate_callback );
+    self->emirates->set_service_request( self->emirates, SERVICE_DELETE, jedex_schema_get_subschema( self->schema, "service_delete_request" ), self, service_delete_callback );
     set_ready( self->emirates );
 
     emirates_loop( self->emirates );

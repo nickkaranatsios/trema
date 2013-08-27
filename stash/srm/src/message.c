@@ -43,9 +43,51 @@ stats_collect_request_to_sc( system_resource_manager *self ) {
 }
 
 
-#ifdef LATER
-void
-dispatch_service_to_sc( int operation, jedex_value *val, system_resource_manager *self ) {
+static void
+dispatch_vm_allocate_request_to_sc( const char *service, jedex_value *rval, system_resource_manager *self ) {
+  pm_table *tbl = &self->pm_tbl;
+  for ( uint32_t i = 0; i < tbl->pms_nr; i++ ) {
+    pm *pm = tbl->pms[ i ];
+    vm_table *vm_tbl = &pm->vm_tbl;
+    for ( uint32_t j = 0; j < vm_tbl->vms_nr; j++ ) {
+      vm *vm = vm_tbl->vms[ j ];
+      if ( vm->status == booked ) {
+        jedex_value field;
+        size_t index;
+        jedex_value_get_by_name( rval, "service_name", &field, &index );
+        jedex_value_set_string( &field, service );
+
+        jedex_value_get_by_name( rval, "pm_ip_address", &field, &index );
+        jedex_value_set_int( &field, ( int32_t ) pm->ip_address );
+
+        jedex_value_get_by_name( rval, "vm_ip_address", &field, &index );
+        jedex_value_set_int( &field, ( int32_t ) vm->ip_address );
+        
+        jedex_value_get_by_name( rval, "vm_cpu_count", &field, &index );
+        jedex_value_set_int( &field, ( int32_t ) vm->s_spec->cpu_count );
+
+        jedex_value_get_by_name( rval, "vm_memory_size", &field, &index );
+        jedex_value_set_int( &field, ( int32_t ) vm->s_spec->memory_size );
+
+        jedex_value_get_by_name( rval, "data_plane_ip_address", &field, &index );
+        jedex_value_set_int( &field, ( int32_t ) vm->data_plane_ip_address );
+
+        jedex_value_get_by_name( rval, "data_plane_mac_address", &field, &index );
+        jedex_value_set_long( &field, ( int64_t ) vm->data_plane_mac_address );
+
+        vm->status = wait_for_confirmation;
+
+        jedex_schema *tmp_schema = sub_schema_find( "common_reply", self->sub_schema );
+        self->emirates->send_request( self->emirates, VM_ALLOCATE, rval, tmp_schema );
+        break;
+      }
+    }
+  }
+}
+
+
+static void
+dispatch_add_service_to_sc( jedex_value *val, system_resource_manager *self ) {
   if ( val && val->iface ) {
     jedex_value field;
     size_t index;
@@ -56,33 +98,65 @@ dispatch_service_to_sc( int operation, jedex_value *val, system_resource_manager
     jedex_value_get_string( &field, &service, &size );
 
     double bandwidth;
-    jedex_value_get_by_name( val, "band_width", &field, &index ); 
+    jedex_value_get_by_name( val, "bandwidth", &field, &index ); 
     jedex_value_get_double( &field, &bandwidth );
 
-    uint64_t subscribers;
-    jedex_value_get_by_name( val, "subscribers", &field, &index );
-    jedex_value_set_long( &field, ( int64_t ) &subscribers );
+    uint64_t nr_subscribers;
+    int64_t tmp_long;
+    jedex_value_get_by_name( val, "nr_subscribers", &field, &index );
+    jedex_value_get_long( &field, &tmp_long );
+    nr_subscribers = ( uint64_t ) tmp_long;
+
+    pm_table *tbl = &self->pm_tbl;
+    uint32_t n_vms = compute_n_vms( service, nr_subscribers, tbl ); 
+    if ( n_vms ) {
+      jedex_value *rval = jedex_value_find( "vm_allocate_request", self->rval );
+      dispatch_vm_allocate_request_to_sc( service, rval, self );
+    }
   }
 }
-#endif
+
+
+static void
+dispatch_del_service_to_sc( jedex_value *val, system_resource_manager *self ) {
+  if ( val && val->iface ) {
+    jedex_value field;
+    size_t index;
+
+    jedex_value_get_by_name( val, "service_name", &field, &index );
+    const char *service;
+    size_t size;
+    jedex_value_get_string( &field, &service, &size );
+
+    pm_table *tbl = &self->pm_tbl;
+    vms_release( service, tbl );
+    // should the delete service request include at least the pm information.
+    jedex_value *rval = jedex_value_find( "service_delete_request", self->rval );
+    jedex_value_get_by_name( rval, "service_name", &field, &index );
+    jedex_value_set_string( &field, service );
+    jedex_schema *tmp_schema = sub_schema_find( "common_reply", self->sub_schema );
+    self->emirates->send_request( self->emirates, SERVICE_DELETE, rval, tmp_schema );
+  }
+}
+
 
 static pm *
 pm_select( jedex_value *stats, pm_table *tbl ) {
-   jedex_value field;
+  jedex_value field;
 
-   jedex_value_get_by_name( stats, "pm_ip_address", &field, NULL );
-   int tmp;
-   jedex_value_get_int( &field, &tmp );
-   uint32_t ip_address = ( uint32_t ) tmp;
+  jedex_value_get_by_name( stats, "pm_ip_address", &field, NULL );
+  int tmp;
+  jedex_value_get_int( &field, &tmp );
+  uint32_t ip_address = ( uint32_t ) tmp;
 
-   for ( uint32_t i = 0; i < tbl->pms_nr; i++ ) {
-     if ( tbl->pms[ i ]->ip_address == ip_address ) {
-       return tbl->pms[ i ];
-     }
-   }
-   log_err( "Failed to locate pm ip address in local db %u\n", ip_address );
+  for ( uint32_t i = 0; i < tbl->pms_nr; i++ ) {
+    if ( tbl->pms[ i ]->ip_address == ip_address ) {
+      return tbl->pms[ i ];
+    }
+  }
+  log_err( "Failed to locate pm ip address in local db %u\n", ip_address );
 
-   return NULL;
+  return NULL;
 }
 
 
@@ -156,22 +230,6 @@ cpu_create( uint32_t id, cpu_table *tbl ) {
 }
 
 
-static void
-pm_port_stats_reset( pm_table *tbl ) {
-  /*
-   * clear the status of all ports to zero effectively reseting stats for
-   * each port.
-   */
-  for ( uint32_t i = 0; i < tbl->pms_nr; i++ ) {
-    pm *pm = tbl->pms[ i ];
-    port_table *tbl = &pm->port_tbl;
-    for ( uint32_t j = 0; j < tbl->ports_nr; j++ ) {
-      tbl->ports[ j ]->status = 0;
-    }
-  }
-}
-
-
 /*
  * A port may be added or removed go up or down.
  */
@@ -196,7 +254,6 @@ pm_port_stats_create( jedex_value *stats, pm_table *tbl ) {
 
     port *p = port_create( if_index, ip_address, mac_address, &self->port_tbl );
     if ( p ) {
-       p->status = 1;
       jedex_value_get_by_name( stats, "if_speed", &field, NULL );
       jedex_value_get_int( &field, &p->if_speed );
 
@@ -207,18 +264,6 @@ pm_port_stats_create( jedex_value *stats, pm_table *tbl ) {
       jedex_value_get_by_name( stats, "rx_byte", &field, NULL );
       jedex_value_get_long( &field, &tmp_long );
       p->rx_byte = ( uint64_t ) tmp_long;
-    }
-  }
-}
-
-
-static void
-pm_cpu_stats_reset( pm_table *tbl ) {
-  for ( uint32_t i = 0; i < tbl->pms_nr; i++ ) {
-    pm *pm = tbl->pms[ i ];
-    cpu_table *tbl = &pm->cpu_tbl;
-    for ( uint32_t j = 0; j < tbl->cpus_nr; j++ ) {
-      tbl->cpus[ j ]->status = 0;
     }
   }
 }
@@ -239,7 +284,6 @@ pm_cpu_stats_create( jedex_value *stats, pm_table *tbl ) {
     if ( c ) {
       jedex_value_get_by_name( stats, "load", &field, NULL );
       jedex_value_get_double( &field, &c->load );
-      c->status = 1;
     }
   }
 }
@@ -259,18 +303,10 @@ vm_cpu_stats_create( jedex_value *stats, pm_table *tbl ) {
     if ( c ) {
       jedex_value_get_by_name( stats, "load", &field, NULL );
       jedex_value_get_double( &field, &c->load );
-      c->status = 1;
     }
   }
 }
 
-
-static void
-pm_stats_reset( pm_table *tbl ) {
-  for ( uint32_t i = 0; i < tbl->pms_nr; i++ ) {
-    tbl->pms[ i ]->status = 0;
-  }
-}
 
 static char *
 format_routine( const char *format, va_list params ) {
@@ -312,12 +348,22 @@ vms_create( uint32_t pm_ip_address, pm_table *tbl, pm *pm ) {
       size_t nitems = 1;
       vm *self = xcalloc( nitems, sizeof( *self ) );
       self->pm_ip_address = pm_ip_address;
+
       char *buf;
       buf = format_ip( spec->vm_ip_address_format, spec->vm_ip_address_start + i );
       self->ip_address = ip_address_to_i( buf );
+      free( buf );
+
       buf = format_ip( spec->data_plane_ip_address_format, spec->vm_ip_address_start + i );
       self->data_plane_ip_address = ip_address_to_i( buf );
       free( buf );
+
+      uint32_t igmp_address_prefix = ( uint32_t ) ( ( spec->igmp_group_address_start + i ) %  
+        ( uint32_t ) ( spec->igmp_group_address_end - spec->igmp_group_address_start + 1 ) );
+      buf = format_ip( spec->igmp_group_address_format,  igmp_address_prefix );
+      self->igmp_group_address = ip_address_to_i( buf );
+      free( buf );
+
       self->data_plane_mac_address = spec->data_plane_mac_address | ( uint8_t ) ( i & 0xff );
       vm_tbl->vms[ vm_tbl->vms_nr++ ] = self;
     }
@@ -368,7 +414,6 @@ pm_stats_create( jedex_value *stats, pm_table *tbl ) {
     jedex_value_get_by_name( stats, "available_memory", &field, NULL );
     jedex_value_get_long( &field, &tmp_long );
     self->avail_memory = ( uint64_t ) tmp_long;
-    self->status = 1;
   }
 }
 
@@ -425,7 +470,6 @@ vm_port_stats_create( jedex_value *stats, pm_table *tbl ) {
 
     port *p = port_create( if_index, ip_address, mac_address, &self->port_tbl );
     if ( p ) {
-       p->status = 1;
       jedex_value_get_by_name( stats, "if_speed", &field, NULL );
       jedex_value_get_int( &field, &p->if_speed );
 
@@ -439,6 +483,7 @@ vm_port_stats_create( jedex_value *stats, pm_table *tbl ) {
     }
   }
 }
+
 
 static service *
 service_create( const char *name, service_table *tbl ) {
@@ -555,11 +600,8 @@ stats_collect_handler( const uint32_t tx_id,
   jedex_value service_stats_ary;
   jedex_value_get_by_name( &rval, "service_stats", &service_stats_ary, &index );
   
-  pm_stats_reset( &self->pm_tbl );
   foreach_stats( &pm_stats_ary, pm_stats_create, &self->pm_tbl );
-  pm_cpu_stats_reset( &self->pm_tbl );
   foreach_stats( &pm_cpu_stats_ary, pm_cpu_stats_create, &self->pm_tbl );
-  pm_port_stats_reset( &self->pm_tbl );
   foreach_stats( &pm_port_stats_ary, pm_port_stats_create, &self->pm_tbl );
 
   foreach_stats( &vm_stats_ary, vm_stats_create, &self->pm_tbl );
@@ -568,23 +610,86 @@ stats_collect_handler( const uint32_t tx_id,
   foreach_stats( &service_stats_ary, vm_service_stats_create, &self->pm_tbl );
   
 #ifdef TEST
-  uint32_t n_vms = compute_n_vms( INTERNET_ACCESS_SERVICE, 0, 250, &self->pm_tbl );
-  uint32_t n_vms = compute_n_vms( VIDEO_SERVICE, 0, 100, &self->pm_tbl );
-  assert( n_vms == 0 );
+  uint32_t n_vms = compute_n_vms( INTERNET_ACCESS_SERVICE, 500, &self->pm_tbl );
+  if ( n_vms ) {
+    release_vms( INTERNET_ACCESS_SERVICE, &self->pm_tbl );
+    compute_n_vms( VIDEO_SERVICE, 100, &self->pm_tbl );
+    release_vms( VIDEO_SERVICE,  &self->pm_tbl );
+  }
+  //uint32_t n_vms = compute_n_vms( VIDEO_SERVICE, 0, 100, &self->pm_tbl );
 #endif
 }
 
 
+/*
+ * A reply to vm_allocate request received. Depending on the result code
+ * either set the vm state to reserved or resource_free. If a negative reply
+ * is received revert all vms to resource_free. If we have more vms in the 
+ * booked state dispatch the vm_allocate request to sc, otherwise send a reply
+ * back to oss_bss.
+ */
 void
 vm_allocate_handler( const uint32_t tx_id,
                      jedex_value *val,
                      const char *json,
                      void *user_data ) {
   UNUSED( tx_id );
-  UNUSED( val );
-  UNUSED( user_data );
+  UNUSED( json );
 
-  printf( "vm allocate handler %s\n", json );
+  system_resource_manager *self = user_data;
+  // first retrieve the reply result code.
+  jedex_value field;
+  size_t index;
+  jedex_value_get_by_name( val, "result", &field, &index );
+  int result;
+  jedex_value_get_int( &field, &result );
+  
+  // negative reply
+  if ( result ) {
+    pm_table *tbl = &self->pm_tbl;
+    for ( uint32_t i = 0; i < tbl->pms_nr; i++ ) {
+      pm *pm = tbl->pms[ i ];
+      vm_table *vm_tbl = &pm->vm_tbl;
+      for ( uint32_t j = 0; j < vm_tbl->vms_nr; j++ ) {
+        vm *vm = vm_tbl->vms[ j ];
+        if ( ( vm->status == wait_for_confirmation )  || ( vm->status == booked  ) ) {
+          vm->status = resource_free;
+        }
+      }
+    }
+    self->emirates->send_reply( self->emirates, OSS_BSS_ADD_SERVICE, val );
+  }
+  else {
+    jedex_value *rval = jedex_value_find( "vm_allocate_request", self->rval );
+    pm_table *tbl = &self->pm_tbl;
+    for ( uint32_t i = 0; i < tbl->pms_nr; i++ ) {
+      pm *pm = tbl->pms[ i ];
+      vm_table *vm_tbl = &pm->vm_tbl;
+      for ( uint32_t j = 0; j < vm_tbl->vms_nr; j++ ) {
+        vm *vm = vm_tbl->vms[ j ];
+        if ( vm->status == wait_for_confirmation ) {
+          vm->status = reserved;
+        }
+      }
+    } 
+    uint8_t dispatch = 0;
+    // send the next vm_allocate request
+    for ( uint32_t i = 0; i < tbl->pms_nr; i++ ) {
+      pm *pm = tbl->pms[ i ];
+      vm_table *vm_tbl = &pm->vm_tbl;
+      for ( uint32_t j = 0; j < vm_tbl->vms_nr; j++ ) {
+        vm *vm = vm_tbl->vms[ j ];
+        if ( vm->status == booked ) {
+          vm->status = wait_for_confirmation;
+          dispatch = 1;
+          dispatch_vm_allocate_request_to_sc( vm->s_spec->key, rval, self );
+        }
+      }
+    } 
+    if ( !dispatch ) {
+      self->emirates->send_reply( self->emirates, OSS_BSS_ADD_SERVICE, val );
+    }
+  }
 }
 
 
@@ -597,6 +702,8 @@ service_delete_handler( const uint32_t tx_id,
   UNUSED( val );
   UNUSED( user_data );
 
+  system_resource_manager *self = user_data;
+  dispatch_del_service_to_sc( val, self );
   printf( "service delete handler %s\n", json );
 }
 
@@ -609,12 +716,23 @@ oss_bss_add_service_handler( jedex_value *val,
 
   UNUSED( json );
   UNUSED( client_id );
-  UNUSED( val );
-  UNUSED( user_data );
-#ifdef LATER
+
   system_resource_manager *self = user_data;
-  dispatch_service_to_sc( ADD, val, self );
-#endif
+  dispatch_add_service_to_sc( val, self );
+}
+
+
+void
+oss_bss_del_service_handler( jedex_value *val,
+                             const char *json,
+                             const char *client_id,
+                             void *user_data ) {
+
+  UNUSED( json );
+  UNUSED( client_id );
+
+  system_resource_manager *self = user_data;
+  dispatch_del_service_to_sc( val, self );
 }
 
 

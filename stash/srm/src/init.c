@@ -190,7 +190,6 @@ system_resource_manager_finalize( system_resource_manager *self ) {
 }
 
 
-
 /*
  * Local variables:
  * c-basic-offset: 2

@@ -274,6 +274,13 @@ uint32_t compute_n_vms( const char *service_name, uint64_t n_subscribers, pm_tab
 
 void vms_release( const char *service_name, pm_table *tbl );
 
+// service.c
+service *service_create( const char *name, service_table *tbl );
+
+void service_free( service_table *tbl );
+
+param_stat *param_stats_create( const char *name, param_stats_table *tbl );
+
 
 CLOSE_EXTERN
 #endif // SYSTEM_RESOURCE_MANAGER_PRIV_H

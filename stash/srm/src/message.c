@@ -532,38 +532,6 @@ vm_port_stats_create( jedex_value *stats, pm_table *tbl ) {
 }
 
 
-static service *
-service_create( const char *name, service_table *tbl ) {
-  for ( uint32_t i = 0; i < tbl->services_nr; i++ ) {
-    if ( !strncmp( name, tbl->services[ i ]->name, strlen( tbl->services[ i ]->name ) ) ) {
-      return tbl->services[ i ];
-    }
-  }
-  ALLOC_GROW( tbl->services, tbl->services_nr + 1, tbl->services_alloc );
-  service *self = xmalloc( sizeof( *self ) );
-  self->name = strdup( name );
-  tbl->services[ tbl->services_nr++ ] = self;
-
-  return self;
-}
- 
-
-static param_stat *
-param_stats_create( const char *name, param_stats_table *tbl ) {
-  for ( uint32_t i = 0; i < tbl->param_stats_nr; i++ ) {
-    if ( !strncmp( name, tbl->param_stats[ i ]->name, strlen( tbl->param_stats[ i ]->name ) ) ) {
-      return tbl->param_stats[ i ];
-    }
-  }
-  ALLOC_GROW( tbl->param_stats, tbl->param_stats_nr + 1, tbl->param_stats_alloc );
-  param_stat *stat = xmalloc( sizeof( *stat ) );
-  stat->name = strdup( name );
-  tbl->param_stats[ tbl->param_stats_nr++ ] = stat;
-  
-  return stat;
-}
-
-
 static void
 vm_service_stats_create( jedex_value *stats, pm_table *tbl ) {
   vm *self = vm_select( stats, tbl );

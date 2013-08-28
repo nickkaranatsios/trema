@@ -124,6 +124,16 @@ service_spec_find( const char *key, size_t key_len, service_class_table *tbl ) {
 }
 
 
+static void
+service_spec_free( service_class_table *tbl ) {
+  for ( uint32_t i = 0; i < tbl->service_specs_nr; i++ ) {
+    service_spec *spec = tbl->service_specs[ i ];
+    xfree( spec->key );
+  }
+  xfree( tbl->service_specs );
+}
+
+
 service_spec *
 service_spec_select( const char *key, service_class_table *tbl ) {
   return service_spec_find( key, strlen( key ), tbl );
@@ -158,6 +168,15 @@ pm_spec_select( const uint32_t ip_address, pm_table *tbl ) {
   return NULL;
 }
 
+
+void
+pm_table_finalize( pm_table *tbl ) {
+  for ( uint32_t i = 0; i < tbl->pm_specs_nr; i++ ) {
+    pm_spec *pm_spec = tbl->pm_specs[ i ];
+    service_class_table scls_tbl = pm_spec->service_class_tbl;
+    service_spec_free( &scls_tbl );
+  }
+}
 
 
 /*

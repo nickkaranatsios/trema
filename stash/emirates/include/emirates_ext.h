@@ -85,6 +85,13 @@ struct emirates_iface {
                                   void *user_data,
                                   request_handler request_callback );
 
+  /*
+   * use this call to set for example the request timeout timer for the service
+   */
+  void ( *set_request_expiry ) ( emirates_iface *iface,
+                                 const char *service,
+                                 int32_t msecs );
+                                 
   void ( *set_service_reply ) ( emirates_iface *iface,
                                 const char *service,
                                 void *user_data,
@@ -157,6 +164,10 @@ void service_request( emirates_iface *iface,
                       jedex_schema *schema,
                       void *user_data,
                       request_handler callback );
+
+void request_expiry( emirates_iface *iface,
+                     const char *service,
+                     int32_t msecs );
 
 void service_reply( emirates_iface *iface,
                     const char *service,

@@ -213,7 +213,7 @@ stats_collect_callback( jedex_value *val, const char *json, const char *client_i
   jedex_value_get_by_name( &top, "service_stats", &array_6, &index );
 
   printf( "stats collect callback called data %s\n", json );
-  self->emirates->send_reply( self->emirates, STATS_COLLECT, &top );
+  self->emirates->send_reply( self->emirates, SC_STATS_COLLECT, &top );
 }
 
 
@@ -230,7 +230,7 @@ main( int argc, char **argv ) {
   int flag = 0;
   self->emirates = emirates_initialize_only( ENTITY_SET( flag, RESPONDER ) );
   if ( self->emirates != NULL ) {
-    self->emirates->set_service_request( self->emirates, STATS_COLLECT, self->request_schema, self, stats_collect_callback );
+    self->emirates->set_service_request( self->emirates, SC_STATS_COLLECT, self->request_schema, self, stats_collect_callback );
     self->emirates->set_service_request( self->emirates, VM_ALLOCATE, jedex_schema_get_subschema( self->schema, "vm_allocate_request" ), self, vm_allocate_callback );
     self->emirates->set_service_request( self->emirates, SERVICE_DELETE, jedex_schema_get_subschema( self->schema, "service_delete_request" ), self, service_delete_callback );
     set_ready( self->emirates );

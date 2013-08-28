@@ -118,22 +118,15 @@
 
 {
   "type": "record",
-  "name": "service_vm",
+  "name": "add_service_vm_request",
   "fields": [
+    { "name": "info", "type": "service_vm" },
     { "name": "name", "type": "string" },
     { "name": "data_mac", "type": "long" },
     { "name": "data_ip", "type": "int" },
     { "name": "control_ip", "type": "int" },
     { "name": "param_count", "type": "int" },
     { "name": "param_asp", "type": { "type": "array", "items": "parameter" }}
-  ]
-},
-
-{
-  "type": "record",
-  "name": "add_service_vm_request",
-  "fields": [
-    { "name": "info", "type": "service_vm" }
   ]
 },
 

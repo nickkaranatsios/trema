@@ -56,7 +56,7 @@ extern "C" {
 #include "emirates.h"
 #include "db_mapper_error.h"
 #include "parse_options.h"
-#include "array_util.h"
+#include "util_macros.h"
 #include "strbuf.h"
 #include "cache.h"
 #include "config.h"

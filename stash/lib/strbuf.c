@@ -23,7 +23,7 @@
 #include <inttypes.h>
 #include "wrapper.h"
 #include "log_writer.h"
-#include "array_util.h"
+#include "util_macros.h"
 #include "strbuf.h"
 
 

@@ -101,17 +101,28 @@ system_resource_manager_initialize( int argc, char **argv, system_resource_manag
 
   system_resource_manager *self = *srm_ptr;
   self = xcalloc( nitems, sizeof( *self ) );
+  self->args = args;
   
   // load/read the system resource manager configuration file.
   read_config( args->config_fn, handle_config, &self->pm_tbl );
+  // connect to redis server
+  self->rcontext = redis_cache_connect();
+  check_ptr_return( self->rcontext, NULL, "Connection to redis server failed" );
   // start the selection from the first pm.
   self->pm_tbl.selected_pm = 0;
+  xfree( self->pm_tbl.pms );
+  xfree( self->pm_tbl.pm_specs );
+  xfree( self->args );
+  xfree( self );
+  exit( 1 );
 
   /*
    * read in all the schema information that the system resource manager
    * would use. Start off with the main schema and proceed to sub schemas.
    */
   self->schema = jedex_initialize( args->schema_fn );
+  check_ptr_return( self->schema, NULL, "Failed to read the main schema" );
+
   const char *sc_names[] = {
     "oss_bss_add_service_request",
     "oss_bss_del_service_request",
@@ -149,13 +160,35 @@ system_resource_manager_initialize( int argc, char **argv, system_resource_manag
 
   self->emirates->set_service_reply( self->emirates, VM_ALLOCATE, self, vm_allocate_handler );
   self->emirates->set_service_reply( self->emirates, SERVICE_DELETE, self, service_delete_handler );
-  self->emirates->set_service_reply( self->emirates, STATS_COLLECT, self, stats_collect_handler );
-  // self->emirates->set_service_reply( self->emirates, VM_IN_SERVICE, self, vm_into_service_handler );
+  self->emirates->set_service_reply( self->emirates, SC_STATS_COLLECT, self, sc_stats_collect_handler );
+  self->emirates->set_service_reply( self->emirates, VM_IN_SERVICE, self, vm_in_service_handler );
+  self->emirates->set_service_reply( self->emirates, SERVICE_PROFILE_UPD, self, service_profile_upd_handler );
 
   set_ready( self->emirates );
  
   return self;
 }
+
+
+void
+system_resource_manager_finalize( system_resource_manager *self ) {
+  if ( self->args->daemonize ) {
+    remove_pid_file( self->args->progname );
+  }
+  xfree( self->args );
+  emirates_finalize( &self->emirates );
+  for ( uint32_t i = 0; i < ARRAY_SIZE( self->rval ); i++ ) {
+    if ( self->rval[ i ] != NULL ) {
+      //jedex_value_decref( self->rval[ i ] );
+      xfree( self->rval[ i ] );
+    }
+  }
+  jedex_value_decref( self->uval );
+  xfree( self->uval );
+  jedex_finalize( &self->schema );
+  xfree( self );
+}
+
 
 
 /*

@@ -33,14 +33,16 @@ extern "C" {
 #include <signal.h>
 #include <getopt.h>
 #include <libgen.h>
+#include <hiredis/hiredis.h>
 #include "wrapper.h"
 #include "checks.h"
 #include "log_writer.h"
 #include "daemon.h"
-#include "array_util.h"
+#include "util_macros.h"
 #include "strbuf.h"
 #include "config.h"
 #include "common_defs.h"
+#include "cache.h"
 #include "service_names.h"
 #include "jedex_iface.h"
 #include "emirates.h"

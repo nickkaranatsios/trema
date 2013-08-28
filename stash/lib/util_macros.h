@@ -14,8 +14,8 @@
  */
 
 
-#ifndef ARRAY_UTIL_H
-#define ARRAY_UTIL_H
+#ifndef UTIL_MACROS_H
+#define UTIL_MACROS_H
 
 
 #ifdef __cplusplus
@@ -24,6 +24,15 @@ extern "C" {
 #else
 #define CLOSE_EXTERN
 #endif
+
+
+#define check_ptr_return( ptr, retval, msg ) \
+  do { \
+    if ( ( ptr ) == NULL  ) { \
+      log_err( msg ); \
+      return retval; \
+    } \
+  } while ( 0 )
 
 
 #define ARRAY_SIZE( x ) ( sizeof( x ) / sizeof( x[ 0 ] ) )
@@ -46,7 +55,7 @@ extern "C" {
 
 
 CLOSE_EXTERN
-#endif // ARRAY_UTIL_H
+#endif // UTIL_MACROS_H
 
 
 /*

@@ -39,15 +39,30 @@ pm_info_publish( system_resource_manager *self ) {
 }
 
 
+static void
+stats_collect_request_to_dst( const char *service, system_resource_manager *self ) {
+  jedex_value *rval = jedex_value_find( "nc_statistics_status_request", self->rval );
+  self->emirates->send_request( self->emirates, service, rval, self->schema );
+}
+
+
 /*
  * Forwards a statistics collection request to service controller. There is
  * no body with this request.
  */
 static void
 stats_collect_request_to_sc( system_resource_manager *self ) {
-  jedex_value *rval = jedex_value_find( "nc_statistics_status_request", self->rval );
-  self->emirates->send_request( self->emirates, STATS_COLLECT, rval, self->schema );
+  stats_collect_request_to_dst( SC_STATS_COLLECT, self );
 }
+
+
+#ifdef NC_STATS
+static void
+stats_collect_request_to_nc( system_resource_manager *self ) {
+  stats_collect_request_to_dst( NC_STATS_COLLECT, self );
+  stats_collect_request_to_dst( LINK_UTILIZATION, self );
+}
+#endif
 
 
 static void
@@ -93,6 +108,30 @@ dispatch_vm_allocate_request_to_sc( const char *service, jedex_value *rval, syst
 }
 
 
+/*
+ * Returns zero if validation passes otherwise returns 1.
+ */
+static int
+validate_add_service_request( const char *service, double bandwidth, uint64_t user_count, system_resource_manager *self ) {
+  pm_table *tbl = &self->pm_tbl;  
+
+  for ( uint32_t i = 0; i < tbl->pm_specs_nr; i++ ) {
+    pm_spec *spec = tbl->pm_specs[ i ];
+    service_spec *s_spec = service_spec_select( service, &spec->service_class_tbl );
+    if ( s_spec != NULL ) {
+      s_spec->requested_user_count = user_count;
+      s_spec->requested_bandwidth = bandwidth;
+      self->s_spec = s_spec;
+    }
+    else {
+      return EINVAL;
+    }
+  }
+
+  return 0;
+}
+
+
 static void
 dispatch_add_service_to_sc( jedex_value *val, system_resource_manager *self ) {
   if ( val && val->iface ) {
@@ -113,16 +152,13 @@ dispatch_add_service_to_sc( jedex_value *val, system_resource_manager *self ) {
     jedex_value_get_by_name( val, "nr_subscribers", &field, &index );
     jedex_value_get_long( &field, &tmp_long );
     nr_subscribers = ( uint64_t ) tmp_long;
-    /*
-    if ( validate_store_add_service_request( service, bandwidth, nr_subscribers, self ) ) {
-    }
-    */
-
-    pm_table *tbl = &self->pm_tbl;
-    uint32_t n_vms = compute_n_vms( service, nr_subscribers, tbl ); 
-    if ( n_vms ) {
-      jedex_value *rval = jedex_value_find( "vm_allocate_request", self->rval );
-      dispatch_vm_allocate_request_to_sc( service, rval, self );
+    if ( !validate_add_service_request( service, bandwidth, nr_subscribers, self ) ) {
+      pm_table *tbl = &self->pm_tbl;
+      uint32_t n_vms = compute_n_vms( service, nr_subscribers, tbl ); 
+      if ( n_vms ) {
+        jedex_value *rval = jedex_value_find( "vm_allocate_request", self->rval );
+        dispatch_vm_allocate_request_to_sc( service, rval, self );
+      }
     }
   }
 }
@@ -575,7 +611,7 @@ foreach_stats( jedex_value *stats, stats_fn stats_fn, pm_table *tbl ) {
 
 
 void
-stats_collect_handler( const uint32_t tx_id,
+sc_stats_collect_handler( const uint32_t tx_id,
                        jedex_value *val,
                        const char *json,
                        void *user_data ) {
@@ -632,23 +668,7 @@ stats_collect_handler( const uint32_t tx_id,
 }
 
 
-#ifdef LATER
-void
-vm_in_service_handler( const uint32_t tx_id,
-                     jedex_value *val,
-                     const char *json,
-                     void *user_data ) {
-  UNUSED( tx_id );
-  UNUSED( json );
-
-  system_resource_manager *self = user_data;
-  // here we need to send a service
-}
-
-void
-upd_service_profile_request_to_nc( system_resource_manager *self ) {
-}
-void
+static void
 vm_in_service_request_to_nc( vm *vm, system_resource_manager *self ) {
   jedex_value *rval = jedex_value_find( "add_service_vm_request", self->rval );
 
@@ -688,11 +708,108 @@ vm_in_service_request_to_nc( vm *vm, system_resource_manager *self ) {
   jedex_value_set_long( &field, ( int64_t ) vm->igmp_group_address );
 
   jedex_schema *tmp_schema = sub_schema_find( "common_reply", self->sub_schema );
-  self->emirates->send_request( self->emirates, ADD_SERVICE_VM, rval, tmp_schema );
+  self->emirates->send_request( self->emirates, VM_IN_SERVICE, rval, tmp_schema );
 }  
 
+
 static void
-dispatch_add_service_request_to_nc( system_resource_manager *self ) {
+dispatch_service_profile_to_nc( system_resource_manager *self ) {
+  jedex_value *rval = jedex_value_find( "upd_service_profile_request", self->rval );
+
+  jedex_value field;
+  size_t index;
+
+  jedex_value_get_by_name( rval, "name", &field, &index );
+  jedex_value_set_string( &field, self->s_spec->key );
+
+  jedex_value_get_by_name( rval, "bandwidth", &field, &index );
+  int64_t tmp_long = ( int64_t ) self->s_spec->requested_bandwidth * 10;
+  jedex_value_set_long( rval, tmp_long );
+
+  jedex_value_get_by_name( rval, "subscribers", &field, &index );
+  tmp_long = ( int64_t ) self->s_spec->requested_user_count;
+  jedex_value_set_long( rval, tmp_long );
+
+  jedex_schema *tmp_schema = sub_schema_find( "common_reply", self->sub_schema );
+  self->emirates->send_request( self->emirates, SERVICE_PROFILE_UPD, rval, tmp_schema );
+}
+
+
+void
+vm_in_service_handler( const uint32_t tx_id,
+                       jedex_value *val,
+                       const char *json,
+                       void *user_data ) {
+  UNUSED( tx_id );
+  UNUSED( json );
+  UNUSED( val );
+
+  system_resource_manager *self = user_data;
+  jedex_value field;
+  size_t index;
+  jedex_value_get_by_name( val, "result", &field, &index );
+  int result;
+  jedex_value_get_int( &field, &result );
+
+  // negative reply
+  if ( result ) {
+    pm_table *tbl = &self->pm_tbl;
+    for ( uint32_t i = 0; i < tbl->pms_nr; i++ ) {
+      pm *pm = tbl->pms[ i ];
+      vm_table *vm_tbl = &pm->vm_tbl;
+      for ( uint32_t j = 0; j < vm_tbl->vms_nr; j++ ) {
+        vm *vm = vm_tbl->vms[ j ];
+        if ( vm->status == wait_for_confirmation ) {
+          vm->status = resource_free;
+        }
+      }
+    }
+    self->emirates->send_reply( self->emirates, OSS_BSS_ADD_SERVICE, val );
+  }
+  else {
+    pm_table *tbl = &self->pm_tbl;
+    for ( uint32_t i = 0; i < tbl->pms_nr; i++ ) {
+      pm *pm = tbl->pms[ i ];
+      vm_table *vm_tbl = &pm->vm_tbl;
+      for ( uint32_t j = 0; j < vm_tbl->vms_nr; j++ ) {
+        vm *vm = vm_tbl->vms[ j ];
+        if ( vm->status == wait_for_confirmation ) {
+          vm->status = reserved;
+        }
+      }
+    } 
+
+    int dispatch = 0;
+    for ( uint32_t i = 0; i < tbl->pms_nr; i++ ) {
+      pm *pm = tbl->pms[ i ];
+      vm_table *vm_tbl = &pm->vm_tbl;
+      for ( uint32_t j = 0; j < vm_tbl->vms_nr; j++ ) {
+        vm *vm = vm_tbl->vms[ j ];
+        if ( vm->status == sc_reserved ) {
+          vm->status = wait_for_confirmation;
+          vm_in_service_request_to_nc( vm, self );
+          dispatch = 1;
+          break;
+        }
+      }
+    }
+    if ( !dispatch ) {
+      dispatch_service_profile_to_nc( self );
+    }
+  }
+}
+
+
+void
+upd_service_profile_request_to_nc( system_resource_manager *self ) {
+  UNUSED( self );
+}
+
+
+
+
+static void
+dispatch_vm_in_service_request_to_nc( system_resource_manager *self ) {
   pm_table *tbl = &self->pm_tbl;
 
   for ( uint32_t i = 0; i < tbl->pms_nr; i++ ) {
@@ -702,12 +819,11 @@ dispatch_add_service_request_to_nc( system_resource_manager *self ) {
       vm *vm = vm_tbl->vms[ j ];
       if ( vm->status == sc_reserved ) {
         vm->status = wait_for_confirmation;
-        vm_into_service_request_to_nc( vm->s_spec->key, rval, self );
+        vm_in_service_request_to_nc( vm, self );
       }
     }
   }
 }
-#endif
 
 
 /*
@@ -772,14 +888,36 @@ vm_allocate_handler( const uint32_t tx_id,
           vm->status = wait_for_confirmation;
           dispatch = 1;
           dispatch_vm_allocate_request_to_sc( vm->s_spec->key, rval, self );
+          break;
         }
       }
     } 
     if ( !dispatch ) {
-      // dispatch_add_service_request_to_nc( self );
-      self->emirates->send_reply( self->emirates, OSS_BSS_ADD_SERVICE, val );
+      dispatch_vm_in_service_request_to_nc( self );
     }
   }
+}
+
+
+void
+service_profile_upd_handler( const uint32_t tx_id,
+                             jedex_value *val,
+                             const char *json,
+                             void *user_data ) {
+  UNUSED( tx_id );
+  UNUSED( val );
+  UNUSED( json );
+
+  jedex_value field;
+  size_t index;
+  jedex_value_get_by_name( val, "result", &field, &index );
+  int result;
+  jedex_value_get_int( &field, &result );
+  system_resource_manager *self = user_data;
+  if ( !result ) {
+    log_err( "Service profile update handler failed" );
+  }
+  self->emirates->send_reply( self->emirates, OSS_BSS_ADD_SERVICE, val );
 }
 
 
@@ -838,6 +976,9 @@ periodic_timer_handler( void *user_data ) {
   else {
     // send statistics request to service_controller
     stats_collect_request_to_sc( self );
+#ifdef NC_STATS
+    stats_collect_request_to_nc( self );
+#endif
   }
 }
 

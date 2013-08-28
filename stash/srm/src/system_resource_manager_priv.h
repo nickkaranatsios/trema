@@ -26,6 +26,12 @@ extern "C" {
 #endif
 
 
+#define jedex_call( method, ... ) \
+  do { \
+    jedex_value_##method( __VA_ARGS__ ); \
+  } while ( 0 )
+  
+
 typedef enum allocation_status {
   resource_free,
   booked,
@@ -41,6 +47,8 @@ typedef struct service_spec {
   uint32_t user_count;
   uint16_t cpu_count;
   uint16_t memory_size;
+  uint64_t requested_user_count;
+  double requested_bandwidth;
 } service_spec;
 
 
@@ -179,7 +187,12 @@ typedef struct pm_table {
   
 typedef struct system_resource_manager {
   emirates_iface *emirates;
+  redisContext *rcontext;
+  // pointer to supplied command line arguments
+  system_resource_manager_args *args;
   pm_table pm_tbl;
+  // pointer to the last requested service spec
+  service_spec *s_spec;
   // pointer to the main schema
   jedex_schema *schema;
   // pointer to a union value that represents the entire schema.
@@ -193,6 +206,8 @@ typedef struct system_resource_manager {
 
 // init.c
 system_resource_manager *system_resource_manager_initialize( int argc, char **argv, system_resource_manager **srm_ptr ); 
+
+void system_resource_manager_finalize( system_resource_manager *self );
 
 // parse_options.c
 void parse_options( int argc, char **argv, void *user_data );
@@ -212,10 +227,20 @@ void oss_bss_del_service_handler( jedex_value *val,
                                   const char *client_id,
                                   void *user_data );
 
-void stats_collect_handler( const uint32_t tx_id,
+void sc_stats_collect_handler( const uint32_t tx_id,
+                               jedex_value *val,
+                               const char *json,
+                               void *user_data );
+
+void vm_in_service_handler( const uint32_t tx_id,
                             jedex_value *val,
                             const char *json,
                             void *user_data );
+
+void service_profile_upd_handler( const uint32_t tx_id,
+                                  jedex_value *val,
+                                  const char *json,
+                                  void *user_data );
 
 void vm_allocate_handler( const uint32_t tx_id,
                           jedex_value *val,

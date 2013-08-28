@@ -30,22 +30,15 @@ extern "C" {
 
 redisContext *redis_cache_connect( void );
 
-void redis_cache_set( redisContext *rcontext,
-                      const char *key,
-                      size_t klen,
-                      const char *value,
-                      size_t value_len );
+void redis_cache_set( redisContext *rcontext, const char *key, const char *value );
 
-void redis_cache_del( redisContext *rcontext,
-                      const char *key,
-                      size_t klen );
+void redis_cache_del( redisContext *rcontext, const char *key );
 
-redisReply *redis_cache_get( redisContext *rcontext,
-                             const char *key );
+redisReply *redis_cache_get( redisContext *rcontext, const char *key );
 
 
 CLOSE_EXTERN
-#endif // CACHE_PRIV_H
+#endif // CACHE_H
 
 
 /*

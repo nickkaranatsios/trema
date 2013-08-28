@@ -58,6 +58,17 @@ send_reply_timeout_to_self( requester_info *self ) {
 }
 
 
+static int32_t
+request_expiry_lookup( const char *service, zhash_t *hash) {
+  int32_t *msecs = ( int32_t * ) zhash_lookup( hash, service );
+  if ( msecs == NULL ) {
+    return REQUEST_HEARTBEAT;
+  }
+
+  return *msecs;
+}
+
+
 static int
 requester_output( requester_info *self ) {
   zmsg_t *msg = one_or_more_msg( requester_pipe_socket( self ) );
@@ -77,7 +88,8 @@ requester_output( requester_info *self ) {
 
     disable_output( requester_output_ctrl( self ) );
     zmsg_send( &msg, requester_zmq_socket( self ) );
-    requester_expiry( self ) = zclock_time() + REQUEST_HEARTBEAT;
+    requester_expiry( self ) = zclock_time() +
+      request_expiry_lookup( requester_service_name( self ), requester_expirations( self ) );
     return 0;
   }
 
@@ -339,11 +351,26 @@ send_request( emirates_iface *iface,
       zmsg_addmem( msg, json, strlen( json ) );
       zmsg_send( &msg, requester_socket( priv->requester ) );
       free( json );
-     return requester_timeout_id( priv->requester );
+      return requester_timeout_id( priv->requester );
     }
   }
 
   return 0;
+}
+
+
+void
+request_expiry( emirates_iface *iface, const char *service, int32_t msecs ) {
+  emirates_priv *priv = iface->priv;
+  assert( priv );
+
+  if ( msecs < REQUEST_HEARTBEAT ) {
+    msecs = REQUEST_HEARTBEAT;
+  }
+  int *value = zmalloc( sizeof( msecs ) );
+  *value = msecs;
+  zhash_insert( requester_expirations( priv->requester ), service, value );
+  zhash_freefn( requester_expirations( priv->requester ),  service, free );
 }
 
 
@@ -354,6 +381,7 @@ requester_init( emirates_priv *priv ) {
   requester_port( priv->requester ) = REQUESTER_BASE_PORT;
   requester_socket( priv->requester ) = zthread_fork( priv->ctx, requester_thread, priv->requester );
   requester_callbacks( priv->requester ) = zlist_new();
+  requester_expirations( priv->requester ) = zhash_new();
   requester_schemas( priv->requester ) = zlist_new();
   create_notify( priv->requester );
   if ( requester_notify_in( priv->requester ) == -1 || requester_notify_out( priv->requester ) == -1 ) {
@@ -374,6 +402,7 @@ requester_finalize( emirates_priv **priv ) {
     requester_info *self = priv_p->requester;
     zlist_destroy( &requester_callbacks( self ) );
     zlist_destroy( &requester_schemas( self ) );
+    zhash_destroy( &requester_expirations( self ) );
     free( requester_id( self ) );
     close( requester_notify_in( self ) );
     close( requester_notify_out( self ) );

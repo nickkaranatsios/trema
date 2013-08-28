@@ -207,6 +207,7 @@ initialize_entities( emirates_iface *iface, const int flag ) {
     iface->set_service_reply = service_reply;
     iface->send_request = send_request;
     iface->get_requester = requester;
+    iface->set_request_expiry = request_expiry;
   }
 
   return iface;

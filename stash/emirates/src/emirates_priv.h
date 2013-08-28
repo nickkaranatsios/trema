@@ -106,12 +106,14 @@ typedef struct schema_per_request {
 
 typedef struct requester_info {
   zlist_t *schemas; // a list of schemas for every outstanding request
-  zlist_t *callbacks; // a list of user reply callbacks map to service name
+  zlist_t *callbacks; // a list of user reply callbacks per service name
+  zhash_t *expirations; // a hash of expiry configuration values keyed in by service name
   void *pipe; // requester's child thread to main thread i/o socket
   void *output; // requester's zmq output socket
   void *requester; // requester's main thread i/o socket
   char *own_id; // a unique id for this requester
   int64_t expiry; // an expiry timer associated with an outgoing request
+  int32_t expiry_config;
   char service_name[ SERVICE_MAX ]; // the service name of the last outgoing request
   int output_ctrl; // a flag that throttles output from requester
   int notify_in; // the read end of a pipe fd to signal data is ready to be read from application
@@ -188,6 +190,7 @@ typedef struct emirates_priv {
 #define requester_notify_out( self ) ( ( self )->notify_out )
 #define requester_callbacks( self ) ( ( self )->callbacks )
 #define requester_schemas( self ) ( ( self )->schemas )
+#define requester_expirations( self ) ( ( self )->expirations )
 #define requester_service_name( self ) ( ( self )->service_name )
 
 #define responder_socket( self ) ( ( self )->responder )

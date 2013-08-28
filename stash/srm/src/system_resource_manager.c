@@ -96,20 +96,6 @@ initialize_system_resource_manager( const char *name ) {
 }
 
 
-static bool
-finalize_system_resource_manager() {
-  loc_stop();
-  bool ret = remove_pid_file( program_name );
-  if ( !ret ) {
-    log_err( "Failed to remove a pid file." );
-    return false;
-  }
-  if ( program_name != NULL ) {
-    free( program_name );
-  }
-  return true;
-}
-
 #endif
 
 int
@@ -117,7 +103,9 @@ main( int argc, char *argv[] ) {
   system_resource_manager *self = NULL;
   self = system_resource_manager_initialize( argc, argv, &self ); 
   if ( self != NULL ) {
-    emirates_loop( self->emirates );
+ //   emirates_loop( self->emirates );
+printf( "exiting \n");
+    system_resource_manager_finalize( self );
   }
   else {
     log_err( "Initialization failed exiting ..." );

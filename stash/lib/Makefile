@@ -18,6 +18,7 @@ SRCS = daemon.c
 SRCS += doubly_linked_list.c
 SRCS += hash_table.c
 SRCS += config.c
+SRCS += cache.c
 SRCS += strbuf.c
 
 OBJS = $(SRCS:.c=.o)

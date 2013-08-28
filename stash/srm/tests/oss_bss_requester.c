@@ -82,6 +82,8 @@ main( int argc, char **argv ) {
   int flag = 0;
   self->emirates = emirates_initialize_only( ENTITY_SET( flag, REQUESTER ) );
   if ( self->emirates != NULL ) {
+    int32_t msecs = 60 * 1000; 
+    self->emirates->set_request_expiry( self->emirates, OSS_BSS_ADD_SERVICE, msecs );
     self->emirates->set_service_reply( self->emirates, OSS_BSS_ADD_SERVICE, self, add_service_handler );
     test_add_service( self );
     emirates_loop( self->emirates );

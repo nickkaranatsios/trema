@@ -29,8 +29,12 @@ extern "C" {
 #define STR( s ) #s
 
 
-#define OSS_BSS_ADD_SERVICE  STR( oss_bss_add_service )
-#define OSS_BSS_DEL_SERVICE  STR( oss_bss_del_service )
+#define OSS_BSS_ADD_SERVICE STR( oss_bss_add_service )
+#define OSS_BSS_DEL_SERVICE STR( oss_bss_del_service )
+#define OSS_BSS_SC_ADD_SERVICE  STR( oss_bss_sc_add_service )
+#define OSS_BSS_NC_ADD_SERVICE  STR( oss_bss_nc_add_service )
+#define OSS_BSS_SC_DEL_SERVICE  STR( oss_bss_sc_del_service )
+#define OSS_BSS_NC_DEL_SERVICE  STR( oss_bss_nc_del_service )
 
 
 // Service Manager service names SM_*
@@ -48,15 +52,19 @@ extern "C" {
 #define SM_PHYSICAL_MACHINE_INFO "sm_physical_machine_info"
 
 // System Resource Manager service names "SRM_*"
-#define SRM_ADD_SERVICE_VM "srm_add_service_vm"
-#define SRM_UPD_SERVICE_PROFILE "srm_upd_service_profile"
+//#define SRM_ADD_SERVICE_VM "srm_add_service_vm"
+//#define SRM_UPD_SERVICE_PROFILE "srm_upd_service_profile"
 #define SRM_VM_MIGRATE "srm_virtual_machine_migrate"
 #define SRM_NC_STATISTICS "srm_nc_statistics"
-#define SRM_NC_LINK_UTILIZATION "srm_nc_link_utilization"
+//#define SRM_NC_LINK_UTILIZATION "srm_nc_link_utilization"
 
 #define PM_INFO_PUBLISH STR( pm_info_publish )
-#define STATS_COLLECT STR( stats_collect )
+#define SC_STATS_COLLECT STR( sc_stats_collect )
+#define NC_STATS_COLLECT STR( nc_stats_collect )
+#define LINK_UTILIZATION STR( link_utilization )
 #define VM_ALLOCATE STR( vm_allocate )
+#define VM_IN_SERVICE STR( vm_in_service )
+#define SERVICE_PROFILE_UPD STR( service_profile_upd )
 #define SERVICE_DELETE STR( service_del )
 
 

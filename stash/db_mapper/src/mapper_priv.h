@@ -31,15 +31,6 @@ extern "C" {
 #include "db_mapper.h"
 
 
-#define check_ptr_return( ptr, retval, msg ) \
-  do { \
-    if ( ( ptr ) == NULL  ) { \
-      log_err( msg ); \
-      return retval; \
-    } \
-  } while ( 0 )
-
-
 #define MAX_QUERIES_PER_TABLE 10
 /*
  * this is the row_count value of the limit clause of the select statement.

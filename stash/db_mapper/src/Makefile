@@ -1,11 +1,10 @@
 # Makefile for db_mapper program
 TREMA = ../../../network_controller/trema
 CC = gcc
-CC = gcc
 AR = ar
 RANLIB = ranlib
 APILIB = -lczmq -lsodium -lzmq -ljansson -lmysqlclient -lhiredis -lm -lpthread
-APIPATH = -L/usr/local/lib -L/usr/lib/mysql -L/usr/lib
+APIPATH = -L../../emirates/src -L../../jedex/src -L../.. -L/usr/local/lib -L/usr/lib/mysql -L/usr/lib
 
 CFLAGS += -I../include
 CFLAGS += -I../.. 
@@ -18,24 +17,28 @@ CFLAGS += -std=gnu99 -D_GNU_SOURCE -g -fno-strict-aliasing -Werror -Wall -Wextra
 
 LDFLAGS += -lemirates
 LDFLAGS += -ljedex
+LDFLAGS += -lcesc
 LDFLAGS += $(APILIB)
 LDFLAGS += $(shell $(TREMA)/trema-config --libs)
 
 TARGET_DB_MAPPER = db_mapper
-SRCS_DB_MAPPER += ../../../network_controller/trema/src/lib/wrapper.c
-SRCS_DB_MAPPER += ../../../network_controller/trema/src/lib/trema_wrapper.c
 SRCS_DB_MAPPER += db_mapper.c
 SRCS_DB_MAPPER += wrapper.c
 SRCS_DB_MAPPER += parse_options.c
-SRCS_DB_MAPPER += strbuf.c
-SRCS_DB_MAPPER += config.c
 SRCS_DB_MAPPER += init.c
+SRCS_DB_MAPPER += db_utils.c
+SRCS_DB_MAPPER += jedex_utils.c
 SRCS_DB_MAPPER += message.c
 
 
 TARGETS = $(TARGET_DB_MAPPER)
 SRCS = $(SRCS_DB_MAPPER)
+
 OBJS_DB_MAPPER = $(SRCS_DB_MAPPER:.c=.o)
+OBJS_DB_MAPPER += $(TREMA)/objects/lib/wrapper.o
+OBJS_DB_MAPPER += $(TREMA)/objects/lib/trema_wrapper.o
+
+OBJS = $(OBJS_DB_MAPPER)
 
 DEPENDS = .depends
 

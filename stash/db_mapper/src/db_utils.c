@@ -366,7 +366,9 @@ cache_set( redisContext *rcontext,
   size_t klen = sb->len; 
   strbuf_addf( sb, " %s", json );
 
-  redis_cache_set( rcontext, sb->buf, klen, sb->buf + klen + 1, sb->len - klen - 1 );
+  sb->buf[ sb->len - klen - 1 ] = '\0';
+  sb->buf[ klen ] = '\0';
+  redis_cache_set( rcontext, sb->buf, sb->buf + klen + 1 );
 }
 
 
@@ -382,8 +384,9 @@ cache_del( redisContext *rcontext,
   size_t slen = 1;
   strbuf_rtrimn( sb, slen );
   size_t klen = sb->len; 
+  sb->buf[ klen ] = '\0';
 
-  redis_cache_del( rcontext, sb->buf, klen );
+  redis_cache_del( rcontext, sb->buf );
 }
 
 

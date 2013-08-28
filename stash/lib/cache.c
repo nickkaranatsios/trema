@@ -16,6 +16,7 @@
  */
 
 
+#include <string.h>
 #include <hiredis/hiredis.h>
 #include "log_writer.h"
 
@@ -26,9 +27,10 @@
 void
 redis_cache_set( redisContext *rcontext,
            const char *key,
-           size_t klen,
-           const char *value,
-           size_t value_len ) {
+           const char *value ) {
+  size_t klen = strlen( key );
+  size_t value_len = strlen( value );
+
   redisReply *reply = redisCommand( rcontext, "SET %b %b", key, klen, value, value_len ); 
   if ( reply != NULL ) {
     if ( reply->type != REDIS_REPLY_STATUS ) {
@@ -48,9 +50,9 @@ redis_cache_set( redisContext *rcontext,
  * Deletes a Redis cache value. 
  */
 void
-redis_cache_del( redisContext *rcontext,
-           const char *key,
-           size_t klen ) {
+redis_cache_del( redisContext *rcontext, const char *key ) {
+  size_t klen = strlen( key );
+
   redisReply *reply = redisCommand( rcontext, "DEL %b", key, klen ); 
   if ( reply != NULL ) {
     if ( reply->type != REDIS_REPLY_INTEGER ) {
@@ -72,7 +74,7 @@ redis_cache_del( redisContext *rcontext,
  * primary keys of the table.
  */
 redisReply *
-redis_cache_get( redisContext *rcontext, const char *key) {
+redis_cache_get( redisContext *rcontext, const char *key ) {
   redisReply *reply = redisCommand( rcontext, "GET %s", key );
   if ( reply != NULL ) {
     if ( reply->type == REDIS_REPLY_NIL ) {

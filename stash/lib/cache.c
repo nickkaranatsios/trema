@@ -114,6 +114,12 @@ redis_cache_connect( void ) {
 }
 
 
+void
+redis_cache_free( redisContext *rcontext ) {
+  redisFree( rcontext );
+}
+
+
 /*
  * Local variables:
  * c-basic-offset: 2

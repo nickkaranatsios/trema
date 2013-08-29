@@ -120,7 +120,6 @@
   "type": "record",
   "name": "add_service_vm_request",
   "fields": [
-    { "name": "info", "type": "service_vm" },
     { "name": "name", "type": "string" },
     { "name": "data_mac", "type": "long" },
     { "name": "data_ip", "type": "int" },
@@ -163,7 +162,6 @@
   "name": "nc_statistics_reply",
   "fields": [
     { "name": "rep", "type": "common_reply" },
-
     { "name": "info_num", "type": "int" },
     { "name": "info", "type": { "type": "array", "items": "nc_statistics_status" }}
   ]
@@ -190,7 +188,6 @@
   "name": "nc_link_utilization_reply",
   "fields": [
     { "name": "rep", "type": "common_reply" },
-
     { "name": "info_num", "type": "int" },
     { "name": "info", "type": { "type": "array", "items": "link" }}
   ]

@@ -13,7 +13,10 @@ TARGET = system_resource_manager
 SRCS = init.c
 SRCS += parse_options.c
 SRCS += message.c
-SRCS += pm_table.c
+SRCS += ip_utils.c
+SRCS += service.c
+SRCS += vm.c
+SRCS += pm.c
 SRCS += algorithm.c
 SRCS += system_resource_manager.c
 
@@ -21,10 +24,10 @@ OBJS = $(SRCS:.c=.o)
 OBJS += $(TREMA)/objects/lib/wrapper.o
 OBJS += $(TREMA)/objects/lib/linked_list.o
 
-CFLAGS += $(shell $(TREMA)/trema-config --cflags) 
 CFLAGS += -I../../lib 
 CFLAGS += -I../../lib/jedex/include 
 CFLAGS += -I../../lib/emirates/include 
+CFLAGS += $(shell $(TREMA)/trema-config --cflags) 
 CFLAGS += -I/usr/include/mysql
 CFLAGS += -I/usr/local/include
 CFLAGS += -std=gnu99 -D_GNU_SOURCE -g -fno-strict-aliasing -Werror -Wall -Wextra -Wformat=2 -Wcast-qual -Wcast-align -Wwrite-strings -Wconversion -Wfloat-equal -Wpointer-arith -O0

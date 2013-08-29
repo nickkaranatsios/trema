@@ -16,31 +16,26 @@
  */
 
 
-#ifndef CACHE_H
-#define CACHE_H
+#include <inttypes.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 
-#ifdef __cplusplus
-extern "C" {
-#define CLOSE_EXTERN }
-#else
-#define CLOSE_EXTERN
-#endif
-
-
-redisContext *redis_cache_connect( void );
-
-void redis_cache_set( redisContext *rcontext, const char *key, const char *value );
-
-void redis_cache_del( redisContext *rcontext, const char *key );
-
-redisReply *redis_cache_get( redisContext *rcontext, const char *key );
-
-void redis_cache_free( redisContext *rcontext );
-
-
-CLOSE_EXTERN
-#endif // CACHE_H
+uint32_t
+ip_address_to_i( const char *ip_address_s ) {
+  struct in_addr in_addr;
+  uint32_t ip_address;
+  
+  if ( inet_aton( ip_address_s, &in_addr ) != 0 ) {
+    ip_address = ntohl( in_addr.s_addr );
+  }
+  else {
+    ip_address = 0;
+  }
+  
+  return ip_address;
+}
 
 
 /*

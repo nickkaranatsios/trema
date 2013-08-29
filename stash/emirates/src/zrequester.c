@@ -59,7 +59,7 @@ send_reply_timeout_to_self( requester_info *self ) {
 
 
 static int32_t
-request_expiry_lookup( const char *service, zhash_t *hash) {
+request_expiry_lookup( const char *service, zhash_t *hash ) {
   int32_t *msecs = ( int32_t * ) zhash_lookup( hash, service );
   if ( msecs == NULL ) {
     return REQUEST_HEARTBEAT;
@@ -400,7 +400,9 @@ requester_finalize( emirates_priv **priv ) {
   emirates_priv *priv_p = *priv;
   if ( priv_p->requester ) {
     requester_info *self = priv_p->requester;
+    zlist_autofree( requester_callbacks( self ) );
     zlist_destroy( &requester_callbacks( self ) );
+    zlist_autofree( requester_schemas( self ) );
     zlist_destroy( &requester_schemas( self ) );
     zhash_destroy( &requester_expirations( self ) );
     free( requester_id( self ) );

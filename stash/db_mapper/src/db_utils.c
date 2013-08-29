@@ -301,7 +301,7 @@ set_table_name( const char *db_name, jedex_value *val, mapper *self ) {
 
   jedex_value element;
   db_info *db = db_info_get( db_name, self );
-  check_ptr_return( db, DB_NAME_NOT_FOUND, "Given db name not found" );
+  check_ptr_retval( db, DB_NAME_NOT_FOUND, "Given db name not found" );
 
   size_t array_size;
   jedex_value_get_size( &field, &array_size );
@@ -326,7 +326,7 @@ set_table_name( const char *db_name, jedex_value *val, mapper *self ) {
 
       create_table_if_not_exists( db, tinfo );
     }
-    check_ptr_return( tbl_schema, DB_TABLE_SCHEMA_NOT_FOUND, "Table schema not found" );
+    check_ptr_retval( tbl_schema, DB_TABLE_SCHEMA_NOT_FOUND, "Table schema not found" );
   }
 
   return SUCCESS;

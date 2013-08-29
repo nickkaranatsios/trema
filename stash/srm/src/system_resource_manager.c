@@ -100,10 +100,14 @@ initialize_system_resource_manager( const char *name ) {
 
 int
 main( int argc, char *argv[] ) {
+  jedex_schema *schema = jedex_initialize( "../../lib/schema/srm.schema" );
+  jedex_finalize( &schema );
+  exit( 1 );
+
   system_resource_manager *self = NULL;
   self = system_resource_manager_initialize( argc, argv, &self ); 
   if ( self != NULL ) {
- //   emirates_loop( self->emirates );
+    emirates_loop( self->emirates );
 printf( "exiting \n");
     system_resource_manager_finalize( self );
   }

@@ -107,21 +107,16 @@ system_resource_manager_initialize( int argc, char **argv, system_resource_manag
   read_config( args->config_fn, handle_config, &self->pm_tbl );
   // connect to redis server
   self->rcontext = redis_cache_connect();
-  check_ptr_return( self->rcontext, NULL, "Connection to redis server failed" );
+  check_ptr_retval( self->rcontext, NULL, "Connection to redis server failed" );
   // start the selection from the first pm.
   self->pm_tbl.selected_pm = 0;
-  xfree( self->pm_tbl.pms );
-  xfree( self->pm_tbl.pm_specs );
-  xfree( self->args );
-  xfree( self );
-  exit( 1 );
 
   /*
    * read in all the schema information that the system resource manager
    * would use. Start off with the main schema and proceed to sub schemas.
    */
   self->schema = jedex_initialize( args->schema_fn );
-  check_ptr_return( self->schema, NULL, "Failed to read the main schema" );
+  check_ptr_retval( self->schema, NULL, "Failed to read the main schema" );
 
   const char *sc_names[] = {
     "oss_bss_add_service_request",
@@ -130,7 +125,6 @@ system_resource_manager_initialize( int argc, char **argv, system_resource_manag
     "vm_allocate_request",
     "add_service_vm_request",
     "upd_service_profile_request",
-    "service_delete_request",
     "nc_statistics_status_request",
     "service_delete_request",
     "virtual_machine_migrate_request",
@@ -144,11 +138,10 @@ system_resource_manager_initialize( int argc, char **argv, system_resource_manag
 
   for ( uint32_t i = 0; i < ARRAY_SIZE( sc_names ); i++ ) {
     self->rval[ i ] = ( jedex_value * ) xmalloc( sizeof( jedex_value ) );
-    size_t index;
-    jedex_value_get_by_name( self->uval, sc_names[ i ], self->rval[ i ], &index );
+    jedex_value_get_by_name( self->uval, sc_names[ i ], self->rval[ i ], NULL );
     self->sub_schema[ i ] = jedex_value_get_schema( self->rval[ i ] );
+    printf( "schema %s\n", jedex_schema_type_name( jedex_value_get_schema( self->rval[ i ] ) ) );
   }
-
   int flag = 0;
   self->emirates = emirates_initialize_only( ENTITY_SET( flag, REQUESTER | RESPONDER | PUBLISHER ) );
   self->emirates->set_periodic_timer( self->emirates, 5000, periodic_timer_handler, self );
@@ -165,6 +158,8 @@ system_resource_manager_initialize( int argc, char **argv, system_resource_manag
   self->emirates->set_service_reply( self->emirates, SERVICE_PROFILE_UPD, self, service_profile_upd_handler );
 
   set_ready( self->emirates );
+  system_resource_manager_finalize( self );
+  exit( 1 );
  
   return self;
 }
@@ -183,11 +178,14 @@ system_resource_manager_finalize( system_resource_manager *self ) {
       xfree( self->rval[ i ] );
     }
   }
+  pm_table_free( &self->pm_tbl );
   jedex_value_decref( self->uval );
   xfree( self->uval );
   jedex_finalize( &self->schema );
+  redis_cache_free( self->rcontext );
   xfree( self );
 }
+
 
 
 /*

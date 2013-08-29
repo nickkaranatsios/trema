@@ -38,7 +38,7 @@ typedef struct responder {
 
 
 static void
-set_pm_status( jedex_value *array ) {
+set_pm_stats( jedex_value *array ) {
   jedex_value element;
   jedex_value_append( array, &element, NULL );
 
@@ -84,7 +84,7 @@ set_pm_status( jedex_value *array ) {
 
 
 static void
-set_pm_cpu_status( jedex_value *array ) {
+set_pm_cpu_stats( jedex_value *array ) {
   jedex_value element;
   jedex_value_append( array, &element, NULL );
 
@@ -115,7 +115,7 @@ set_pm_cpu_status( jedex_value *array ) {
 
 
 static void
-set_pm_port_status( jedex_value *array ) {
+set_pm_port_stats( jedex_value *array ) {
   jedex_value element;
   jedex_value_append( array, &element, NULL );
 
@@ -133,42 +133,59 @@ set_pm_port_status( jedex_value *array ) {
 
 
 static void
-vm_allocate_callback( jedex_value *val, const char *json, const char *client_id, void *user_data ) {
-  UNUSED( val );
-  UNUSED( json );
-  UNUSED( client_id );
-
-  responder *self = user_data; 
+common_reply_send( const char *service, int result, responder *self ) {
   jedex_schema *reply_schema = jedex_schema_get_subschema( self->schema, "common_reply" );
-
   jedex_value_iface *record_class = jedex_generic_class_from_schema( reply_schema );
   jedex_value rval;
   jedex_generic_value_new( record_class, &rval );
   jedex_value field;
-  size_t index;
-  jedex_value_get_by_name( &rval, "result", &field, &index );
-  jedex_value_set_int( &field, 0 );
-  self->emirates->send_reply( self->emirates, VM_ALLOCATE, &rval );
+  jedex_value_get_by_name( &rval, "result", &field, NULL );
+  jedex_value_set_int( &field, result );
+  self->emirates->send_reply( self->emirates, service, &rval );
+}
+
+
+static void
+vm_allocate_callback( jedex_value *val, const char *json, const char *client_id, void *user_data ) {
+  UNUSED( val );
+  UNUSED( client_id );
+
+  responder *self = user_data; 
+  printf( "vm_allocate_callback %s\n", json );
+  common_reply_send( VM_ALLOCATE, 0, self );
 }
 
 
 static void
 service_delete_callback( jedex_value *val, const char *json, const char *client_id, void *user_data ) {
   UNUSED( val );
+  UNUSED( client_id );
+
+  responder *self = user_data; 
+  printf( "service_delete_callback %s\n", json );
+  common_reply_send( SERVICE_DELETE, 0, self );
+}
+
+
+static void
+vm_in_service_callback( jedex_value *val, const char *json, const char *client_id, void *user_data ) {
+  UNUSED( val );
+  UNUSED( client_id );
+
+  responder *self = user_data; 
+  printf( "vm_in_service_callback %s\n", json );
+  common_reply_send( VM_IN_SERVICE, 0, self );
+}
+
+
+static void
+service_profile_upd_callback( jedex_value *val, const char *json, const char *client_id, void *user_data ) {
+  UNUSED( val );
   UNUSED( json );
   UNUSED( client_id );
 
   responder *self = user_data; 
-  jedex_schema *reply_schema = jedex_schema_get_subschema( self->schema, "common_reply" );
-
-  jedex_value_iface *record_class = jedex_generic_class_from_schema( reply_schema );
-  jedex_value rval;
-  jedex_generic_value_new( record_class, &rval );
-  jedex_value field;
-  size_t index;
-  jedex_value_get_by_name( &rval, "result", &field, &index );
-  jedex_value_set_int( &field, 0 );
-  self->emirates->send_reply( self->emirates, SERVICE_DELETE, &rval );
+  common_reply_send( SERVICE_PROFILE_UPD, 0, self );
 }
 
 
@@ -190,15 +207,15 @@ stats_collect_callback( jedex_value *val, const char *json, const char *client_i
 
   jedex_value array_0;
   jedex_value_get_by_name( &top, "pm_stats", &array_0, &index );
-  set_pm_status( &array_0 );
+  set_pm_stats( &array_0 );
 
   jedex_value array_1;
   jedex_value_get_by_name( &top, "pm_cpu_stats", &array_1, &index );
-  set_pm_cpu_status( &array_1 );
+  set_pm_cpu_stats( &array_1 );
 
   jedex_value array_2;
   jedex_value_get_by_name( &top, "pm_port_stats", &array_2, &index );
-  set_pm_port_status( &array_2 );
+  set_pm_port_stats( &array_2 );
 
   jedex_value array_3;
   jedex_value_get_by_name( &top, "vm_stats", &array_3, &index );
@@ -233,6 +250,8 @@ main( int argc, char **argv ) {
     self->emirates->set_service_request( self->emirates, SC_STATS_COLLECT, self->request_schema, self, stats_collect_callback );
     self->emirates->set_service_request( self->emirates, VM_ALLOCATE, jedex_schema_get_subschema( self->schema, "vm_allocate_request" ), self, vm_allocate_callback );
     self->emirates->set_service_request( self->emirates, SERVICE_DELETE, jedex_schema_get_subschema( self->schema, "service_delete_request" ), self, service_delete_callback );
+    self->emirates->set_service_request( self->emirates, VM_IN_SERVICE, jedex_schema_get_subschema( self->schema, "add_service_vm_request" ), self, vm_in_service_callback );
+    self->emirates->set_service_request( self->emirates, SERVICE_PROFILE_UPD, jedex_schema_get_subschema( self->schema, "upd_service_profile_request" ), self, service_profile_upd_callback );
     set_ready( self->emirates );
 
     emirates_loop( self->emirates );

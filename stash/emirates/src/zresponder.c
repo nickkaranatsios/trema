@@ -337,6 +337,7 @@ responder_finalize( emirates_priv **priv ) {
   emirates_priv *priv_p = *priv;
   if ( priv_p->responder ) {
     responder_info *self = priv_p->responder;
+    zlist_autofree( responder_callbacks( self ) );
     zlist_destroy( &responder_callbacks( self ) );
     free( responder_id( self ) );
     close( responder_notify_in( self ) );

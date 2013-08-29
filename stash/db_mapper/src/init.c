@@ -122,19 +122,19 @@ mapper_initialize( int argc, char **argv, mapper **mptr ) {
     args->schema_fn = "test_schema";
   }
   self->schema = jedex_initialize( args->schema_fn );
-  check_ptr_return( self->schema, NULL, "Failed to initialize main schema" );
+  check_ptr_retval( self->schema, NULL, "Failed to initialize main schema" );
 
   if ( args->request_reply_schema_fn == NULL || !strlen( args->request_reply_schema_fn ) ) {
     args->request_reply_schema_fn = "request_reply";
   }
   self->request_reply_schema = jedex_initialize( args->request_reply_schema_fn );
-  check_ptr_return( self->request_reply_schema, NULL, "Failed to initialize request/reply schema" );
+  check_ptr_retval( self->request_reply_schema, NULL, "Failed to initialize request/reply schema" );
 
   // we don't need the command line arguments anymore
   xfree( args );
 
   jedex_schema *reply_schema = jedex_schema_get_subschema( self->request_reply_schema, "db_mapper_reply" );
-  check_ptr_return( reply_schema, NULL, "Failed to get db_mapper_reply schema" );
+  check_ptr_retval( reply_schema, NULL, "Failed to get db_mapper_reply schema" );
 
   jedex_value_iface *val_iface = jedex_generic_class_from_schema( reply_schema );
   self->reply_val = jedex_value_from_iface( val_iface );
@@ -149,16 +149,16 @@ mapper_initialize( int argc, char **argv, mapper **mptr ) {
       redisFree( self->rcontext );
       self->rcontext = NULL;
     }
-    check_ptr_return( self->rcontext, NULL, "Connection to redis server failed" );
+    check_ptr_retval( self->rcontext, NULL, "Connection to redis server failed" );
   }
   
   
   int flag = 0;
   self->emirates = emirates_initialize_only( ENTITY_SET( flag, RESPONDER | SUBSCRIBER ) );
-  check_ptr_return( self->emirates, NULL, "Failed to initialize emirates" );
+  check_ptr_retval( self->emirates, NULL, "Failed to initialize emirates" );
 
   jedex_schema *request_schema = jedex_schema_get_subschema( self->request_reply_schema, "save_all" );
-  check_ptr_return( request_schema, NULL, "Failed to get request save_all schema" );
+  check_ptr_retval( request_schema, NULL, "Failed to get request save_all schema" );
   self->emirates->set_service_request( self->emirates,
                                        "save_topic",
                                        request_schema,

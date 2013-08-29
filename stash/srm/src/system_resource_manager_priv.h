@@ -252,22 +252,8 @@ void service_delete_handler( const uint32_t tx_id,
                              const char *json,
                              void *user_data );
 
-// pm_table.c
+// ip_utils.c
 uint32_t ip_address_to_i( const char *ip_address_s );
-
-pm_spec *pm_spec_create( const char *key, size_t key_len, pm_table *tbl );
-
-pm_spec *pm_spec_select( const uint32_t ip_adress, pm_table *tbl );
-
-void pm_spec_set( const char *subkey, const char *value, pm_spec *spec );
-
-service_spec *service_spec_create( const char *key, size_t key_len, service_class_table *tbl );
-
-void service_spec_set( const char *subkey, const char *value, service_spec *spec );
-
-service_spec *service_spec_select( const char *key, service_class_table *tbl );
-
-service_spec *service_spec_create( const char *key, size_t key_len, service_class_table *tbl );
 
 // algorithm.c
 uint32_t compute_n_vms( const char *service_name, uint64_t n_subscribers, pm_table *tbl );
@@ -279,7 +265,47 @@ service *service_create( const char *name, service_table *tbl );
 
 void service_free( service_table *tbl );
 
-param_stat *param_stats_create( const char *name, param_stats_table *tbl );
+param_stat *param_stat_create( const char *name, param_stats_table *tbl );
+
+service_spec *service_spec_create( const char *key, size_t key_len, service_class_table *tbl );
+
+void service_spec_set( const char *subkey, const char *value, service_spec *spec );
+
+service_spec *service_spec_select( const char *key, service_class_table *tbl );
+
+void service_spec_free( service_class_table *tbl );
+
+
+// pm.c
+void pm_create( uint32_t ip_address, pm_table *tbl );
+
+pm *pm_select( const uint32_t ip_address, pm_table *tbl );
+
+void pm_table_free( pm_table *tbl );
+
+pm_spec *pm_spec_create( const char *key, size_t key_len, pm_table *tbl );
+
+void pm_spec_set( const char *subkey, const char *value, pm_spec *spec );
+
+pm_spec *pm_spec_select( const uint32_t ip_address, pm_table *tbl );
+
+
+// vm.c
+vm *vm_create( uint32_t ip_address, vm_table *tbl );
+
+void vms_create( uint32_t pm_ip_address, pm_table *tbl, pm *pm );
+
+vm *vm_select( uint32_t ip_address, vm_table *tbl );
+
+void vm_free( vm_table *tbl );
+
+cpu *cpu_create( uint32_t id, cpu_table *tbl );
+
+void cpu_free( cpu_table *tbl );
+
+port *port_create( int if_index, uint32_t ip_address, uint64_t mac_address, port_table *tbl );
+
+void port_free( port_table *tbl );
 
 
 CLOSE_EXTERN

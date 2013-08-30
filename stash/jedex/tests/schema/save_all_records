@@ -1,7 +1,0 @@
-{
-  "type": "record",
-  "name": "save_all_data",
-  "fields": [
-    { "name": "topic", "type": "string" }
-  ]
-}

@@ -1,7 +1,0 @@
-{
-  "type": "record",
-  "name":"create_db",
-  "fields": [
-    { "name": "db_names", "type": { "type": "array", "items": "string" } }
-  ]
-}

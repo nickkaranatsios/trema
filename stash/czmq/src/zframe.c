@@ -55,19 +55,17 @@ struct _zframe_t {
 //  is not null, copies data into frame.
 
 zframe_t *
-zframe_new (const void *data, size_t size)
-{
-    zframe_t
-        *self;
+zframe_new( const void *data, size_t size ) {
+  zframe_t *self;
 
-    self = (zframe_t *) zmalloc (sizeof (zframe_t));
-    if (!self)
-        return NULL;
+  self = ( zframe_t * )zmalloc( sizeof( zframe_t ) );
+  if ( !self )
+    return NULL;
 
-    if (size) {
-        zmq_msg_init_size (&self->zmsg, size);
-        if (data)
-            memcpy (zmq_msg_data (&self->zmsg), data, size);
+  if ( size ) {
+    zmq_msg_init_size( &self->zmsg, size );
+    if ( data )
+      memcpy( zmq_msg_data( &self->zmsg ), data, size );
     }
     else
         zmq_msg_init (&self->zmsg);

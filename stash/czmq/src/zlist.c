@@ -59,10 +59,10 @@ struct _zlist_t {
 //  List constructor
 
 zlist_t *
-zlist_new (void)
-{
-    zlist_t *self = (zlist_t *) zmalloc (sizeof (zlist_t));
-    return self;
+zlist_new( void ) {
+  zlist_t *self = ( zlist_t * )zmalloc( sizeof( zlist_t ) );
+
+  return self;
 }
 
 
@@ -70,22 +70,21 @@ zlist_new (void)
 //  List destructor
 
 void
-zlist_destroy (zlist_t **self_p)
-{
-    assert (self_p);
-    if (*self_p) {
-        zlist_t *self = *self_p;
-        node_t *node = (*self_p)->head;
-        while (node) {
-            node_t *next = node->next;
-            if (self->autofree)
-                free (node->item);
-            free (node);
-            node = next;
-        }
-        free (self);
-        *self_p = NULL;
+zlist_destroy( zlist_t **self_p ) {
+  assert( self_p );
+  if ( *self_p ) {
+    zlist_t *self = *self_p;
+    node_t *node = (*self_p)->head;
+    while ( node ) {
+      node_t *next = node->next;
+      if ( self->autofree )
+        free( node->item );
+        free( node );
+        node = next;
     }
+    free( self );
+    *self_p = NULL;
+  }
 }
 
 

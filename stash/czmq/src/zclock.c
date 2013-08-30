@@ -59,8 +59,7 @@ s_filetime_to_msec (const FILETIME *ft)
 //  Sleep for a number of milliseconds
 
 void
-zclock_sleep (int msecs)
-{
+zclock_sleep( int msecs ) {
 #if defined (__UNIX__)
     struct timespec t;
     t.tv_sec  =  msecs / 1000;
@@ -87,8 +86,7 @@ zclock_sleep (int msecs)
 //  Return current system clock as milliseconds
 
 int64_t
-zclock_time (void)
-{
+zclock_time( void ) {
 #if defined (__UNIX__)
     struct timeval tv;
     gettimeofday (&tv, NULL);
@@ -107,8 +105,7 @@ zclock_time (void)
 //  terminated with a newline.
 
 void
-zclock_log (const char *format, ...)
-{
+zclock_log( const char *format, ... ) {
     time_t curtime = time (NULL);
     struct tm *loctime = localtime (&curtime);
     char formatted [20];
@@ -128,8 +125,7 @@ zclock_log (const char *format, ...)
 //  Self test of this class
 
 int
-zclock_test (bool verbose)
-{
+zclock_test( bool verbose ) {
     printf (" * zclock: ");
 
     //  @selftest

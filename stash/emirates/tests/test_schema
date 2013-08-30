@@ -1,8 +1,0 @@
-{
-  "type": "record",
-  "name": "menu",
-  "fields": [
-    { "name": "header", "type": "string" },
-    { "name": "items", "type": { "type": "array", "items": "string" } }
-  ]
-}

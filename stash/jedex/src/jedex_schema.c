@@ -464,8 +464,8 @@ jedex_schema *
 jedex_schema_link_target( jedex_schema *schema ) {
 	check_param( NULL, is_jedex_schema( schema ), "schema" );
 	check_param( NULL, is_jedex_link( schema ), "schema" );
-
 	struct jedex_link_schema *link = jedex_schema_to_link( schema );
+
 	return link->to;
 }
 

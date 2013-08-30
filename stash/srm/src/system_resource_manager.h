@@ -16,6 +16,7 @@
 #ifndef SYSTEM_RESOURCE_MANAGER_H
 #define SYSTEM_RESOURCE_MANAGER_H
 
+
 #ifdef __cplusplus
 extern "C" {
 #define CLOSE_EXTERN }

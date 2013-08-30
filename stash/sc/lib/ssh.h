@@ -1,4 +1,8 @@
 /*
+ * Physical machine control ssh.
+ *
+ * Copyright (C) 2013 NEC Corporation
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2, as
  * published by the Free Software Foundation.
@@ -14,8 +18,8 @@
  */
 
 
-#ifndef UTIL_MACROS_H
-#define UTIL_MACROS_H
+#ifndef SSH_H
+#define SSH_H
 
 
 #ifdef __cplusplus
@@ -26,45 +30,20 @@ extern "C" {
 #endif
 
 
-#define check_ptr_retval( ptr, retval, msg ) \
-  do { \
-    if ( ( ptr ) == NULL ) { \
-      log_err( msg ); \
-      return retval; \
-    } \
-  } while ( 0 )
+#include <stdbool.h>
 
 
-#define check_ptr_return( ptr, msg ) \
-  do { \
-    if ( ( ptr ) == NULL ) { \
-      log_err( msg ); \
-      return; \
-    } \
-  } while ( 0 )
+#define MAX_SSH_COMMAND_LENGTH 16384
+#define MAX_SSH_RESPONSE_LENGTH 16384
 
 
-#define ARRAY_SIZE( x ) ( sizeof( x ) / sizeof( x[ 0 ] ) )
-#define ALLOC_NR( x ) ( ( ( x ) * 16 ) * 3 / 2 )
-
-
-// TODO change realloc to xrealloc in the trema wrapper library.
-#define ALLOC_GROW( x, nr, alloc ) \
-  do { \
-    if ( ( nr ) > alloc ) { \
-      if ( ( ALLOC_NR( alloc ) < ( nr ) ) ) { \
-        alloc = ( nr ); \
-      } \
-      else { \
-        alloc = ALLOC_NR( alloc ); \
-      } \
-      x = realloc( ( x ), alloc * sizeof( *( x ) ) ); \
-    } \
-   } while ( 0 )
+bool initialize_ssh();
+bool finalize_ssh();
+int execute_ssh_command( uint32_t ip_address, char *command, char *response );
 
 
 CLOSE_EXTERN
-#endif // UTIL_MACROS_H
+#endif // SSH_H
 
 
 /*

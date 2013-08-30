@@ -49,7 +49,7 @@ dispatch_add_service_to_sc( service_spec *spec, service_manager *self ) {
   jedex_value_set_string( &field, spec->service_module );
   jedex_value_get_by_name( rval, "recipe", &field, &index );
   jedex_value_set_string( &field, spec->chef_recipe );
-  self->emirates->send_request( self->emirates, SM_SERVICE_MODULE_REGIST, rval, sub_schema_find( "common_reply", self->sub_schema ) );
+  self->emirates->send_request( self->emirates, SERVICE_MODULE_REG, rval, sub_schema_find( "common_reply", self->sub_schema ) );
 }
 
 

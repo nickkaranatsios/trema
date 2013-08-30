@@ -231,7 +231,7 @@ service_manager_initialize( int argc, char **argv, service_manager **sm_ptr ) {
   tmp_schema = sub_schema_find( "ob_del_service_request", self->sub_schema );
   self->emirates->set_service_request( self->emirates, OSS_BSS_DEL_SERVICE, tmp_schema, self, oss_bss_del_service_handler );
 
-  self->emirates->set_service_reply( self->emirates, SM_SERVICE_MODULE_REGIST, self, service_module_registration_handler );
+  self->emirates->set_service_reply( self->emirates, SERVICE_MODULE_REG, self, service_module_registration_handler );
   self->emirates->set_service_reply( self->emirates, SM_REMOVE_SERVICE, self, service_module_remove_handler );
   // TODO: should rename IGNITE => start
   self->emirates->set_service_reply( self->emirates, SM_IGNITE_SSNC, self, start_service_specific_nc_handler );

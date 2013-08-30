@@ -17,7 +17,6 @@
 
 
 #include "system_resource_manager.h"
-#include "system_resource_manager_priv.h"
 
 
 #ifdef LATER
@@ -158,9 +157,7 @@ system_resource_manager_initialize( int argc, char **argv, system_resource_manag
   self->emirates->set_service_reply( self->emirates, SERVICE_PROFILE_UPD, self, service_profile_upd_handler );
 
   set_ready( self->emirates );
-  system_resource_manager_finalize( self );
-  exit( 1 );
- 
+
   return self;
 }
 
@@ -185,7 +182,6 @@ system_resource_manager_finalize( system_resource_manager *self ) {
   redis_cache_free( self->rcontext );
   xfree( self );
 }
-
 
 
 /*

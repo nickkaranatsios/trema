@@ -17,7 +17,6 @@
 
 
 #include "system_resource_manager.h"
-#include "system_resource_manager_priv.h"
 
 
 /*

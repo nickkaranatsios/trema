@@ -13,9 +13,8 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
-#ifndef UTIL_MACROS_H
-#define UTIL_MACROS_H
+#ifndef SC_RESOURCE_MANAGER_H
+#define SC_RESOURCE_MANAGER_H
 
 
 #ifdef __cplusplus
@@ -26,45 +25,34 @@ extern "C" {
 #endif
 
 
-#define check_ptr_retval( ptr, retval, msg ) \
-  do { \
-    if ( ( ptr ) == NULL ) { \
-      log_err( msg ); \
-      return retval; \
-    } \
-  } while ( 0 )
-
-
-#define check_ptr_return( ptr, msg ) \
-  do { \
-    if ( ( ptr ) == NULL ) { \
-      log_err( msg ); \
-      return; \
-    } \
-  } while ( 0 )
-
-
-#define ARRAY_SIZE( x ) ( sizeof( x ) / sizeof( x[ 0 ] ) )
-#define ALLOC_NR( x ) ( ( ( x ) * 16 ) * 3 / 2 )
-
-
-// TODO change realloc to xrealloc in the trema wrapper library.
-#define ALLOC_GROW( x, nr, alloc ) \
-  do { \
-    if ( ( nr ) > alloc ) { \
-      if ( ( ALLOC_NR( alloc ) < ( nr ) ) ) { \
-        alloc = ( nr ); \
-      } \
-      else { \
-        alloc = ALLOC_NR( alloc ); \
-      } \
-      x = realloc( ( x ), alloc * sizeof( *( x ) ) ); \
-    } \
-   } while ( 0 )
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <errno.h>
+#include <assert.h>
+#include <signal.h>
+#include <getopt.h>
+#include <stdbool.h>
+#include <hiredis/hiredis.h>
+#include "wrapper.h"
+#include "checks.h"
+#include "log_writer.h"
+#include "daemon.h"
+#include "util_macros.h"
+#include "strbuf.h"
+#include "config.h"
+#include "common_defs.h"
+#include "cache.h"
+#include "service_names.h"
+#include "jedex_iface.h"
+#include "emirates.h"
+#include "parse_options.h"
+#include "sc_resource_manager_priv.h"
 
 
 CLOSE_EXTERN
-#endif // UTIL_MACROS_H
+#endif // SC_RESOURCE_MANAGER_H
 
 
 /*

@@ -70,7 +70,7 @@ void
 jedex_memoize_done(jedex_memoize *mem ) {
   st_foreach( ( st_table * ) mem->cache, HASH_FUNCTION_CAST jedex_memoize_free_key, 0 );
   st_free_table( ( st_table * ) mem->cache );
-  memset( mem, 0, sizeof(jedex_memoize )) ;
+  memset( mem, 0, sizeof( jedex_memoize ) ) ;
 }
 
 

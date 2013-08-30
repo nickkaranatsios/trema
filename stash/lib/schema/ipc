@@ -217,7 +217,7 @@
 
 {
   "type": "record",
-  "name": "virtual_machine_migrate_request",
+  "name": "vm_migrate_request",
   "fields": [
     { "name": "from_virtual_machine_ip_address", "type": "int" },
     { "name": "to_physical_machine_ip_address", "type": "int" }

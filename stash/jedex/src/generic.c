@@ -89,7 +89,7 @@ jedex_generic_class_from_schema( jedex_schema *schema ) {
 
 
   jedex_generic_value_iface *result = jedex_generic_class_from_schema_memoized( schema, &state );
-  if (result == NULL) {
+  if ( result == NULL ) {
     jedex_memoize_done( &state.mem );
     return NULL;
   }

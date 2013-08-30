@@ -14,8 +14,8 @@
  */
 
 
-#ifndef UTIL_MACROS_H
-#define UTIL_MACROS_H
+#ifndef PARSE_OPTIONS_H
+#define PARSE_OPTIONS_H
 
 
 #ifdef __cplusplus
@@ -26,45 +26,15 @@ extern "C" {
 #endif
 
 
-#define check_ptr_retval( ptr, retval, msg ) \
-  do { \
-    if ( ( ptr ) == NULL ) { \
-      log_err( msg ); \
-      return retval; \
-    } \
-  } while ( 0 )
-
-
-#define check_ptr_return( ptr, msg ) \
-  do { \
-    if ( ( ptr ) == NULL ) { \
-      log_err( msg ); \
-      return; \
-    } \
-  } while ( 0 )
-
-
-#define ARRAY_SIZE( x ) ( sizeof( x ) / sizeof( x[ 0 ] ) )
-#define ALLOC_NR( x ) ( ( ( x ) * 16 ) * 3 / 2 )
-
-
-// TODO change realloc to xrealloc in the trema wrapper library.
-#define ALLOC_GROW( x, nr, alloc ) \
-  do { \
-    if ( ( nr ) > alloc ) { \
-      if ( ( ALLOC_NR( alloc ) < ( nr ) ) ) { \
-        alloc = ( nr ); \
-      } \
-      else { \
-        alloc = ALLOC_NR( alloc ); \
-      } \
-      x = realloc( ( x ), alloc * sizeof( *( x ) ) ); \
-    } \
-   } while ( 0 )
+typedef struct sc_resource_manager_args {
+  const char *progname;
+  const char *schema_fn;
+  bool daemonize;
+} sc_resource_manager_args;
 
 
 CLOSE_EXTERN
-#endif // UTIL_MACROS_H
+#endif // PARSE_OPTIONS_H
 
 
 /*

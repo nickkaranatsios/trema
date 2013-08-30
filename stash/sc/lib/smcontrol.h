@@ -1,4 +1,8 @@
 /*
+ * Service module control platform library.
+ *
+ * Copyright (C) 2013 NEC Corporation
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2, as
  * published by the Free Software Foundation.
@@ -14,8 +18,8 @@
  */
 
 
-#ifndef UTIL_MACROS_H
-#define UTIL_MACROS_H
+#ifndef SMCONTROL_H
+#define SMCONTROL_H
 
 
 #ifdef __cplusplus
@@ -26,45 +30,12 @@ extern "C" {
 #endif
 
 
-#define check_ptr_retval( ptr, retval, msg ) \
-  do { \
-    if ( ( ptr ) == NULL ) { \
-      log_err( msg ); \
-      return retval; \
-    } \
-  } while ( 0 )
-
-
-#define check_ptr_return( ptr, msg ) \
-  do { \
-    if ( ( ptr ) == NULL ) { \
-      log_err( msg ); \
-      return; \
-    } \
-  } while ( 0 )
-
-
-#define ARRAY_SIZE( x ) ( sizeof( x ) / sizeof( x[ 0 ] ) )
-#define ALLOC_NR( x ) ( ( ( x ) * 16 ) * 3 / 2 )
-
-
-// TODO change realloc to xrealloc in the trema wrapper library.
-#define ALLOC_GROW( x, nr, alloc ) \
-  do { \
-    if ( ( nr ) > alloc ) { \
-      if ( ( ALLOC_NR( alloc ) < ( nr ) ) ) { \
-        alloc = ( nr ); \
-      } \
-      else { \
-        alloc = ALLOC_NR( alloc ); \
-      } \
-      x = realloc( ( x ), alloc * sizeof( *( x ) ) ); \
-    } \
-   } while ( 0 )
+#include "snmp.h"
+#include "service_module.h"
 
 
 CLOSE_EXTERN
-#endif // UTIL_MACROS_H
+#endif // SMCONTROL_H
 
 
 /*

@@ -38,7 +38,7 @@ extern "C" {
 
 
 // Service Manager service names SM_*
-#define SM_SC_SERVICE_MODULE_REG_REQUEST STR( sm_sc_service_module_reg_request )
+#define SERVICE_MODULE_REG STR( service_module_reg )
 #define SM_NC_ADD_SERVICE_PROFILE_REQUEST STR( sm_nc_add_service_profile_request )
 #define SM_NC_DEL_SERVICE_PROFILE_REQUEST STR( sm_nc_del_service_profile_request )
 

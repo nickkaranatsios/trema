@@ -36,18 +36,18 @@
 
 #include "../include/czmq.h"
 
+
 static int
-s_send_string (void *zocket, bool more, char *string)
-{
-    assert (zocket);
+s_send_string( void *zocket, bool more, char *string ) {
+  assert (zocket);
 
-    int len = strlen (string);
-    zmq_msg_t message;
-    zmq_msg_init_size (&message, len);
-    memcpy (zmq_msg_data (&message), string, len);
-    int rc = zmq_sendmsg (zocket, &message, more? ZMQ_SNDMORE: 0);
+  int len = strlen (string);
+  zmq_msg_t message;
+  zmq_msg_init_size( &message, len );
+  memcpy( zmq_msg_data( &message ), string, len );
+  int rc = zmq_sendmsg( zocket, &message, more? ZMQ_SNDMORE: 0 );
 
-    return rc == -1? -1: 0;
+  return rc == -1 ? -1: 0;
 }
 
 

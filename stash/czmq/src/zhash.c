@@ -71,13 +71,13 @@ struct _zhash_t {
 //  Compute hash for key string
 
 static uint
-s_item_hash (const char *key, size_t limit)
-{
+s_item_hash( const char *key, size_t limit ) {
     //  Modified Bernstein hashing function
     uint key_hash = 0;
     while (*key)
         key_hash = 33 * key_hash ^ *key++;
     key_hash %= limit;
+
     return key_hash;
 }
 
@@ -87,8 +87,7 @@ s_item_hash (const char *key, size_t limit)
 //  Lookup item in hash table, returns item or NULL
 
 static item_t *
-s_item_lookup (zhash_t *self, const char *key)
-{
+s_item_lookup( zhash_t *self, const char *key ) {
     //  Look in bucket list for item by key
     self->cached_index = s_item_hash (key, self->limit);
     item_t *item = self->items [self->cached_index];

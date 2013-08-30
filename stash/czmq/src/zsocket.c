@@ -42,10 +42,9 @@
 //  must set filters explicitly.
 
 void *
-zsocket_new (zctx_t *ctx, int type)
-{
-    void *self = zctx__socket_new (ctx, type);
-    return self;
+zsocket_new( zctx_t *ctx, int type ) {
+  void *self = zctx__socket_new( ctx, type );
+  return self;
 }
 
 

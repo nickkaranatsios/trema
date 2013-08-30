@@ -44,6 +44,7 @@
 void *
 zsocket_new( zctx_t *ctx, int type ) {
   void *self = zctx__socket_new( ctx, type );
+
   return self;
 }
 
@@ -53,10 +54,10 @@ zsocket_new( zctx_t *ctx, int type ) {
 //  zsocket_new method. If socket is null, does nothing.
 
 void
-zsocket_destroy (zctx_t *ctx, void *self)
-{
-    if (self)
-        zctx__socket_destroy (ctx, self);
+zsocket_destroy( zctx_t *ctx, void *self ) {
+  if ( self ) {
+    zctx__socket_destroy( ctx, self );
+  }
 }
 
 
@@ -69,37 +70,36 @@ zsocket_destroy (zctx_t *ctx, void *self)
 //  the previous process/thread.
 
 int
-zsocket_bind (void *self, const char *format, ...)
-{
-    //  Ephemeral port needs 4 additional characters
-    char endpoint [256 + 4];
-    va_list argptr;
-    va_start (argptr, format);
-    int endpoint_size = vsnprintf (endpoint, 256, format, argptr);
-    va_end (argptr);
+zsocket_bind( void *self, const char *format, ... ) {
+  //  Ephemeral port needs 4 additional characters
+  char endpoint [256 + 4];
+  va_list argptr;
+  va_start (argptr, format);
+  int endpoint_size = vsnprintf (endpoint, 256, format, argptr);
+  va_end (argptr);
 
-    //  Port must be at end of endpoint
-    if (endpoint [endpoint_size - 2] == ':'
-    &&  endpoint [endpoint_size - 1] == '*') {
-        int port = ZSOCKET_DYNFROM;
-        while (port <= ZSOCKET_DYNTO) {
-            //  Try to bind on the next plausible port
-            sprintf (endpoint + endpoint_size - 1, "%d", port);
-            if (zmq_bind (self, endpoint) == 0)
-                return port;
-            port++;
-        }
-        return -1;
-    }
-    else {
-        //  Return actual port used for binding
-        int rc = zmq_bind (self, endpoint);
-        if (rc == 0)
-            rc = atoi (strrchr (endpoint, ':') + 1);
-        else
-            rc = -1;
-        return rc;
-    }
+  //  Port must be at end of endpoint
+  if ( endpoint[ endpoint_size - 2 ] == ':'
+    && endpoint[ endpoint_size - 1 ] == '*' ) {
+      int port = ZSOCKET_DYNFROM;
+      while ( port <= ZSOCKET_DYNTO ) {
+        //  Try to bind on the next plausible port
+        sprintf( endpoint + endpoint_size - 1, "%d", port );
+         if ( zmq_bind( self, endpoint ) == 0 )
+           return port;
+         port++;
+      }
+      return -1;
+  }
+  else {
+    //  Return actual port used for binding
+    int rc = zmq_bind (self, endpoint);
+    if ( rc == 0 )
+      rc = atoi (strrchr (endpoint, ':') + 1);
+    else
+      rc = -1;
+    return rc;
+  }
 }
 
 

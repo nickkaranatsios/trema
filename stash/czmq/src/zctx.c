@@ -132,24 +132,23 @@ zctx_destroy (zctx_t **self_p) {
 //  wasn't sufficient memory available.
 
 zctx_t *
-zctx_shadow (zctx_t *ctx)
-{
-    zctx_t
-        *self;
+zctx_shadow( zctx_t *ctx ) {
+  zctx_t *self;
 
-    //  Shares same 0MQ context but has its own list of sockets so that
-    //  we create, use, and destroy sockets only within a single thread.
-    self = (zctx_t *) zmalloc (sizeof (zctx_t));
-    if (!self)
-        return NULL;
+  //  Shares same 0MQ context but has its own list of sockets so that
+  //  we create, use, and destroy sockets only within a single thread.
+  self = ( zctx_t * ) zmalloc( sizeof( zctx_t ) );
+  if (!self)
+    return NULL;
 
-    self->context = ctx->context;
-    self->sockets = zlist_new ();
-    if (!self->sockets) {
-        free (self);
-        return NULL;
-    }
-    return self;
+  self->context = ctx->context;
+  self->sockets = zlist_new();
+  if ( !self->sockets ) {
+    free (self);
+    return NULL;
+  }
+
+  return self;
 }
 
 

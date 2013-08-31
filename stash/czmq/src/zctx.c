@@ -130,7 +130,6 @@ zctx_destroy (zctx_t **self_p) {
 //  --------------------------------------------------------------------------
 //  Create new shadow context, returns context object. Returns NULL if there
 //  wasn't sufficient memory available.
-
 zctx_t *
 zctx_shadow( zctx_t *ctx ) {
   zctx_t *self;
@@ -156,12 +155,10 @@ zctx_shadow( zctx_t *ctx ) {
 //  Configure number of I/O threads in context, only has effect if called
 //  before creating first socket. Default I/O threads is 1, sufficient for
 //  all except very high volume applications.
-
 void
-zctx_set_iothreads (zctx_t *self, int iothreads)
-{
-    assert (self);
-    self->iothreads = iothreads;
+zctx_set_iothreads( zctx_t *self, int iothreads ) {
+  assert( self );
+  self->iothreads = iothreads;
 }
 
 
@@ -169,42 +166,33 @@ zctx_set_iothreads (zctx_t *self, int iothreads)
 //  Configure linger timeout in msecs. Call this before destroying sockets or
 //  context. Default is no linger, i.e. any pending messages or connects will
 //  be lost.
-
 void
-zctx_set_linger (zctx_t *self, int linger)
-{
-    assert (self);
-    self->linger = linger;
+zctx_set_linger( zctx_t *self, int linger ) {
+  assert( self );
+  self->linger = linger;
 }
 
 
 //  --------------------------------------------------------------------------
 //  Deprecated method, does nothing - to be removed after 2013/05/14
-
 void
-zctx_set_hwm (zctx_t *self, int hwm)
-{
-    assert (self);
+zctx_set_hwm( zctx_t *self, int hwm ) {
+  assert( self );
 }
 
 //  --------------------------------------------------------------------------
 //  Deprecated method, does nothing - to be removed after 2013/05/14
-
 int
-zctx_hwm (zctx_t *self)
-{
-    assert (self);
-    return 0;
+zctx_hwm( zctx_t *self ) {
+  assert( self );
+  return 0;
 }
 
 //  --------------------------------------------------------------------------
 //  Return low-level 0MQ context object
-
-void *
-zctx_underlying (zctx_t *self)
-{
-    assert (self);
-    return self->context;
+void *zctx_underlying( zctx_t *self ) {
+  assert( self );
+  return self->context;
 }
 
 

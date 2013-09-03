@@ -38,10 +38,9 @@
 //  Return true if file exists, else zero
 
 bool
-zfile_exists (const char *filename)
-{
-    assert (filename);
-    return zfile_mode (filename) != (mode_t)-1;
+zfile_exists( const char *filename ) {
+    assert( filename );
+    return zfile_mode( filename ) != ( mode_t ) -1;
 }
 
 

@@ -39,8 +39,8 @@
 //  Structure of our class
 
 struct _zmsg_t {
-    zlist_t *frames;            //  List of frames
-    size_t content_size;        //  Total content size
+  zlist_t *frames;            //  List of frames
+  size_t content_size;        //  Total content size
 };
 
 
@@ -68,19 +68,18 @@ zmsg_new( void ) {
 //  Destructor
 
 void
-zmsg_destroy(zmsg_t **self_p)
-{
-    assert (self_p);
-    if (*self_p) {
-        zmsg_t *self = *self_p;
-        while (zlist_size (self->frames) > 0) {
-            zframe_t *frame = (zframe_t *) zlist_pop (self->frames);
-            zframe_destroy (&frame);
-        }
-        zlist_destroy (&self->frames);
-        free (self);
-        *self_p = NULL;
+zmsg_destroy( zmsg_t **self_p ) {
+  assert( self_p );
+  if ( *self_p ) {
+    zmsg_t *self = *self_p;
+    while ( zlist_size( self->frames ) > 0 ) {
+      zframe_t *frame = ( zframe_t * ) zlist_pop( self->frames );
+      zframe_destroy( &frame );
     }
+    zlist_destroy( &self->frames );
+    free( self );
+    *self_p = NULL;
+  }
 }
 
 
